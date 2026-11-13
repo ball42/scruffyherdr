@@ -10,6 +10,10 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # --export bundles main; a pull request's checkout has no local main branch
+      - run: git show-ref --verify --quiet refs/heads/main || git branch main origin/main
       - uses: actions/setup-node@v4
         with:
           node-version: 22

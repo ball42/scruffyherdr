@@ -114,9 +114,11 @@ targets() {
   return 0
 }
 
-# A picture or glyph layer private/herdr/ puts over the kit's: dst links to $REPO/private/herdr/<rel>, that file is
-# there and so is the private install that links it. Install leaves it and --check calls it ok.
-OVERRIDES="$REPO/private/herdr"
+# A picture or glyph layer an overlay puts over the kit's: dst links to herdr/<rel> beside the overlay's
+# install script (private/herdr/ here, or an overlay folder outside this checkout named by
+# HERDR_KIT_PRIVATE), that file is there and so is the script that links it. Install leaves it
+# and --check calls it ok.
+OVERRIDES="$(dirname "$PRIVATE")/herdr"
 overridden() {
   [ -L "$1" ] && [ -f "$PRIVATE" ] && [ -f "$OVERRIDES/$2" ] && [ "$(readlink "$1")" = "$OVERRIDES/$2" ]
 }
