@@ -5,13 +5,13 @@
 #   ./install.sh --uninstall  remove the Claude hooks (name and card), our keys and the kit layout,
 #                             and restore the status line install wrapped
 #   --hooks / --no-hooks  add the Claude Code hooks without asking / skip them. With neither, install
-#                         asks once on a terminal and skips without one. When private/install.sh
+#                         asks once on a terminal and skips without one. When an overlay script
 #                         exists and neither is given, install behaves as --hooks.
 #                         With the hooks, install also wraps Claude Code's status line so ctx-tap
 #                         gets fed (claude/statusline.mjs), unless something already feeds it.
-# When an overlay's private/install.sh exists (its add-ons, settings, keys, config keys and the
-# pictures and glyph layers in private/herdr/ that replace the kit's), install, --check and
-# --uninstall run it last.
+# When an overlay script exists (HERDR_KIT_PRIVATE, else private/install.sh: its add-ons, settings,
+# keys, config keys and the pictures and glyph layers in herdr/ beside it that replace the kit's),
+# install, --check and --uninstall run it last. The contract: docs/addons.md, Overlays.
 # Bash 3.2 compatible (macOS default).
 set -eu
 
@@ -36,7 +36,7 @@ for arg in "$@"; do
   esac
 done
 MODE="${1:-install}"
-# HERDR_KIT_PRIVATE lets the tests point at a missing add-on.
+# The overlay's script (docs/addons.md, Overlays): HERDR_KIT_PRIVATE names it, else private/install.sh.
 PRIVATE="${HERDR_KIT_PRIVATE:-$REPO/private/install.sh}"
 HOOK_CMD="node \"$REPO/claude/name-hook.mjs\""
 CARD_CMD="node \"$REPO/claude/card-hook.mjs\""

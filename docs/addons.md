@@ -109,3 +109,35 @@ Compute badges from the model you read now. A saved agent list can name a termin
 ## One add-on per key
 
 Each key holds one value, so two add-ons writing the same key overwrite each other. Run one add-on that owns all three keys, so there is one block and one writer. A second add-on would have to merge its entries into the existing value, or the contract would grow per-add-on keys.
+
+## Overlays
+
+An overlay is a folder outside the core that adds its own mods, Herdr settings, key bindings, config keys and picture or glyph overrides to an install, without forking. `install.sh` runs the overlay's script, and the overlay calls a few of the core's scripts directly. This section is the contract it relies on: a change to anything named here is a breaking change for overlays.
+
+### The script
+
+- **`HERDR_KIT_PRIVATE`** is the path to the overlay's script. Without it, install uses `private/install.sh` inside the clone. An overlay that holds the core as a submodule sets it to its own script and runs the core's `install.sh` with the user's arguments.
+- **Modes.** Install runs the script with `bash`, given one argument:
+  - `install`: after the core's links, config, layout and key bindings, and before the restart hint and the Claude hooks. A non-zero exit stops install: it prints `overlay install failed` to stderr and exits 1, without adding the hooks.
+  - `--check`: after the core's own checks. A non-zero exit counts as drift, so `--check` exits 1.
+  - `--uninstall`: after the core removes its hooks and key bindings, and before it removes the layout files. The exit code is ignored.
+- **Hooks.** While the script exists, install behaves as `--hooks` unless `--no-hooks` is given, and it never asks. It also says nothing about a missing `claude/card-hook.mjs`: an overlay that wants the card hook adds it itself.
+- **Environment.** The script inherits the core's environment: `HOME`, and `HERDR_APP_HOME` when it is set (Herdr's home, default `~/.config/herdr-app`). The user config is `~/.config/herdr-kit/config.json`.
+
+### Overrides
+
+A file under `herdr/` beside the script (`$(dirname "$HERDR_KIT_PRIVATE")/herdr/<path>`) can replace the core's picture or glyph layer at the same path: `backgrounds/*`, `backgrounds/thumbs/*` and `glyphs/*`. The overlay links it into Herdr's home itself, during `install`. The core's install then leaves that link alone, and `--check` reports it as `ok ... (private override)`. On `--uninstall` the core leaves its links in place, so the overlay links the core's own file back.
+
+### The core's scripts an overlay calls
+
+Paths are relative to the core's folder. Each one keeps `merge-config.js`'s contract: it touches only its own entries, backs up first, and leaves malformed JSON alone (exit 1).
+
+- `node scripts/merge-config.js addkeys <keys.json> <bindings.json>`: merges a bindings table (`{ "global": { key: action }, "layout:<name>": { ... } }`) into Herdr's `keys.json`. A key the user bound differently is left alone and printed.
+- `node scripts/merge-config.js rmkeys <keys.json> <bindings.json>`: removes exactly those bindings, where they still hold the table's action.
+- `node scripts/merge-config.js hooks <settings.json> <command> <events> [-- <command> <events>]...`: adds Claude Code hook commands to `~/.claude/settings.json`. `<events>` is a comma list, each event optionally `:async` (`SessionStart,Stop`).
+- `node scripts/merge-config.js unhooks <settings.json> <command> [-- <command>]...`: removes those commands from every event.
+- `node scripts/merge-config.js hooks-check <settings.json> <command> <events> [-- ...]`: writes nothing, and exits 0 when `hooks` would change nothing, else 1.
+- `node scripts/make-layout.js --list`: prints the generated layout's name (`scruffy`).
+- `node scripts/make-layout.js <main.json> <layouts dir> <config.json>`: rebuilds that layout from Herdr's `main.json`, keeping its scene and panel sizes, with a block for each add-on listed in `addons` and present under `mods/`. Run it after linking add-on mods.
+
+An overlay that imports or copies a core file (`claude/ctx-tap.mjs`, `claude/cards.js`, the mods' `look.js`, `herdr-signals/addons.js`) should guard the copy with a test, since those files aren't part of this contract.
