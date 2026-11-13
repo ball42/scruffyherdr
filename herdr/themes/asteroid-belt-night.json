@@ -1,0 +1,19 @@
+{
+  "background": "#0f1318",
+  "foreground": "#d8dee6",
+  "selection": "#1e2630",
+  "cursor": "#cdbd9c",
+  "ansi": [
+    "#1e252e", "#ff9a3c", "#58a6ff", "#d2c6a2",
+    "#58a6ff", "#bcaadc", "#a2bcd0", "#c6ced6",
+    "#5a6470", "#ffb46a", "#79c0ff", "#e6dcbe",
+    "#79c0ff", "#d4c6ee", "#c0d6e6", "#f2f4f6"
+  ],
+  "colors": {
+    "blocked": "#ff9a3c",
+    "done": "#58a6ff",
+    "working": "#d2c6a2",
+    "idle": "#727c88",
+    "accent": "#cdbd9c"
+  }
+}
