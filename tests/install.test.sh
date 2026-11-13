@@ -602,34 +602,6 @@ else
   fail "leaves malformed settings alone"
 fi
 
-# --export writes a git bundle of main that clones, and touches nothing else
-fresh
-OUTB="$(mktemp -d)/kit.bundle"
-OUT="$("$REPO/install.sh" --export "$OUTB" 2>&1)"; RC=$?
-CLONE="$(mktemp -d)/herdr-kit"
-if [ $RC -eq 0 ] && git clone -q -b main "$OUTB" "$CLONE" 2>/dev/null \
-  && [ "$(git -C "$CLONE" rev-parse HEAD)" = "$(git -C "$REPO" rev-parse main)" ] \
-  && [ -x "$CLONE/install.sh" ] && echo "$OUT" | grep -q "git clone -b main $OUTB"; then
-  pass "export writes a cloneable bundle of main"
-else
-  fail "export writes a cloneable bundle of main"
-fi
-if [ ! -e "$HOME/.config/herdr-kit/config.json" ] && [ ! -e "$HERDR_APP_HOME/mods" ]; then
-  pass "export installs nothing"
-else
-  fail "export installs nothing"
-fi
-
-# --export defaults to the Desktop
-fresh
-mkdir -p "$HOME/Desktop"
-"$REPO/install.sh" --export >/dev/null 2>&1
-if git bundle verify -q "$HOME/Desktop/herdr-kit.bundle" >/dev/null 2>&1; then
-  pass "export defaults to ~/Desktop/herdr-kit.bundle"
-else
-  fail "export defaults to ~/Desktop/herdr-kit.bundle"
-fi
-
 # counts hook entries that run the name hook, across all events
 hookcount() {
   node -e 'const s = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
@@ -1101,34 +1073,6 @@ mkdir -p "$HOME/.claude"
 echo '{"statusLine":{"type":"command","command":"~/.claude/line.sh"}}' > "$S"
 "$REPO/install.sh" --no-hooks </dev/null >/dev/null 2>&1
 if [ "$(jget "$S" statusLine.command)" = "~/.claude/line.sh" ] && [ ! -e "$PREVF" ]; then pass "--no-hooks leaves the status line alone"; else fail "--no-hooks leaves the status line alone"; fi
-
-# --export lists the changes since the last export
-fresh
-SRCR="$(mktemp -d)/src repo"
-mkdir -p "$SRCR"
-git -C "$SRCR" init -q -b main
-cp "$REPO/install.sh" "$SRCR/install.sh"
-git -C "$SRCR" add install.sh
-git -C "$SRCR" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false commit -q -m "first change"
-OUT1="$(bash "$SRCR/install.sh" --export "$SRCR-1.bundle" 2>&1)"
-LAST="$HOME/.config/herdr-kit/last-export"
-if echo "$OUT1" | grep -q "first export" && [ "$(cat "$LAST" 2>/dev/null)" = "$(git -C "$SRCR" rev-parse main)" ]; then
-  pass "first export says so and records main"
-else
-  fail "first export says so and records main"
-fi
-echo "# second" >> "$SRCR/install.sh"
-git -C "$SRCR" add install.sh
-git -C "$SRCR" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false commit -q -m "second change"
-OUT2="$(bash "$SRCR/install.sh" --export "$SRCR-2.bundle" 2>&1)"
-if echo "$OUT2" | grep -q "second change" && ! echo "$OUT2" | grep -q "first change" && ! echo "$OUT2" | grep -q "first export"; then
-  pass "second export lists only new commits"
-else
-  fail "second export lists only new commits"
-fi
-echo "0123456789012345678901234567890123456789" > "$LAST"
-OUT3="$(bash "$SRCR/install.sh" --export "$SRCR-3.bundle" 2>&1)"
-if echo "$OUT3" | grep -q "not in this repo"; then pass "export copes with an unknown last export"; else fail "export copes with an unknown last export"; fi
 
 # private/: its settings and mods are linked, its config keys merged where absent, and its add-on block placed
 if [ -n "$HAS_PRIVATE" ]; then

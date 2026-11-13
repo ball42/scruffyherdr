@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
-# Link herdr-kit's config into Herdr's home so the repo stays the record.
+# Link scruffyherdr's mods, themes and pictures into Herdr's home so the clone stays the record.
 #   ./install.sh          link everything (backs up any regular file it replaces)
 #   ./install.sh --check  report links that drifted (exit 1 on any)
 #   ./install.sh --uninstall  remove the Claude hooks (name and card), our keys and the kit layout,
 #                             and restore the status line install wrapped
-#   ./install.sh --export [file]  write main as a git bundle (default ~/Desktop/herdr-kit.bundle)
-#                                 and list the commits since the last export from this Mac
 #   --hooks / --no-hooks  add the Claude Code hooks without asking / skip them. With neither, install
 #                         asks once on a terminal and skips without one. When private/install.sh
 #                         exists and neither is given, install behaves as --hooks.
@@ -142,32 +140,6 @@ glyphs_note() {
   fi
   return 0
 }
-
-if [ "$MODE" = "--export" ]; then
-  # A starter for another Mac: main's full history, no secrets (config.json
-  # lives outside the repo). Clone from the file; pull from a newer one later.
-  OUT="${2:-$HOME/Desktop/herdr-kit.bundle}"
-  git -C "$REPO" bundle create "$OUT" main >/dev/null 2>&1 || { echo "export failed: could not bundle main" >&2; exit 1; }
-  git -C "$REPO" bundle verify -q "$OUT" >/dev/null 2>&1 || { echo "export failed: $OUT did not verify" >&2; exit 1; }
-  # The change list is what changed since the last export from this Mac.
-  NOW="$(git -C "$REPO" rev-parse main)"
-  LASTF="$KIT_HOME/last-export"
-  if [ ! -f "$LASTF" ]; then
-    echo "first export"
-  elif ! git -C "$REPO" cat-file -e "$(cat "$LASTF")^{commit}" 2>/dev/null; then
-    echo "last export $(cut -c1-7 "$LASTF") is not in this repo's history; the bundle has everything"
-  elif [ -z "$(git -C "$REPO" log --oneline "$(cat "$LASTF")..main")" ]; then
-    echo "no changes since the last export ($(cut -c1-7 "$LASTF"))"
-  else
-    echo "changes since the last export ($(cut -c1-7 "$LASTF")):"
-    git -C "$REPO" log --oneline "$(cat "$LASTF")..main"
-  fi
-  mkdir -p "$KIT_HOME"
-  printf '%s\n' "$NOW" > "$LASTF"
-  echo "wrote $OUT (main at $(git -C "$REPO" rev-parse --short main))"
-  echo "on the other Mac: git clone -b main $OUT herdr-kit"
-  exit 0
-fi
 
 if [ "$MODE" = "--uninstall" ]; then
   node "$REPO/scripts/merge-config.js" unwrapstatus "$CLAUDE_SETTINGS" node "$REPO" "$STATUS_PREV" || true
@@ -412,7 +384,7 @@ if [ -f "$APP_HOME/layouts/main.json" ]; then
     fi
     # 5. The old layouts' files go, except the shown scene's pair until the
     # window is verified on scruffy (and all of them when the shown layout
-    # is unknown). herdr-kit's Settings preview links go either way.
+    # is unknown). The kit's old Settings preview links go either way.
     keep_a=""
     keep_b=""
     if [ -n "$legacy" ] && [ -z "$landed" ]; then
@@ -459,7 +431,7 @@ else
 fi
 
 # cmd-shift-g toggles the kit layout between focus and grid; the rest are the grid's spotlight and urgent keys.
-# The old per-scene sections go where they still hold exactly herdr-kit's bindings.
+# The old per-scene sections go where they still hold exactly the kit's bindings.
 # Editing keys.json makes it yours to Herdr. A key you bound yourself is left alone (and printed).
 if [ -f "$APP_HOME/keys.json" ]; then
   if HERDR_KIT_KEEP_LAYOUTS="$kept" node "$REPO/scripts/merge-config.js" keys "$APP_HOME/keys.json"; then
@@ -480,7 +452,7 @@ if [ -f "$PRIVATE" ]; then
 fi
 glyphs_note
 
-# Claude hooks, after private/ so its config keys (run_cards) are in. The name hook tells herdr-kit each session's /rename name. The
+# Claude hooks, after private/ so its config keys (run_cards) are in. The name hook tells the rail each session's /rename name. The
 # card hook injects the card rules at SessionStart and blocks a badly formatted
 # final message once on Stop so Claude rewrites it. Events: NAME_EVENTS and
 # CARD_EVENTS at the top.
