@@ -1403,5 +1403,26 @@ else
   fail "first install names the config, no Discord hint"
 fi
 
+# An overlay outside the checkout (HERDR_KIT_PRIVATE): its picture over the kit's is an override, not drift
+fresh
+OV="$(mktemp -d)"
+mkdir -p "$OV/herdr/backgrounds"
+cp "$REPO/herdr/backgrounds/bespin.jpg" "$OV/herdr/backgrounds/bespin.jpg"
+cat > "$OV/install.sh" <<'SH'
+[ "$1" = install ] || exit 0
+ln -sfn "$(cd "$(dirname "$0")" && pwd)/herdr/backgrounds/bespin.jpg" "$HERDR_APP_HOME/backgrounds/bespin.jpg"
+SH
+HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --no-hooks </dev/null >/dev/null 2>&1
+HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --no-hooks </dev/null >/dev/null 2>&1
+OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --check </dev/null 2>&1)"
+OVPIC="$(cd "$OV" && pwd)/herdr/backgrounds/bespin.jpg"
+if [ "$(readlink "$HERDR_APP_HOME/backgrounds/bespin.jpg")" = "$OVPIC" ] \
+  && echo "$OUT" | grep -q "^ok .*bespin.jpg (private override)" \
+  && ! echo "$OUT" | grep -q "DRIFT .*bespin.jpg"; then
+  pass "an overlay outside the checkout keeps its picture override"
+else
+  fail "an overlay outside the checkout keeps its picture override"
+fi
+
 echo
 if [ $FAILS -eq 0 ]; then echo "all passed"; exit 0; else echo "$FAILS failed"; exit 1; fi
