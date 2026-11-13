@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-scruffyherdr is a layout and mods for Herdr (a desktop agent multiplexer): Herdr mods, ten scene themes and pictures, and Claude Code hooks. README.md is the user-facing spec (features, config keys, key bindings, install flags); keep it in step with behaviour changes.
+scruffyherdr is a layout and mods for Herdr (a desktop agent multiplexer): Herdr mods, twelve scene themes and pictures, and Claude Code hooks. README.md is the user-facing spec (features, config keys, key bindings, install flags); keep it in step with behaviour changes.
 
 ## Commands
 
