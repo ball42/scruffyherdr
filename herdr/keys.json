@@ -1,0 +1,19 @@
+{
+  "layout:scruffy": {
+    "cmd-shift-g": "herdr-signals.view-toggle",
+    "cmd-shift-s": "herdr-signals.scenes",
+    "cmd-alt-]": "herdr-signals.spot-next",
+    "cmd-alt-[": "herdr-signals.spot-prev",
+    "cmd-shift-a": "herdr-signals.grid-all"
+  },
+  "global": {
+    "cmd-shift-u": "herdr-signals.urgent",
+    "cmd-shift-f": "herdr-signals.focus",
+    "cmd-shift-s": {
+      "command": "layout.switch",
+      "args": {
+        "name": "scruffy"
+      }
+    }
+  }
+}

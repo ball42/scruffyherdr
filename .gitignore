@@ -1,0 +1,6 @@
+.superpowers/
+node_modules/
+*.bak.*
+.DS_Store
+herdr/mods/*/*.d.ts
+herdr/mods/*/jsconfig.json

@@ -1,0 +1,21 @@
+{
+  "good": [
+    "https://example.com/browse/X-1",
+    "http://localhost:8080/a?b=c#d",
+    "HTTPS://EXAMPLE.COM/x"
+  ],
+  "bad": [
+    "javascript:alert(1)",
+    "file:///etc/passwd",
+    "-a Calculator",
+    "https://example.com/a b",
+    "https://example.com/a\tb",
+    "https://example.com/a\u0007b",
+    "https://example.com/a\u001bb",
+    "https://example.com/a\u0085b",
+    "https://example.com/a\u007fb",
+    "https://",
+    "ftp://example.com/x",
+    ""
+  ]
+}

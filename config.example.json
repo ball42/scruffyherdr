@@ -1,0 +1,19 @@
+{
+  "discord_webhook": "",
+  "done_min_seconds": 180,
+  "away_seconds": 120,
+  "grace_seconds": 60,
+  "poll_ms": 2000,
+  "deck_port": 47651,
+  "auto_spotlight": false,
+  "away_toast": true,
+  "deck": false,
+  "readme_tabs": false,
+  "focus_max_minutes": 120,
+  "addons": [],
+  "usage_meter": false,
+  "run_cards": false,
+  "pr_status": false,
+  "run_log_pipe": "",
+  "gh": "/opt/homebrew/bin/gh"
+}
