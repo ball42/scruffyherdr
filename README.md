@@ -120,9 +120,9 @@ Everything here is off by default. The ones marked "coming soon" aren't in this 
 | `gh` | `/opt/homebrew/bin/gh` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). GitHub CLI for PR state (`pr_status`). |
 | `focus_max_minutes` | `120` | Minutes after which focus mode turns itself off. |
 | `readme_tabs` | `false` | Keep a README tab first in every space whose repo has a README. |
-| `usage_meter` | `false` | Show the 5-hour and weekly usage meter on the strip and the deck. |
-| `pr_status` | `false` | Look up each Claude's PR with `gh` and show its state in the hint line. |
-| `run_cards` | `false` | Draw the Run rows a Claude's cards leave on the rail. |
+| `usage_meter` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Show the 5-hour and weekly usage meter on the strip and the deck. |
+| `pr_status` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Look up each Claude's PR with `gh` and show its state in the hint line. |
+| `run_cards` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Draw the Run rows a Claude's cards leave on the rail. |
 | `run_log_pipe` | `""` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). A command a finished run's record is piped through, given the log's name; it prints the path it filed the log at. Empty writes `~/.config/herdr-kit/runlogs/`. |
 | `addons` | `[]` | Add-on mods to run (folder names under Herdr's `mods/`), each in a 0-px block beside the strip. Rerun `./install.sh` after changing it. See [docs/addons.md](docs/addons.md). |
 | `look.glass` | `0.6` | How solid the glass tint over the sidebar, tab bar and status bar is (0..1). `false` keeps them solid. Rerun `./install.sh` after changing it. |
