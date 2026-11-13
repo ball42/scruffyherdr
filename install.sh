@@ -121,12 +121,16 @@ overridden() {
   [ -L "$1" ] && [ -f "$PRIVATE" ] && [ -f "$OVERRIDES/$2" ] && [ "$(readlink "$1")" = "$OVERRIDES/$2" ]
 }
 
-# Herdr reloads assets saved under mods/ live, but glyph art in glyphs/ only on a restart.
-# glyphs_note: when the glyph links, or a file behind one, differ from what the last
-# install saw (~/.config/herdr-kit/glyphs-seen), say so once and remember them. It runs
-# after private/install.sh, so it sees the private overrides too.
+# Herdr reloads assets saved under mods/ live, but new mod folders, themes and glyph art
+# in glyphs/ only on a restart. glyphs_note: on a first install (FIRST, set before the
+# links go in) name all three; otherwise, when the glyph links, or a file behind one,
+# differ from what the last install saw (~/.config/herdr-kit/glyphs-seen), say so once.
+# Either way remember them. It runs after the overlay script, so it sees its overrides too.
 glyphs_note() {
-  [ -d "$APP_HOME/glyphs" ] || return 0
+  if [ ! -d "$APP_HOME/glyphs" ]; then
+    [ -n "$FIRST" ] && echo "restart Herdr to load the new mods, themes and glyph art"
+    return 0
+  fi
   now="$(for f in "$APP_HOME"/glyphs/*; do
     [ -L "$f" ] || continue
     printf '%s %s %s\n' "$(basename "$f")" "$(readlink "$f")" "$({ cksum < "$f"; } 2>/dev/null || echo gone)"
@@ -136,8 +140,9 @@ glyphs_note() {
   if [ "$now" != "$seen" ]; then
     mkdir -p "$KIT_HOME"
     printf '%s\n' "$now" > "$KIT_HOME/glyphs-seen"
-    [ -n "$now" ] && echo "restart Herdr to load new glyph art"
+    [ -z "$FIRST" ] && [ -n "$now" ] && echo "restart Herdr to load new glyph art"
   fi
+  [ -n "$FIRST" ] && echo "restart Herdr to load the new mods, themes and glyph art"
   return 0
 }
 
@@ -240,6 +245,9 @@ elif [ -t 0 ]; then
   esac
 fi
 
+# A first install: Herdr has no link to the brain mod yet, so every mod and theme is new to it.
+FIRST=""
+[ -L "$APP_HOME/mods/herdr-signals" ] || FIRST=1
 stamp="$(date +%Y%m%d%H%M%S)"
 # A link into herdr/ whose file has gone (settings.json and kit-day moved to
 # private/) would leave Herdr reading nothing there, and one to a path install
@@ -324,6 +332,7 @@ status_layout() {
 # the same scene, view and sizes, and their files go. The shown layout's files
 # go only once the window is verified on scruffy. Herdr's own layouts/.state
 # files are left alone, except scruffyherdr's, which goes with its file.
+OPEN_HINT=""
 if [ -f "$APP_HOME/layouts/main.json" ]; then
   if command -v node >/dev/null 2>&1; then
     # 1. The shown layout: Herdr's status (read only, even under HERDR_KIT_NO_SWITCH),
@@ -381,6 +390,10 @@ if [ -f "$APP_HOME/layouts/main.json" ]; then
         fi
         [ "$(status_layout)" = "$KIT_LAYOUTS" ] && landed=1
       fi
+    fi
+    # Not on scruffy now, nor reopening on it: say how to get there (after the restart hint).
+    if [ -z "$landed" ] && [ "$shown" != "$KIT_LAYOUTS" ]; then
+      OPEN_HINT=1
     fi
     # 5. The old layouts' files go, except the shown scene's pair until the
     # window is verified on scruffy (and all of them when the shown layout
@@ -451,6 +464,7 @@ if [ -f "$PRIVATE" ]; then
   fi
 fi
 glyphs_note
+[ -n "$OPEN_HINT" ] && echo "to open the layout: cmd-shift-s, or Settings > Look > scruffy"
 
 # Claude hooks, after private/ so its config keys (run_cards) are in. The name hook tells the rail each session's /rename name. The
 # card hook injects the card rules at SessionStart and blocks a badly formatted

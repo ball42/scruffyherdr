@@ -239,6 +239,20 @@ echo win98 > "$FAKEBIN/shown"; : > "$DOLOG"
 run_fake >/dev/null
 if ! grep -q "layout.switch" "$DOLOG"; then pass "leaves a window on another layout there"; else fail "leaves a window on another layout there"; fi
 
+# when the window isn't left on scruffy, install says how to open it; when it is, it doesn't
+OPENHINT="to open the layout: cmd-shift-s, or Settings > Look > scruffy"
+if run_fake | grep -qxF "$OPENHINT"; then pass "open hint: a window left on another layout is told how to open scruffy"; else fail "open hint: a window left on another layout is told how to open scruffy"; fi
+echo main > "$FAKEBIN/shown"
+if ! run_fake | grep -qF "to open the layout"; then pass "open hint: none once the window lands on scruffy"; else fail "open hint: none once the window lands on scruffy"; fi
+echo main > "$FAKEBIN/shown"; touch "$FAKEBIN/stuck"
+if run_fake | grep -qxF "$OPENHINT"; then pass "open hint: a switch that didn't land is told how to open scruffy"; else fail "open hint: a switch that didn't land is told how to open scruffy"; fi
+rm -f "$FAKEBIN/stuck"
+fake main; touch "$FAKEBIN/down"   # Herdr closed
+if run_fake | grep -qxF "$OPENHINT"; then pass "open hint: Herdr closed, install says how to open scruffy"; else fail "open hint: Herdr closed, install says how to open scruffy"; fi
+echo '{"layout":"scruffy"}' > "$HERDR_APP_HOME/shared.json"
+if ! run_fake | grep -qF "to open the layout"; then pass "open hint: none when Herdr reopens on scruffy"; else fail "open hint: none when Herdr reopens on scruffy"; fi
+rm -f "$FAKEBIN/down"
+
 # HERDR_KIT_NO_SWITCH: the shown layout still sets the scene and sizes, and its files and key sections stay
 fake small-moon-grid
 export HERDR_KIT_NO_SWITCH=1
@@ -492,14 +506,15 @@ else
   fail "glyph layers linked per file into glyphs/"
 fi
 
-# Herdr loads glyph art outside mods/ only on a restart: the first install says so once
-# (kit and private links together), a rerun that changes nothing says nothing
+# Herdr loads new mods, themes and glyph art outside mods/ only on a restart: the first install
+# names all three once (kit and private links together), a rerun that changes nothing says nothing
 fresh
 OUT="$("$REPO/install.sh" 2>&1)"
-if [ "$(echo "$OUT" | grep -cxF "restart Herdr to load new glyph art")" = "1" ]; then
-  pass "glyph art: the first install asks for a restart, once"
+if [ "$(echo "$OUT" | grep -cxF "restart Herdr to load the new mods, themes and glyph art")" = "1" ] \
+  && ! echo "$OUT" | grep -qxF "restart Herdr to load new glyph art"; then
+  pass "first install: the restart hint names mods, themes and glyph art, once"
 else
-  fail "glyph art: the first install asks for a restart, once"
+  fail "first install: the restart hint names mods, themes and glyph art, once"
 fi
 OUT="$("$REPO/install.sh" 2>&1)"
 if ! echo "$OUT" | grep -q "restart Herdr"; then

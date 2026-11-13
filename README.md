@@ -58,7 +58,7 @@ cd scruffyherdr
 ./install.sh
 ```
 
-Then quit and reopen Herdr: new mods, themes and glyph art load only at start.
+Then quit and reopen Herdr: new mods, themes and glyph art load only at start. If the window doesn't open on scruffy, open it with `cmd-shift-s`, or Settings > Look > scruffy (install prints the same line when it couldn't switch the window itself).
 
 Install links the files under `herdr/` into `~/.config/herdr-app/`, builds the `scruffy` layout from Herdr's own main layout, and adds its key bindings to Herdr's `keys.json`, touching only its own entries and backing the file up first.
 
