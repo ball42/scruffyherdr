@@ -22,7 +22,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { KIT_LAYOUT, OLD_KIT_LAYOUT, SCENES } from "../herdr/mods/herdr-signals/scenes.js";
+import { KIT_LAYOUT, LEGACY_SCENES, OLD_KIT_LAYOUT } from "../herdr/mods/herdr-signals/scenes.js";
 
 export const HOOK_EVENTS = [
   "SessionStart", "UserPromptSubmit", "Stop", "Notification", "PermissionRequest", "PreToolUse",
@@ -30,7 +30,7 @@ export const HOOK_EVENTS = [
 
 // Section -> key -> action. A string action is a Herdr command or a mod command.
 // The one kit layout toggles its view in place (herdr-signals swaps focus and grid).
-const SCENE_NAMES = Object.keys(SCENES);
+const SCENE_NAMES = LEGACY_SCENES;
 const GRID_KEYS = {
   "cmd-alt-]": "herdr-signals.spot-next",
   "cmd-alt-[": "herdr-signals.spot-prev",

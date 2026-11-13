@@ -13,6 +13,16 @@ test("LEGACY_LAYOUTS lists the 20 old scene layouts, the older kit pair and scru
   assert.equal(LEGACY_LAYOUTS.includes(KIT_LAYOUT), false);
 });
 
+test("a scene added after the one layout never names an old layout", () => {
+  for (const s of Object.keys(scenes.SCENES).filter((k) => !scenes.LEGACY_SCENES.includes(k))) {
+    assert.equal(LEGACY_LAYOUTS.includes(s), false, s);
+    assert.equal(LEGACY_LAYOUTS.includes(`${s}-grid`), false, `${s}-grid`);
+    assert.equal(legacyView(s), null, s);
+    assert.equal(legacyView(`${s}-grid`), null, `${s}-grid`);
+  }
+  for (const s of scenes.LEGACY_SCENES) assert.ok(s in scenes.SCENES, `${s} is still a scene`);
+});
+
 test("legacyView reads an old scene layout name", () => {
   assert.deepEqual(legacyView("endor"), { scene: "endor", view: "focus" });
   assert.deepEqual(legacyView("small-moon-grid"), { scene: "small-moon", view: "grid" });
