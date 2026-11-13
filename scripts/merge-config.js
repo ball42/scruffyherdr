@@ -207,7 +207,7 @@ export function layoutKeyNotices(keys, keep = []) {
     for (const [key, action] of Object.entries(bindings)) {
       const current = keys[section]?.[key];
       if (current !== undefined && !same(current, action) && !legacy(section, key, current)) {
-        notes.push(`left ${section} ${key} alone: it is bound to ${describe(current)} (herdr-kit's is ${describe(action)})`);
+        notes.push(`left ${section} ${key} alone: it is bound to ${describe(current)} (the kit's is ${describe(action)})`);
       }
     }
   }
@@ -217,7 +217,7 @@ export function layoutKeyNotices(keys, keep = []) {
     for (const [key, action] of Object.entries(bindings)) {
       const current = keys[section]?.[key];
       if (current !== undefined && !same(current, action) && LAYOUT_KEYS[section]?.[key] === undefined) {
-        notes.push(`left ${section} ${key} alone: it is bound to ${describe(current)}, and herdr-kit no longer uses that layout (delete it by hand if you like)`);
+        notes.push(`left ${section} ${key} alone: it is bound to ${describe(current)}, and scruffyherdr no longer uses that layout (delete it by hand if you like)`);
       }
     }
   }
@@ -259,7 +259,7 @@ export function tableKeyNotices(keys, table) {
     for (const [key, action] of Object.entries(bindings)) {
       const current = keys[section]?.[key];
       if (current !== undefined && !same(current, action)) {
-        notes.push(`left ${section} ${key} alone: it is bound to ${describe(current)} (herdr-kit's is ${describe(action)})`);
+        notes.push(`left ${section} ${key} alone: it is bound to ${describe(current)} (the kit's is ${describe(action)})`);
       }
     }
   }

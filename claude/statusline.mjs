@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Claude Code status line installed by herdr-kit's install.sh. It feeds the
+// Claude Code status line installed by scruffyherdr's install.sh. It feeds the
 // rail's context meter (writeCtx, as ctx-tap.mjs does), then runs the status
 // line you had before, saved in ~/.config/herdr-kit/statusline-prev.json, with
 // the same stdin, and passes its stdout through unchanged. With no old status

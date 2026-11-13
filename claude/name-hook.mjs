@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Claude Code hook: tells herdr-kit this session's name.
+// Claude Code hook: tells the kit's rail this session's name.
 // Writes ~/.config/herdr-kit/names/<HC_TERMINAL_ID>.json, where Herdr's
 // herdr-signals mod reads it. Outside Herdr (no HC_TERMINAL_ID) it does
 // nothing. It never fails the hook: every path exits 0.

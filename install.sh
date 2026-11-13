@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
-# Link herdr-kit's config into Herdr's home so the repo stays the record.
+# Link scruffyherdr's mods, themes and pictures into Herdr's home so the clone stays the record.
 #   ./install.sh          link everything (backs up any regular file it replaces)
 #   ./install.sh --check  report links that drifted (exit 1 on any)
 #   ./install.sh --uninstall  remove the Claude hooks (name and card), our keys and the kit layout,
 #                             and restore the status line install wrapped
-#   ./install.sh --export [file]  write main as a git bundle (default ~/Desktop/herdr-kit.bundle)
-#                                 and list the commits since the last export from this Mac
 #   --hooks / --no-hooks  add the Claude Code hooks without asking / skip them. With neither, install
-#                         asks once on a terminal and skips without one. When private/install.sh
+#                         asks once on a terminal and skips without one. When an overlay script
 #                         exists and neither is given, install behaves as --hooks.
 #                         With the hooks, install also wraps Claude Code's status line so ctx-tap
 #                         gets fed (claude/statusline.mjs), unless something already feeds it.
-# When an overlay's private/install.sh exists (its add-ons, settings, keys, config keys and the
-# pictures and glyph layers in private/herdr/ that replace the kit's), install, --check and
-# --uninstall run it last.
+# When an overlay script exists (HERDR_KIT_PRIVATE, else private/install.sh: its add-ons, settings,
+# keys, config keys and the pictures and glyph layers in herdr/ beside it that replace the kit's),
+# install, --check and --uninstall run it last. The contract: docs/addons.md, Overlays.
 # Bash 3.2 compatible (macOS default).
 set -eu
 
@@ -38,7 +36,7 @@ for arg in "$@"; do
   esac
 done
 MODE="${1:-install}"
-# HERDR_KIT_PRIVATE lets the tests point at a missing add-on.
+# The overlay's script (docs/addons.md, Overlays): HERDR_KIT_PRIVATE names it, else private/install.sh.
 PRIVATE="${HERDR_KIT_PRIVATE:-$REPO/private/install.sh}"
 HOOK_CMD="node \"$REPO/claude/name-hook.mjs\""
 CARD_CMD="node \"$REPO/claude/card-hook.mjs\""
@@ -123,12 +121,16 @@ overridden() {
   [ -L "$1" ] && [ -f "$PRIVATE" ] && [ -f "$OVERRIDES/$2" ] && [ "$(readlink "$1")" = "$OVERRIDES/$2" ]
 }
 
-# Herdr reloads assets saved under mods/ live, but glyph art in glyphs/ only on a restart.
-# glyphs_note: when the glyph links, or a file behind one, differ from what the last
-# install saw (~/.config/herdr-kit/glyphs-seen), say so once and remember them. It runs
-# after private/install.sh, so it sees the private overrides too.
+# Herdr reloads assets saved under mods/ live, but new mod folders, themes and glyph art
+# in glyphs/ only on a restart. glyphs_note: on a first install (FIRST, set before the
+# links go in) name all three; otherwise, when the glyph links, or a file behind one,
+# differ from what the last install saw (~/.config/herdr-kit/glyphs-seen), say so once.
+# Either way remember them. It runs after the overlay script, so it sees its overrides too.
 glyphs_note() {
-  [ -d "$APP_HOME/glyphs" ] || return 0
+  if [ ! -d "$APP_HOME/glyphs" ]; then
+    [ -n "$FIRST" ] && echo "restart Herdr to load the new mods, themes and glyph art"
+    return 0
+  fi
   now="$(for f in "$APP_HOME"/glyphs/*; do
     [ -L "$f" ] || continue
     printf '%s %s %s\n' "$(basename "$f")" "$(readlink "$f")" "$({ cksum < "$f"; } 2>/dev/null || echo gone)"
@@ -138,36 +140,11 @@ glyphs_note() {
   if [ "$now" != "$seen" ]; then
     mkdir -p "$KIT_HOME"
     printf '%s\n' "$now" > "$KIT_HOME/glyphs-seen"
-    [ -n "$now" ] && echo "restart Herdr to load new glyph art"
+    [ -z "$FIRST" ] && [ -n "$now" ] && echo "restart Herdr to load new glyph art"
   fi
+  [ -n "$FIRST" ] && echo "restart Herdr to load the new mods, themes and glyph art"
   return 0
 }
-
-if [ "$MODE" = "--export" ]; then
-  # A starter for another Mac: main's full history, no secrets (config.json
-  # lives outside the repo). Clone from the file; pull from a newer one later.
-  OUT="${2:-$HOME/Desktop/herdr-kit.bundle}"
-  git -C "$REPO" bundle create "$OUT" main >/dev/null 2>&1 || { echo "export failed: could not bundle main" >&2; exit 1; }
-  git -C "$REPO" bundle verify -q "$OUT" >/dev/null 2>&1 || { echo "export failed: $OUT did not verify" >&2; exit 1; }
-  # The change list is what changed since the last export from this Mac.
-  NOW="$(git -C "$REPO" rev-parse main)"
-  LASTF="$KIT_HOME/last-export"
-  if [ ! -f "$LASTF" ]; then
-    echo "first export"
-  elif ! git -C "$REPO" cat-file -e "$(cat "$LASTF")^{commit}" 2>/dev/null; then
-    echo "last export $(cut -c1-7 "$LASTF") is not in this repo's history; the bundle has everything"
-  elif [ -z "$(git -C "$REPO" log --oneline "$(cat "$LASTF")..main")" ]; then
-    echo "no changes since the last export ($(cut -c1-7 "$LASTF"))"
-  else
-    echo "changes since the last export ($(cut -c1-7 "$LASTF")):"
-    git -C "$REPO" log --oneline "$(cat "$LASTF")..main"
-  fi
-  mkdir -p "$KIT_HOME"
-  printf '%s\n' "$NOW" > "$LASTF"
-  echo "wrote $OUT (main at $(git -C "$REPO" rev-parse --short main))"
-  echo "on the other Mac: git clone -b main $OUT herdr-kit"
-  exit 0
-fi
 
 if [ "$MODE" = "--uninstall" ]; then
   node "$REPO/scripts/merge-config.js" unwrapstatus "$CLAUDE_SETTINGS" node "$REPO" "$STATUS_PREV" || true
@@ -256,7 +233,7 @@ if [ "$HOOKS_FLAG" = "no" ]; then
 elif [ "$HOOKS_FLAG" = "yes" ] || [ -f "$PRIVATE" ]; then
   HOOKS=yes
 elif [ -t 0 ]; then
-  printf "The rail shows each Claude's name and question through a hook in ~/.claude/settings.json (backed up first). Add it? [Y/n] "
+  printf "The rail shows each Claude's name and question through a hook in ~/.claude/settings.json, and wraps your status line so the rail can show context use (your line still runs; both backed up first). Add them? [Y/n] "
   answer=""
   # EOF (Ctrl-D) with nothing typed counts as no.
   if ! read -r answer; then
@@ -268,6 +245,9 @@ elif [ -t 0 ]; then
   esac
 fi
 
+# A first install: Herdr has no link to the brain mod yet, so every mod and theme is new to it.
+FIRST=""
+[ -L "$APP_HOME/mods/herdr-signals" ] || FIRST=1
 stamp="$(date +%Y%m%d%H%M%S)"
 # A link into herdr/ whose file has gone (settings.json and kit-day moved to
 # private/) would leave Herdr reading nothing there, and one to a path install
@@ -352,6 +332,7 @@ status_layout() {
 # the same scene, view and sizes, and their files go. The shown layout's files
 # go only once the window is verified on scruffy. Herdr's own layouts/.state
 # files are left alone, except scruffyherdr's, which goes with its file.
+OPEN_HINT=""
 if [ -f "$APP_HOME/layouts/main.json" ]; then
   if command -v node >/dev/null 2>&1; then
     # 1. The shown layout: Herdr's status (read only, even under HERDR_KIT_NO_SWITCH),
@@ -410,9 +391,13 @@ if [ -f "$APP_HOME/layouts/main.json" ]; then
         [ "$(status_layout)" = "$KIT_LAYOUTS" ] && landed=1
       fi
     fi
+    # Not on scruffy now, nor reopening on it: say how to get there (after the restart hint).
+    if [ -z "$landed" ] && [ "$shown" != "$KIT_LAYOUTS" ]; then
+      OPEN_HINT=1
+    fi
     # 5. The old layouts' files go, except the shown scene's pair until the
     # window is verified on scruffy (and all of them when the shown layout
-    # is unknown). herdr-kit's Settings preview links go either way.
+    # is unknown). The kit's old Settings preview links go either way.
     keep_a=""
     keep_b=""
     if [ -n "$legacy" ] && [ -z "$landed" ]; then
@@ -459,7 +444,7 @@ else
 fi
 
 # cmd-shift-g toggles the kit layout between focus and grid; the rest are the grid's spotlight and urgent keys.
-# The old per-scene sections go where they still hold exactly herdr-kit's bindings.
+# The old per-scene sections go where they still hold exactly the kit's bindings.
 # Editing keys.json makes it yours to Herdr. A key you bound yourself is left alone (and printed).
 if [ -f "$APP_HOME/keys.json" ]; then
   if HERDR_KIT_KEEP_LAYOUTS="$kept" node "$REPO/scripts/merge-config.js" keys "$APP_HOME/keys.json"; then
@@ -474,13 +459,14 @@ fi
 # settings, adds its config keys and rebuilds the layout with the add-on blocks.
 if [ -f "$PRIVATE" ]; then
   if ! bash "$PRIVATE" install; then
-    echo "hooks skipped: private install failed" >&2
+    echo "overlay install failed" >&2
     exit 1
   fi
 fi
 glyphs_note
+[ -n "$OPEN_HINT" ] && echo "to open the layout: cmd-shift-s, or Settings > Look > scruffy"
 
-# Claude hooks, after private/ so its config keys (run_cards) are in. The name hook tells herdr-kit each session's /rename name. The
+# Claude hooks, after private/ so its config keys (run_cards) are in. The name hook tells the rail each session's /rename name. The
 # card hook injects the card rules at SessionStart and blocks a badly formatted
 # final message once on Stop so Claude rewrites it. Events: NAME_EVENTS and
 # CARD_EVENTS at the top.
@@ -489,7 +475,8 @@ if [ "$HOOKS" = "yes" ]; then
   # A settings file the hooks step creates has nothing of the user's to back up.
   settings_new=""
   [ -f "$CLAUDE_SETTINGS" ] || settings_new=1
-  if [ "$(run_cards_on)" = "yes" ] && [ ! -f "$CARD_HOOK_FILE" ]; then
+  # An overlay brings its own card hook, so the note is only for a checkout without one.
+  if [ ! -f "$PRIVATE" ] && [ "$(run_cards_on)" = "yes" ] && [ ! -f "$CARD_HOOK_FILE" ]; then
     echo "note: run_cards is on, but this checkout has no claude/card-hook.mjs: skipped the card hook"
   fi
   if [ "$(cards_hook_on)" = "yes" ]; then

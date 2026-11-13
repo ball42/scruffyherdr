@@ -239,6 +239,20 @@ echo win98 > "$FAKEBIN/shown"; : > "$DOLOG"
 run_fake >/dev/null
 if ! grep -q "layout.switch" "$DOLOG"; then pass "leaves a window on another layout there"; else fail "leaves a window on another layout there"; fi
 
+# when the window isn't left on scruffy, install says how to open it; when it is, it doesn't
+OPENHINT="to open the layout: cmd-shift-s, or Settings > Look > scruffy"
+if run_fake | grep -qxF "$OPENHINT"; then pass "open hint: a window left on another layout is told how to open scruffy"; else fail "open hint: a window left on another layout is told how to open scruffy"; fi
+echo main > "$FAKEBIN/shown"
+if ! run_fake | grep -qF "to open the layout"; then pass "open hint: none once the window lands on scruffy"; else fail "open hint: none once the window lands on scruffy"; fi
+echo main > "$FAKEBIN/shown"; touch "$FAKEBIN/stuck"
+if run_fake | grep -qxF "$OPENHINT"; then pass "open hint: a switch that didn't land is told how to open scruffy"; else fail "open hint: a switch that didn't land is told how to open scruffy"; fi
+rm -f "$FAKEBIN/stuck"
+fake main; touch "$FAKEBIN/down"   # Herdr closed
+if run_fake | grep -qxF "$OPENHINT"; then pass "open hint: Herdr closed, install says how to open scruffy"; else fail "open hint: Herdr closed, install says how to open scruffy"; fi
+echo '{"layout":"scruffy"}' > "$HERDR_APP_HOME/shared.json"
+if ! run_fake | grep -qF "to open the layout"; then pass "open hint: none when Herdr reopens on scruffy"; else fail "open hint: none when Herdr reopens on scruffy"; fi
+rm -f "$FAKEBIN/down"
+
 # HERDR_KIT_NO_SWITCH: the shown layout still sets the scene and sizes, and its files and key sections stay
 fake small-moon-grid
 export HERDR_KIT_NO_SWITCH=1
@@ -492,14 +506,15 @@ else
   fail "glyph layers linked per file into glyphs/"
 fi
 
-# Herdr loads glyph art outside mods/ only on a restart: the first install says so once
-# (kit and private links together), a rerun that changes nothing says nothing
+# Herdr loads new mods, themes and glyph art outside mods/ only on a restart: the first install
+# names all three once (kit and private links together), a rerun that changes nothing says nothing
 fresh
 OUT="$("$REPO/install.sh" 2>&1)"
-if [ "$(echo "$OUT" | grep -cxF "restart Herdr to load new glyph art")" = "1" ]; then
-  pass "glyph art: the first install asks for a restart, once"
+if [ "$(echo "$OUT" | grep -cxF "restart Herdr to load the new mods, themes and glyph art")" = "1" ] \
+  && ! echo "$OUT" | grep -qxF "restart Herdr to load new glyph art"; then
+  pass "first install: the restart hint names mods, themes and glyph art, once"
 else
-  fail "glyph art: the first install asks for a restart, once"
+  fail "first install: the restart hint names mods, themes and glyph art, once"
 fi
 OUT="$("$REPO/install.sh" 2>&1)"
 if ! echo "$OUT" | grep -q "restart Herdr"; then
@@ -600,34 +615,6 @@ if [ $RC -eq 0 ] && [ "$(cat "$HOME/.claude/settings.json")" = "{" ] && echo "$O
   pass "leaves malformed settings alone"
 else
   fail "leaves malformed settings alone"
-fi
-
-# --export writes a git bundle of main that clones, and touches nothing else
-fresh
-OUTB="$(mktemp -d)/kit.bundle"
-OUT="$("$REPO/install.sh" --export "$OUTB" 2>&1)"; RC=$?
-CLONE="$(mktemp -d)/herdr-kit"
-if [ $RC -eq 0 ] && git clone -q -b main "$OUTB" "$CLONE" 2>/dev/null \
-  && [ "$(git -C "$CLONE" rev-parse HEAD)" = "$(git -C "$REPO" rev-parse main)" ] \
-  && [ -x "$CLONE/install.sh" ] && echo "$OUT" | grep -q "git clone -b main $OUTB"; then
-  pass "export writes a cloneable bundle of main"
-else
-  fail "export writes a cloneable bundle of main"
-fi
-if [ ! -e "$HOME/.config/herdr-kit/config.json" ] && [ ! -e "$HERDR_APP_HOME/mods" ]; then
-  pass "export installs nothing"
-else
-  fail "export installs nothing"
-fi
-
-# --export defaults to the Desktop
-fresh
-mkdir -p "$HOME/Desktop"
-"$REPO/install.sh" --export >/dev/null 2>&1
-if git bundle verify -q "$HOME/Desktop/herdr-kit.bundle" >/dev/null 2>&1; then
-  pass "export defaults to ~/Desktop/herdr-kit.bundle"
-else
-  fail "export defaults to ~/Desktop/herdr-kit.bundle"
 fi
 
 # counts hook entries that run the name hook, across all events
@@ -795,13 +782,13 @@ fresh
 mkdir -p "$HOME/.claude"
 echo '{"model":"x"}' > "$HOME/.claude/settings.json"
 OUT="$(HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" </dev/null 2>&1)"
-if [ "$(cat "$HOME/.claude/settings.json")" = '{"model":"x"}' ] && echo "$OUT" | grep -q "hooks skipped: rerun ./install.sh --hooks to add them" && ! echo "$OUT" | grep -q "Add it?"; then
+if [ "$(cat "$HOME/.claude/settings.json")" = '{"model":"x"}' ] && echo "$OUT" | grep -q "hooks skipped: rerun ./install.sh --hooks to add them" && ! echo "$OUT" | grep -q "Add them?"; then
   pass "no flag, no terminal: hooks skipped"
 else
   fail "no flag, no terminal: hooks skipped"
 fi
 OUT="$(HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --hooks </dev/null 2>&1)"
-if [ "$(hookcount "$HOME/.claude/settings.json")" = "6" ] && [ "$(cardcount "$HOME/.claude/settings.json")" = "" ] && ! echo "$OUT" | grep -q "Add it?"; then
+if [ "$(hookcount "$HOME/.claude/settings.json")" = "6" ] && [ "$(cardcount "$HOME/.claude/settings.json")" = "" ] && ! echo "$OUT" | grep -q "Add them?"; then
   pass "--hooks adds the name hook, not the card hook (run_cards off)"
 else
   fail "--hooks adds the name hook, not the card hook (run_cards off)"
@@ -824,12 +811,12 @@ fresh
 mkdir -p "$HOME/.claude"
 echo '{"model":"x"}' > "$HOME/.claude/settings.json"
 OUT="$("$REPO/install.sh" --no-hooks </dev/null 2>&1)"
-if [ "$(cat "$HOME/.claude/settings.json")" = '{"model":"x"}' ] && ! echo "$OUT" | grep -q "Add it?"; then pass "--no-hooks wins over private/"; else fail "--no-hooks wins over private/"; fi
+if [ "$(cat "$HOME/.claude/settings.json")" = '{"model":"x"}' ] && ! echo "$OUT" | grep -q "Add them?"; then pass "--no-hooks wins over private/"; else fail "--no-hooks wins over private/"; fi
 # private/ present and no flag behaves as --hooks, without asking
 if [ -f "$REPO/private/install.sh" ]; then
   fresh
   OUT="$("$REPO/install.sh" </dev/null 2>&1)"
-  if [ "$(hookcount "$HOME/.claude/settings.json")" = "6" ] && ! echo "$OUT" | grep -q "Add it?\|hooks skipped"; then pass "private/ present: hooks added without asking"; else fail "private/ present: hooks added without asking"; fi
+  if [ "$(hookcount "$HOME/.claude/settings.json")" = "6" ] && ! echo "$OUT" | grep -q "Add them?\|hooks skipped"; then pass "private/ present: hooks added without asking"; else fail "private/ present: hooks added without asking"; fi
 fi
 # on a terminal it asks once: n skips, empty (Enter) means yes
 # ttyrun <answer> <install args>: runs install.sh on a pty, typing <answer> at the prompt.
@@ -858,7 +845,12 @@ sys.stdout.write(out.decode(errors="replace"))
 if command -v python3 >/dev/null 2>&1; then
   fresh
   OUT="$(HERDR_KIT_PRIVATE=$NOPRIV ttyrun n "$REPO/install.sh" 2>&1)"
-  if echo "$OUT" | grep -q "Add it? \[Y/n\]" && echo "$OUT" | grep -q "hooks skipped" && [ ! -f "$HOME/.claude/settings.json" ]; then pass "prompt: n skips"; else fail "prompt: n skips"; fi
+  if echo "$OUT" | grep -q "Add them? \[Y/n\]" && echo "$OUT" | grep -q "hooks skipped" && [ ! -f "$HOME/.claude/settings.json" ]; then pass "prompt: n skips"; else fail "prompt: n skips"; fi
+  if echo "$OUT" | tr -d '\r\n' | grep -qF "a hook in ~/.claude/settings.json, and wraps your status line so the rail can show context use (your line still runs; both backed up first). Add them? [Y/n]"; then
+    pass "prompt: names the hook and the status line wrap"
+  else
+    fail "prompt: names the hook and the status line wrap"
+  fi
   fresh
   HERDR_KIT_PRIVATE=$NOPRIV ttyrun "" "$REPO/install.sh" >/dev/null 2>&1
   if [ "$(hookcount "$HOME/.claude/settings.json")" = "6" ]; then pass "prompt: Enter adds the hooks"; else fail "prompt: Enter adds the hooks"; fi
@@ -868,7 +860,7 @@ fi
 if command -v python3 >/dev/null 2>&1; then
   fresh
   OUT="$(HERDR_KIT_PRIVATE=$NOPRIV ttyrun "^D" "$REPO/install.sh" 2>&1)"
-  if echo "$OUT" | grep -q "Add it? \[Y/n\]" && echo "$OUT" | grep -q "hooks skipped" && [ ! -f "$HOME/.claude/settings.json" ]; then pass "prompt: EOF skips"; else fail "prompt: EOF skips"; fi
+  if echo "$OUT" | grep -q "Add them? \[Y/n\]" && echo "$OUT" | grep -q "hooks skipped" && [ ! -f "$HOME/.claude/settings.json" ]; then pass "prompt: EOF skips"; else fail "prompt: EOF skips"; fi
 fi
 # --no-hooks wins over --hooks in either order
 for order in "--hooks --no-hooks" "--no-hooks --hooks"; do
@@ -879,15 +871,16 @@ for order in "--hooks --no-hooks" "--no-hooks --hooks"; do
   HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" $order </dev/null >/dev/null 2>&1
   if [ "$(cat "$HOME/.claude/settings.json")" = '{"model":"x"}' ]; then pass "--no-hooks wins: $order"; else fail "--no-hooks wins: $order"; fi
 done
-# a failing private/install.sh stops install, saying the hooks were skipped
+# a failing overlay script stops install before the hooks, saying the overlay failed
 fresh
 BADPRIV="$(mktemp -d)/install.sh"
 printf '#!/usr/bin/env bash\n[ "${1:-}" = install ] && exit 3\nexit 0\n' > "$BADPRIV"
 OUT="$(HERDR_KIT_PRIVATE=$BADPRIV "$REPO/install.sh" </dev/null 2>&1)"; RC=$?
-if [ $RC -ne 0 ] && echo "$OUT" | grep -q "hooks skipped: private install failed" && [ ! -f "$HOME/.claude/settings.json" ]; then
-  pass "private install failure: says hooks skipped, exits non-zero"
+if [ $RC -ne 0 ] && echo "$OUT" | grep -qxF "overlay install failed" && ! echo "$OUT" | grep -q "hooks skipped" \
+  && [ ! -f "$HOME/.claude/settings.json" ]; then
+  pass "overlay install failure: says the overlay failed, exits non-zero"
 else
-  fail "private install failure: says hooks skipped, exits non-zero"
+  fail "overlay install failure: says the overlay failed, exits non-zero"
 fi
 
 # the status line: with the hooks, install wraps the old line so ctx-tap gets fed
@@ -1101,34 +1094,6 @@ mkdir -p "$HOME/.claude"
 echo '{"statusLine":{"type":"command","command":"~/.claude/line.sh"}}' > "$S"
 "$REPO/install.sh" --no-hooks </dev/null >/dev/null 2>&1
 if [ "$(jget "$S" statusLine.command)" = "~/.claude/line.sh" ] && [ ! -e "$PREVF" ]; then pass "--no-hooks leaves the status line alone"; else fail "--no-hooks leaves the status line alone"; fi
-
-# --export lists the changes since the last export
-fresh
-SRCR="$(mktemp -d)/src repo"
-mkdir -p "$SRCR"
-git -C "$SRCR" init -q -b main
-cp "$REPO/install.sh" "$SRCR/install.sh"
-git -C "$SRCR" add install.sh
-git -C "$SRCR" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false commit -q -m "first change"
-OUT1="$(bash "$SRCR/install.sh" --export "$SRCR-1.bundle" 2>&1)"
-LAST="$HOME/.config/herdr-kit/last-export"
-if echo "$OUT1" | grep -q "first export" && [ "$(cat "$LAST" 2>/dev/null)" = "$(git -C "$SRCR" rev-parse main)" ]; then
-  pass "first export says so and records main"
-else
-  fail "first export says so and records main"
-fi
-echo "# second" >> "$SRCR/install.sh"
-git -C "$SRCR" add install.sh
-git -C "$SRCR" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false commit -q -m "second change"
-OUT2="$(bash "$SRCR/install.sh" --export "$SRCR-2.bundle" 2>&1)"
-if echo "$OUT2" | grep -q "second change" && ! echo "$OUT2" | grep -q "first change" && ! echo "$OUT2" | grep -q "first export"; then
-  pass "second export lists only new commits"
-else
-  fail "second export lists only new commits"
-fi
-echo "0123456789012345678901234567890123456789" > "$LAST"
-OUT3="$(bash "$SRCR/install.sh" --export "$SRCR-3.bundle" 2>&1)"
-if echo "$OUT3" | grep -q "not in this repo"; then pass "export copes with an unknown last export"; else fail "export copes with an unknown last export"; fi
 
 # private/: its settings and mods are linked, its config keys merged where absent, and its add-on block placed
 if [ -n "$HAS_PRIVATE" ]; then
@@ -1376,6 +1341,18 @@ else
   fail "no card hook: run_cards on prints a note and adds the name hook only"
 fi
 if "$PUB/install.sh" --check 2>&1 | grep -q "ok    $S (name hook)"; then pass "no card hook: check wants the name hook only"; else fail "no card hook: check wants the name hook only"; fi
+# the same with an overlay script: the overlay brings its own card hook, so no note
+fresh
+OVL="$(mktemp -d)/install.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$OVL"
+mkdir -p "$HOME/.config/herdr-kit"
+echo '{"run_cards":true}' > "$HOME/.config/herdr-kit/config.json"
+OUT="$(HERDR_KIT_PRIVATE=$OVL "$PUB/install.sh" </dev/null 2>&1)"; RC=$?
+if [ $RC -eq 0 ] && ! echo "$OUT" | grep -q "card-hook.mjs" && [ "$(hookcount "$HOME/.claude/settings.json")" = "6" ]; then
+  pass "no card hook, an overlay present: no card hook note"
+else
+  fail "no card hook, an overlay present: no card hook note"
+fi
 
 # Herdr version: install warns on any Herdr other than the tested one, then carries on.
 fake main
