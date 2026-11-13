@@ -782,13 +782,13 @@ fresh
 mkdir -p "$HOME/.claude"
 echo '{"model":"x"}' > "$HOME/.claude/settings.json"
 OUT="$(HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" </dev/null 2>&1)"
-if [ "$(cat "$HOME/.claude/settings.json")" = '{"model":"x"}' ] && echo "$OUT" | grep -q "hooks skipped: rerun ./install.sh --hooks to add them" && ! echo "$OUT" | grep -q "Add it?"; then
+if [ "$(cat "$HOME/.claude/settings.json")" = '{"model":"x"}' ] && echo "$OUT" | grep -q "hooks skipped: rerun ./install.sh --hooks to add them" && ! echo "$OUT" | grep -q "Add them?"; then
   pass "no flag, no terminal: hooks skipped"
 else
   fail "no flag, no terminal: hooks skipped"
 fi
 OUT="$(HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --hooks </dev/null 2>&1)"
-if [ "$(hookcount "$HOME/.claude/settings.json")" = "6" ] && [ "$(cardcount "$HOME/.claude/settings.json")" = "" ] && ! echo "$OUT" | grep -q "Add it?"; then
+if [ "$(hookcount "$HOME/.claude/settings.json")" = "6" ] && [ "$(cardcount "$HOME/.claude/settings.json")" = "" ] && ! echo "$OUT" | grep -q "Add them?"; then
   pass "--hooks adds the name hook, not the card hook (run_cards off)"
 else
   fail "--hooks adds the name hook, not the card hook (run_cards off)"
@@ -811,12 +811,12 @@ fresh
 mkdir -p "$HOME/.claude"
 echo '{"model":"x"}' > "$HOME/.claude/settings.json"
 OUT="$("$REPO/install.sh" --no-hooks </dev/null 2>&1)"
-if [ "$(cat "$HOME/.claude/settings.json")" = '{"model":"x"}' ] && ! echo "$OUT" | grep -q "Add it?"; then pass "--no-hooks wins over private/"; else fail "--no-hooks wins over private/"; fi
+if [ "$(cat "$HOME/.claude/settings.json")" = '{"model":"x"}' ] && ! echo "$OUT" | grep -q "Add them?"; then pass "--no-hooks wins over private/"; else fail "--no-hooks wins over private/"; fi
 # private/ present and no flag behaves as --hooks, without asking
 if [ -f "$REPO/private/install.sh" ]; then
   fresh
   OUT="$("$REPO/install.sh" </dev/null 2>&1)"
-  if [ "$(hookcount "$HOME/.claude/settings.json")" = "6" ] && ! echo "$OUT" | grep -q "Add it?\|hooks skipped"; then pass "private/ present: hooks added without asking"; else fail "private/ present: hooks added without asking"; fi
+  if [ "$(hookcount "$HOME/.claude/settings.json")" = "6" ] && ! echo "$OUT" | grep -q "Add them?\|hooks skipped"; then pass "private/ present: hooks added without asking"; else fail "private/ present: hooks added without asking"; fi
 fi
 # on a terminal it asks once: n skips, empty (Enter) means yes
 # ttyrun <answer> <install args>: runs install.sh on a pty, typing <answer> at the prompt.
@@ -845,7 +845,12 @@ sys.stdout.write(out.decode(errors="replace"))
 if command -v python3 >/dev/null 2>&1; then
   fresh
   OUT="$(HERDR_KIT_PRIVATE=$NOPRIV ttyrun n "$REPO/install.sh" 2>&1)"
-  if echo "$OUT" | grep -q "Add it? \[Y/n\]" && echo "$OUT" | grep -q "hooks skipped" && [ ! -f "$HOME/.claude/settings.json" ]; then pass "prompt: n skips"; else fail "prompt: n skips"; fi
+  if echo "$OUT" | grep -q "Add them? \[Y/n\]" && echo "$OUT" | grep -q "hooks skipped" && [ ! -f "$HOME/.claude/settings.json" ]; then pass "prompt: n skips"; else fail "prompt: n skips"; fi
+  if echo "$OUT" | tr -d '\r\n' | grep -qF "a hook in ~/.claude/settings.json, and wraps your status line so the rail can show context use (your line still runs; both backed up first). Add them? [Y/n]"; then
+    pass "prompt: names the hook and the status line wrap"
+  else
+    fail "prompt: names the hook and the status line wrap"
+  fi
   fresh
   HERDR_KIT_PRIVATE=$NOPRIV ttyrun "" "$REPO/install.sh" >/dev/null 2>&1
   if [ "$(hookcount "$HOME/.claude/settings.json")" = "6" ]; then pass "prompt: Enter adds the hooks"; else fail "prompt: Enter adds the hooks"; fi
@@ -855,7 +860,7 @@ fi
 if command -v python3 >/dev/null 2>&1; then
   fresh
   OUT="$(HERDR_KIT_PRIVATE=$NOPRIV ttyrun "^D" "$REPO/install.sh" 2>&1)"
-  if echo "$OUT" | grep -q "Add it? \[Y/n\]" && echo "$OUT" | grep -q "hooks skipped" && [ ! -f "$HOME/.claude/settings.json" ]; then pass "prompt: EOF skips"; else fail "prompt: EOF skips"; fi
+  if echo "$OUT" | grep -q "Add them? \[Y/n\]" && echo "$OUT" | grep -q "hooks skipped" && [ ! -f "$HOME/.claude/settings.json" ]; then pass "prompt: EOF skips"; else fail "prompt: EOF skips"; fi
 fi
 # --no-hooks wins over --hooks in either order
 for order in "--hooks --no-hooks" "--no-hooks --hooks"; do

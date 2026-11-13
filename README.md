@@ -62,7 +62,7 @@ Then quit and reopen Herdr: new mods, themes and glyph art load only at start. I
 
 Install links the files under `herdr/` into `~/.config/herdr-app/`, builds the `scruffy` layout from Herdr's own main layout, and adds its key bindings to Herdr's `keys.json`, touching only its own entries and backing the file up first.
 
-**Claude Code hooks.** The rail learns each Claude's name, question and tool from a hook in `~/.claude/settings.json`. On a terminal, install asks once before adding it (Enter adds it). `./install.sh --hooks` adds it without asking and `./install.sh --no-hooks` skips it. With no terminal and no flag, install skips it and tells you how to add it later. Restart running Claude sessions to load the hook.
+**Claude Code hooks.** The rail learns each Claude's name, question and tool from a hook in `~/.claude/settings.json`. On a terminal, install asks once before adding it and wrapping your status line (below); Enter adds both. `./install.sh --hooks` adds it without asking and `./install.sh --no-hooks` skips it. With no terminal and no flag, install skips it and tells you how to add it later. Restart running Claude sessions to load the hook.
 
 **Context meters.** Claude Code tells only the status line how much context a session has used. With the hooks, install wraps your status line so the rail can read it: your old command still runs and its output still shows, and your old line is saved in `~/.config/herdr-kit/statusline-prev.json`. If your status line already feeds the meters, or isn't a command, install leaves it alone and says so.
 

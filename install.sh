@@ -233,7 +233,7 @@ if [ "$HOOKS_FLAG" = "no" ]; then
 elif [ "$HOOKS_FLAG" = "yes" ] || [ -f "$PRIVATE" ]; then
   HOOKS=yes
 elif [ -t 0 ]; then
-  printf "The rail shows each Claude's name and question through a hook in ~/.claude/settings.json (backed up first). Add it? [Y/n] "
+  printf "The rail shows each Claude's name and question through a hook in ~/.claude/settings.json, and wraps your status line so the rail can show context use (your line still runs; both backed up first). Add them? [Y/n] "
   answer=""
   # EOF (Ctrl-D) with nothing typed counts as no.
   if ! read -r answer; then
