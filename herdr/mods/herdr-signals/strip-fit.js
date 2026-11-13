@@ -50,7 +50,7 @@ export function buttonTexts(level, scene, grid, pin = null, addons = []) {
 const allTexts = (b) => [b.focus, ...b.addons, b.scene, b.view];
 
 /** The scene picker dialog's size in px. kit-scenes/picker.js dialogSize() is the source (a test checks they agree); herdr-signals can't import it. */
-export const SCENES_DIALOG = { width: 1024, height: 412 };
+export const SCENES_DIALOG = { width: 828, height: 558 };
 
 /**
  * The strings drawn left of the buttons: a problem line, the counts, the

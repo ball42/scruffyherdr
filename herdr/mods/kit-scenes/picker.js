@@ -1,7 +1,8 @@
 // kit-scenes' pure logic: the picker's cursor and the tiles' inputs. No herdr
 // globals here; main.js draws and wires it.
 
-export const COLS = 5;
+// Twelve scenes in a 4 by 3 grid: narrow enough for a half-screen window.
+export const COLS = 4;
 
 /** The picker's starting state: the cursor on `current` (a scene key) when it is listed, else the first tile. */
 export function pickerStart(scenes, current, light = false) {
@@ -61,14 +62,14 @@ export const GAP = 12;
 export const PAD = 28;
 export const HEADER = 76; // px: the heading, the hint and the night/day toggle
 export const LABEL = 30; // px under each picture
-export const ROWS = 2;
+export const ROWS = 3;
 
 /** The grid's exact height: its rows, the gaps between them and the padding. */
 export function gridHeight(rows = ROWS) {
   return rows * (TILE.h + LABEL) + (rows - 1) * GAP + 2 * PAD;
 }
 
-/** The dialog's exact content size in px: the header over two rows of tiles, so nothing scrolls or clips. */
+/** The dialog's exact content size in px: the header over ROWS rows of tiles, so nothing scrolls or clips. */
 export function dialogSize() {
   return { width: COLS * TILE.w + (COLS - 1) * GAP + 2 * PAD, height: HEADER + gridHeight() };
 }

@@ -94,7 +94,7 @@ test("strip fit: at 300px with only 'all quiet' and no meter it is icons", () =>
 
 test("the dialog size herdr-signals opens equals the picker's content size", () => {
   assert.deepEqual(SCENES_DIALOG, dialogSize());
-  assert.deepEqual(dialogSize(), { width: 1024, height: 412 });
+  assert.deepEqual(dialogSize(), { width: 828, height: 558 });
 });
 
 test("buttonTexts: a pinned look shows on the scene button as ☀ or ☾", () => {

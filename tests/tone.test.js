@@ -129,6 +129,42 @@ test("Kamino: storm amber and a pod on its piers, its windows glowing and rain f
   assert.equal(look.ORANGE, "#9a5800");
 });
 
+test("Mustafar: white-hot yellow and a cone, its crater glowing and an ember rising while unseen", () => {
+  look.useTheme({ background: "#130d0b" }, "mustafar");
+  assert.equal(look.ORANGE, "#ffd84d");
+  let kids = look.mark("blocked", true).calls.filter((c) => c[0] === "child").map((c) => c[1]);
+  assert.equal(kids[0].calls[0][1], look.CONE_SVG);
+  assert.ok(kids.slice(1).every((k) => k.calls.some((c) => c[0] === "loop")));
+  assert.equal(bgOf(kids[1]), "#ffd84d", "the crater in the needs-you colour");
+  kids = look.mark("blocked", false).calls.filter((c) => c[0] === "child").map((c) => c[1]);
+  assert.ok(kids.every((k) => !k.calls.some((c) => c[0] === "loop")), "still once seen");
+  assert.ok(kids[2].calls.some((c) => c[0] === "opacity" && c[1] === 0), "the ember hides once seen");
+  look.useTheme({ background: "#f8f6f3" }, "mustafar");
+  assert.equal(look.ORANGE, "#8a6a00");
+});
+
+test("Asteroid Belt: comet orange and a cratered rock, the comet pulsing and a pebble drifting while unseen", () => {
+  look.useTheme({ background: "#0f1318" }, "asteroid-belt");
+  assert.equal(look.ORANGE, "#ff9a3c");
+  let kids = look.mark("blocked", true).calls.filter((c) => c[0] === "child").map((c) => c[1]);
+  assert.equal(kids[0].calls[0][1], look.ASTEROID_SVG);
+  assert.ok(kids.slice(1).every((k) => k.calls.some((c) => c[0] === "loop")));
+  kids = look.mark("blocked", false).calls.filter((c) => c[0] === "child").map((c) => c[1]);
+  assert.ok(kids[2].calls.some((c) => c[0] === "opacity" && c[1] === 0), "the pebble hides once seen");
+  look.useTheme({ background: "#f6f5f2" }, "asteroid-belt");
+  assert.equal(look.ORANGE, "#a14a00");
+});
+
+test("each glyph SVG look.js names exists, with a frame and no colour of its own", () => {
+  for (const name of ["TREE_SVG", "CAIRN_SVG", "ROCK_SVG", "TOWERS_SVG", "CLOUD_CITY_SVG", "PALACE_SVG", "PALM_SVG", "POD_SVG", "CONE_SVG", "ASTEROID_SVG", "FLAKE_SVG"]) {
+    const url = new URL(`../herdr/${look[name]}`, import.meta.url);
+    assert.ok(existsSync(url), `${look[name]} is missing`);
+    const text = readFileSync(url, "utf8");
+    assert.match(text, /^<svg [^>]*viewBox="0 0 \d+ \d+"/, `${name}: a frame`);
+    assert.doesNotMatch(text, /#[0-9a-f]{3,6}\b|rgb\(/i, `${name}: no colour of its own`);
+  }
+});
+
 const svgOf = (el) => el.calls.find((c) => c[0] === "svg_path")?.[1];
 const colorOf = (el) => el.calls.find((c) => c[0] === "text_color")?.[1];
 const loopsOn = (el) => el.calls.filter((c) => c[0] === "loop").map((c) => c[1]);

@@ -85,6 +85,25 @@ export const SCENES = {
     needs: { dark: "#ffb84a", light: "#9a5800" },
     asks: "☂",
   },
+  mustafar: {
+    label: "Mustafar",
+    theme: { light: "mustafar-day", dark: "mustafar-night" },
+    walls: { dark: "backgrounds/mustafar.jpg", light: "backgrounds/mustafar-day.jpg" },
+    panel: { dark: "#130d0b", light: "#f8f6f3" },
+    // White-hot yellow (orange would vanish against the lava), still warm
+    // against the blue "done"; an erupting cone on the strip.
+    needs: { dark: "#ffd84d", light: "#8a6a00" },
+    asks: "▲",
+  },
+  "asteroid-belt": {
+    label: "Asteroid Belt",
+    theme: { light: "asteroid-belt-day", dark: "asteroid-belt-night" },
+    walls: { dark: "backgrounds/asteroid-belt.jpg", light: "backgrounds/asteroid-belt-day.jpg" },
+    panel: { dark: "#0f1318", light: "#f6f5f2" },
+    // Comet orange, warm against the blue "done" on grey rock; a comet on the strip.
+    needs: { dark: "#ff9a3c", light: "#a14a00" },
+    asks: "☄",
+  },
   "small-moon": {
     label: "Small Moon",
     theme: { light: "small-moon-day", dark: "small-moon-night" },
@@ -119,7 +138,14 @@ export function kitLayouts() {
  * layout's old name (OLD_KIT_LAYOUT). install.sh removes their files and
  * moves a window on one to KIT_LAYOUT.
  */
-export const LEGACY_LAYOUTS = [...Object.keys(SCENES).flatMap((s) => [s, `${s}-grid`]), "kit", "kit-grid", OLD_KIT_LAYOUT];
+/**
+ * The scenes that had their own focus and grid layouts before the one
+ * layout. Frozen: a scene added later never had one, so its name is never
+ * taken for an old layout (or an old layout's key bindings).
+ */
+export const LEGACY_SCENES = ["tatooine", "endor", "hoth", "dagobah", "coruscant", "bespin", "naboo", "scarif", "kamino", "small-moon"];
+
+export const LEGACY_LAYOUTS = [...LEGACY_SCENES.flatMap((s) => [s, `${s}-grid`]), "kit", "kit-grid", OLD_KIT_LAYOUT];
 
 const known = (k) => typeof k === "string" && Object.prototype.hasOwnProperty.call(SCENES, k);
 
@@ -128,7 +154,7 @@ export function legacyView(name) {
   if (typeof name !== "string") return null;
   const grid = name.endsWith("-grid");
   const scene = grid ? name.slice(0, -5) : name;
-  return known(scene) ? { scene, view: grid ? "grid" : "focus" } : null;
+  return LEGACY_SCENES.includes(scene) && known(scene) ? { scene, view: grid ? "grid" : "focus" } : null;
 }
 
 /** The scene for a scene key; the default scene for anything else. */

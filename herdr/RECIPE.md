@@ -1,6 +1,6 @@
 # scruffy
 
-Herdr's own window, dressed as a scene and focused on your Claudes. One picture fills the window behind glass panels: twin suns over a desert, a forest moon, an ice plain, and seven more. A rail on the right lists every Claude, the ones waiting on you first. A strip along the bottom counts them, and one key tiles the current space's Claudes in a grid. Unofficial fan project, not affiliated with Lucasfilm or Disney; the pictures are original art.
+Herdr's own window, dressed as a scene and focused on your Claudes. One picture fills the window behind glass panels: twin suns over a desert, a forest moon, an ice plain, and nine more. A rail on the right lists every Claude, the ones waiting on you first. A strip along the bottom counts them, and one key tiles the current space's Claudes in a grid. Unofficial fan project, not affiliated with Lucasfilm or Disney; the pictures are original art.
 
 ![scruffy](preview.png)
 
@@ -17,13 +17,13 @@ Herdr's own window, dressed as a scene and focused on your Claudes. One picture 
 **How it behaves:**
 
 - **Working:** a spinner on the rail row, the tab and the pane header.
-- **Blocked** (a permission prompt or a question): orange `#ec8e2c` (on a light theme `#b35900`) and a glyph, on the rail card, tab, pane header, strip and grid tile. The card counts the wait in seconds, then minutes. Each scene picks its own warm hue and glyph: Tatooine ☀☀ `#ec8e2c`, Endor fireflies `#f2c14e`, Hoth ❄ `#ff9e7a`, Dagobah ≈ `#f0b45a`, Coruscant ▥ `#ffb347`, Bespin ☁ `#ffcf5c`, Naboo ⌂ `#ffab66`, Scarif ⌒ `#ff9a3c`, Kamino ☂ `#ffb84a`, Small Moon ◉ `#ff8a3d`.
+- **Blocked** (a permission prompt or a question): orange `#ec8e2c` (on a light theme `#b35900`) and a glyph, on the rail card, tab, pane header, strip and grid tile. The card counts the wait in seconds, then minutes. Each scene picks its own warm hue and glyph: Tatooine ☀☀ `#ec8e2c`, Endor fireflies `#f2c14e`, Hoth ❄ `#ff9e7a`, Dagobah ≈ `#f0b45a`, Coruscant ▥ `#ffb347`, Bespin ☁ `#ffcf5c`, Naboo ⌂ `#ffab66`, Scarif ⌒ `#ff9a3c`, Kamino ☂ `#ffb84a`, Mustafar ▲ `#ffd84d`, Asteroid Belt ☄ `#ff9a3c`, Small Moon ◉ `#ff8a3d`.
 - **Done** (finished while you weren't looking): blue `#58a6ff` (light `#0969da`) and a ✓. It turns idle once you look.
 - **Idle:** a plain row.
 - Red is never set against green, and every state also carries a glyph or a word.
 - **Keys:** `cmd-shift-g` switches focus and grid. In the grid, `cmd-alt-]` and `cmd-alt-[` spotlight the next or previous Claude, and `cmd-shift-a` shows every space's Claudes. `cmd-shift-s` opens the scene picker, or switches to this layout from another one. `cmd-shift-u` goes to the most urgent Claude, and `cmd-shift-f` toggles focus mode.
 - **Clicks:** a rail card focuses its Claude, and in the grid spotlights it. The strip's buttons do what their keys do.
-- **Scene picker:** ten thumbnails in two rows. Arrows move, enter picks, esc closes, and night or day can be pinned.
+- **Scene picker:** twelve thumbnails in three rows of four. Arrows move, enter picks, esc closes, and night or day can be pinned.
 
 **Built from:**
 
@@ -33,7 +33,7 @@ Herdr's own window, dressed as a scene and focused on your Claudes. One picture 
 - **Programs it runs:** `ioreg` (how long the Mac has been idle), `git` (a folder's repo root and remote), `ls`, `find` and `mkdir` on its own files. `kit-rail` runs `hc` to answer a Claude's question from the rail.
 - **Files outside its folder:** it creates `~/.config/herdr-kit/names/` on start (even with no hooks installed), and reads and writes `~/.config/herdr-kit/`: `config.json`, `names/` and `ctx/` (written by its Claude Code hooks), `sizes.json` and `layout-focus.json`. It reads `~/.cache/herdr-chat/claude-limits.json` only with `usage_meter` on in `config.json`.
 - **Network:** none by default. An opt-in Discord webhook (`discord_webhook`) and Stream Deck feed (`deck`, on `127.0.0.1`) are off unless set in `config.json`.
-- **Art:** `backgrounds/` (20 pictures, a night and a day for each scene, and `backgrounds/thumbs/` for the picker), `themes/` (22 theme files: a night and a day for each scene, and the two colour-blind GitHub themes), `glyphs/small-moon-*.svg` (Small Moon's layered glyph), and `layouts/scruffy.svg` (the picture Herdr's settings show).
+- **Art:** `backgrounds/` (24 pictures, a night and a day for each scene, and `backgrounds/thumbs/` for the picker), `themes/` (26 theme files: a night and a day for each scene, and the two colour-blind GitHub themes), `glyphs/small-moon-*.svg` (Small Moon's layered glyph), and `layouts/scruffy.svg` (the picture Herdr's settings show).
 
 **Watch out:**
 
