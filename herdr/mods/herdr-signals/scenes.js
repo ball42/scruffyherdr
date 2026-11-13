@@ -85,6 +85,25 @@ export const SCENES = {
     needs: { dark: "#ffb84a", light: "#9a5800" },
     asks: "☂",
   },
+  mustafar: {
+    label: "Mustafar",
+    theme: { light: "mustafar-day", dark: "mustafar-night" },
+    walls: { dark: "backgrounds/mustafar.jpg", light: "backgrounds/mustafar-day.jpg" },
+    panel: { dark: "#130d0b", light: "#f8f6f3" },
+    // White-hot yellow (orange would vanish against the lava), still warm
+    // against the blue "done"; an erupting cone on the strip.
+    needs: { dark: "#ffd84d", light: "#8a6a00" },
+    asks: "▲",
+  },
+  "asteroid-belt": {
+    label: "Asteroid Belt",
+    theme: { light: "asteroid-belt-day", dark: "asteroid-belt-night" },
+    walls: { dark: "backgrounds/asteroid-belt.jpg", light: "backgrounds/asteroid-belt-day.jpg" },
+    panel: { dark: "#0f1318", light: "#f6f5f2" },
+    // Comet orange, warm against the blue "done" on grey rock; a comet on the strip.
+    needs: { dark: "#ff9a3c", light: "#a14a00" },
+    asks: "☄",
+  },
   "small-moon": {
     label: "Small Moon",
     theme: { light: "small-moon-day", dark: "small-moon-night" },

@@ -58,6 +58,16 @@ export const TONES = {
     dark: { orange: "#ffb84a", blue: "#58a6ff", sun: "#bcdcec", pod: "#a8bccc", count: "#ffb84a", badge: "#30240f", ink: "#0d1117" },
     light: { orange: "#9a5800", blue: "#0969da", sun: "#5a8aa8", pod: "#4e6070", count: "#7e4800", badge: "#fbf0dc", ink: "#ffffff" },
   },
+  mustafar: {
+    glyph: "volcano",
+    dark: { orange: "#ffd84d", blue: "#58a6ff", sun: "#ff9a6a", rock: "#a8968e", count: "#ffd84d", badge: "#2e2610", ink: "#0d1117" },
+    light: { orange: "#8a6a00", blue: "#0969da", sun: "#c4602e", rock: "#5a4a44", count: "#6e5400", badge: "#fbf3d2", ink: "#ffffff" },
+  },
+  "asteroid-belt": {
+    glyph: "asteroids",
+    dark: { orange: "#ff9a3c", blue: "#58a6ff", sun: "#e8dcc0", rock: "#aaa49a", count: "#ff9a3c", badge: "#33220f", ink: "#0d1117" },
+    light: { orange: "#a14a00", blue: "#0969da", sun: "#9a8460", rock: "#5e5a54", count: "#8a3f00", badge: "#fdeedd", ink: "#ffffff" },
+  },
   "small-moon": {
     glyph: "layered",
     dark: { orange: "#ff8a3d", blue: "#58a6ff", sun: "#ffd6b0", body: "#b4bcc8", count: "#ff8a3d", badge: "#331f10", ink: "#0d1117" },
@@ -79,6 +89,10 @@ export const PALACE_SVG = "mods/kit-rail/palace.svg";
 export const PALM_SVG = "mods/kit-rail/palm.svg";
 /** Kamino's stilt pod, tinted with the text color. */
 export const POD_SVG = "mods/kit-rail/pod.svg";
+/** Mustafar's cone, tinted with the text color. */
+export const CONE_SVG = "mods/kit-rail/cone.svg";
+/** The Asteroid Belt's cratered rock, tinted with the text color. */
+export const ASTEROID_SVG = "mods/kit-rail/asteroid.svg";
 /**
  * A scene's glyph drawn from layer files in Herdr's home, not from code:
  * `glyphs/<scene>-body.svg`, `-edge.svg`, `-light.svg` and `-mover.svg`, each a 14 by 14
@@ -344,6 +358,28 @@ export function storm(pulse) {
     .child(pulse ? drop.loop("top", { from: -1, to: 12, period: 700 }) : drop.opacity(0));
 }
 
+/** Mustafar: a cone, its crater glowing white-hot and an ember rising off it while unseen. */
+export function volcano(pulse) {
+  const crater = div().absolute().left(4).top(3).w(6).h(3).rounded(2).bg(ORANGE);
+  const ember = div().absolute().left(9).top(0).size(2).rounded(2).bg(tone.sun);
+  return div().relative().flex_none().w(16).h(14)
+    .child(svg(CONE_SVG).absolute().left(0).top(0).size(14).text_color(tone.rock))
+    .child(pulse ? crater.loop("opacity", { from: 0.35, to: 1, period: 1300 }) : crater)
+    .child(pulse ? ember.loop("top", { from: 3, to: -3, period: 1600 }).loop("opacity", { from: 1, to: 0, period: 1600 }) : ember.opacity(0));
+}
+
+/** The Asteroid Belt: a cratered rock with a comet beside it, the comet pulsing and a pebble drifting past while unseen. */
+export function asteroids(pulse) {
+  const comet = div().absolute().left(9).top(0).w(7).h(4)
+    .child(div().absolute().left(0).top(1).w(4).h(2).rounded(1).bg(ORANGE).opacity(0.5))
+    .child(div().absolute().left(3).top(0).size(4).rounded(4).bg(ORANGE));
+  const pebble = div().absolute().left(14).top(11).size(2).rounded(2).bg(tone.sun);
+  return div().relative().flex_none().w(16).h(14)
+    .child(svg(ASTEROID_SVG).absolute().left(0).top(2).size(12).text_color(tone.rock))
+    .child(pulse ? comet.loop("opacity", { from: 0.3, to: 1, period: 1400 }) : comet)
+    .child(pulse ? pebble.loop("left", { from: 15, to: 0, period: 3000 }) : pebble.opacity(0));
+}
+
 /**
  * The shown scene's glyph from its layer files (glyphLayers): the body in the
  * scene's body tone, and while unseen the light (in the needs-you colour, over
@@ -365,7 +401,7 @@ export function layered(pulse) {
     .child(pulse ? mover.loop("left", { from: -1, to: 13, period: 2000 }) : mover.opacity(0));
 }
 
-const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, layered };
+const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, volcano, asteroids, layered };
 
 /**
  * The needs-you glyph in sand with the open-item count; hover lists every open
