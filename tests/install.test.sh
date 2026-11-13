@@ -871,15 +871,16 @@ for order in "--hooks --no-hooks" "--no-hooks --hooks"; do
   HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" $order </dev/null >/dev/null 2>&1
   if [ "$(cat "$HOME/.claude/settings.json")" = '{"model":"x"}' ]; then pass "--no-hooks wins: $order"; else fail "--no-hooks wins: $order"; fi
 done
-# a failing private/install.sh stops install, saying the hooks were skipped
+# a failing overlay script stops install before the hooks, saying the overlay failed
 fresh
 BADPRIV="$(mktemp -d)/install.sh"
 printf '#!/usr/bin/env bash\n[ "${1:-}" = install ] && exit 3\nexit 0\n' > "$BADPRIV"
 OUT="$(HERDR_KIT_PRIVATE=$BADPRIV "$REPO/install.sh" </dev/null 2>&1)"; RC=$?
-if [ $RC -ne 0 ] && echo "$OUT" | grep -q "hooks skipped: private install failed" && [ ! -f "$HOME/.claude/settings.json" ]; then
-  pass "private install failure: says hooks skipped, exits non-zero"
+if [ $RC -ne 0 ] && echo "$OUT" | grep -qxF "overlay install failed" && ! echo "$OUT" | grep -q "hooks skipped" \
+  && [ ! -f "$HOME/.claude/settings.json" ]; then
+  pass "overlay install failure: says the overlay failed, exits non-zero"
 else
-  fail "private install failure: says hooks skipped, exits non-zero"
+  fail "overlay install failure: says the overlay failed, exits non-zero"
 fi
 
 # the status line: with the hooks, install wraps the old line so ctx-tap gets fed
@@ -1340,6 +1341,18 @@ else
   fail "no card hook: run_cards on prints a note and adds the name hook only"
 fi
 if "$PUB/install.sh" --check 2>&1 | grep -q "ok    $S (name hook)"; then pass "no card hook: check wants the name hook only"; else fail "no card hook: check wants the name hook only"; fi
+# the same with an overlay script: the overlay brings its own card hook, so no note
+fresh
+OVL="$(mktemp -d)/install.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$OVL"
+mkdir -p "$HOME/.config/herdr-kit"
+echo '{"run_cards":true}' > "$HOME/.config/herdr-kit/config.json"
+OUT="$(HERDR_KIT_PRIVATE=$OVL "$PUB/install.sh" </dev/null 2>&1)"; RC=$?
+if [ $RC -eq 0 ] && ! echo "$OUT" | grep -q "card-hook.mjs" && [ "$(hookcount "$HOME/.claude/settings.json")" = "6" ]; then
+  pass "no card hook, an overlay present: no card hook note"
+else
+  fail "no card hook, an overlay present: no card hook note"
+fi
 
 # Herdr version: install warns on any Herdr other than the tested one, then carries on.
 fake main

@@ -459,7 +459,7 @@ fi
 # settings, adds its config keys and rebuilds the layout with the add-on blocks.
 if [ -f "$PRIVATE" ]; then
   if ! bash "$PRIVATE" install; then
-    echo "hooks skipped: private install failed" >&2
+    echo "overlay install failed" >&2
     exit 1
   fi
 fi
@@ -475,7 +475,8 @@ if [ "$HOOKS" = "yes" ]; then
   # A settings file the hooks step creates has nothing of the user's to back up.
   settings_new=""
   [ -f "$CLAUDE_SETTINGS" ] || settings_new=1
-  if [ "$(run_cards_on)" = "yes" ] && [ ! -f "$CARD_HOOK_FILE" ]; then
+  # An overlay brings its own card hook, so the note is only for a checkout without one.
+  if [ ! -f "$PRIVATE" ] && [ "$(run_cards_on)" = "yes" ] && [ ! -f "$CARD_HOOK_FILE" ]; then
     echo "note: run_cards is on, but this checkout has no claude/card-hook.mjs: skipped the card hook"
   fi
   if [ "$(cards_hook_on)" = "yes" ]; then
