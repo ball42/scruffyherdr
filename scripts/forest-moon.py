@@ -1,6 +1,7 @@
-"""Render an original forest-moon wallpaper: misty night, or with --day a mid-tone
-hazy daytime for light mode. Giant trees fade back into blue-green fog under
-a banded gas giant.
+"""Render an original forest-moon wallpaper: a misty night, giant trees fading
+back into blue-green fog under a banded gas giant. With --day, the view lifts
+above the treetops: a sea of conifer spires fading into haze, the gas giant
+rising off the horizon.
 
 Original artwork, drawn in code. Needs Pillow.
 Usage: python3 scripts/forest-moon.py [--day] OUT.jpg [WIDTH HEIGHT]
@@ -17,9 +18,167 @@ ARGS = [a for a in sys.argv[1:] if a != "--day"]
 W, H = (int(ARGS[1]), int(ARGS[2])) if len(ARGS) > 2 else (3024, 1964)
 OUT = ARGS[0]
 
-# Each palette: sky stops, star brightness, the planet (lit, shadow, bands,
+# ---- Day: canopy, above the treetops across a sea of conifer spires. Runs and exits before the night code below.
+DP = dict(
+    planet=dict(lit="#f7e3b0", dark="#94b5a3", bands=["#cdb27a", "#e0c995", "#b3b98a", "#d3bd86"], alpha=245),
+    fog="#cfe3d7",
+    grain=3,
+)
+
+
+def day_lerp(a, b, t):
+    t = max(0.0, min(1.0, t))
+    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def day_hexrgb(h):
+    return tuple(int(h[i: i + 2], 16) for i in (1, 3, 5))
+
+
+def day_gradient(stops, height):
+    col = []
+    stops = [(o, day_hexrgb(c)) for o, c in stops]
+    for y in range(height):
+        t = y / max(1, height - 1)
+        for (o0, c0), (o1, c1) in zip(stops, stops[1:]):
+            if o0 <= t <= o1:
+                col.append(day_lerp(c0, c1, (t - o0) / max(1e-6, o1 - o0)))
+                break
+        else:
+            col.append(stops[-1][1])
+    return col
+
+
+def day_vfill(stops):
+    col = Image.new("RGB", (1, H))
+    for y, c in enumerate(day_gradient(stops, H)):
+        col.putpixel((0, y), c)
+    return col.resize((W, H))
+
+
+def planet(img, cx, cy, R, shadow_off=(0.42, 0.7)):
+    """The banded disc from forest-moon.py, lit from the upper left."""
+    pl = DP["planet"]
+    S = int(R * 2.4)
+    disc = Image.new("RGB", (S, S), day_hexrgb(pl["lit"]))
+    dd = ImageDraw.Draw(disc)
+    y = 0
+    br = random.Random(3)
+    while y < S:
+        h = br.uniform(0.012, 0.05) * S
+        dd.rectangle([0, y, S, y + h], fill=day_hexrgb(br.choice(pl["bands"])))
+        y += h + br.uniform(0.004, 0.03) * S
+    disc = disc.filter(ImageFilter.GaussianBlur(S * 0.006)).rotate(-14, resample=Image.BICUBIC)
+    shadow = Image.new("L", (S, S))
+    off = R * shadow_off[0]
+    c0 = S / 2
+    ImageDraw.Draw(shadow).ellipse([c0 - R + off, c0 - R + off * shadow_off[1], c0 + R + off * 1.6, c0 + R + off * 1.4], fill=170)
+    shadow = shadow.filter(ImageFilter.GaussianBlur(R * 0.22))
+    disc = Image.composite(Image.new("RGB", (S, S), day_hexrgb(pl["dark"])), disc, shadow)
+    mask = Image.new("L", (S, S))
+    ImageDraw.Draw(mask).ellipse([c0 - R, c0 - R, c0 + R, c0 + R], fill=pl["alpha"])
+    mask = mask.filter(ImageFilter.GaussianBlur(R * 0.01))
+    img.paste(disc, (int(cx - S / 2), int(cy - S / 2)), mask)
+
+
+def day_wash(img, color, alpha):
+    if alpha <= 0:
+        return img
+    return Image.blend(img, Image.new("RGB", (W, H), day_hexrgb(color)), alpha / 255)
+
+
+def crown(d, x, top, w, base, color, shade, r):
+    """A conifer crown poking out of the canopy: drooping tiers widening down
+    to `base`, a shaded right side, a thin leader at the tip."""
+    h = base - top
+    tiers = r.randint(7, 11)
+    for i in range(tiers):
+        t = (i + 1) / tiers
+        ty = top + (i / tiers) * h
+        half = w * (0.18 + 0.82 * t) * r.uniform(0.85, 1.1)
+        drop = h / tiers * 1.7
+        d.polygon([(x, ty), (x + half, ty + drop), (x - half, ty + drop)], fill=color)
+        d.polygon([(x + half * 0.1, ty + drop * 0.18), (x + half, ty + drop), (x + half * 0.2, ty + drop)], fill=shade)
+    d.line([(x, top - h * 0.06), (x, top + h * 0.1)], fill=color, width=max(2, int(w * 0.05)))
+
+
+def day():
+    img = day_vfill([(0.0, "#73a99c"), (0.35, "#93beb1"), (0.56, "#c6dccd"), (1.0, "#b8d2c2")])
+    glow = Image.new("RGB", (W, H))
+    ImageDraw.Draw(glow).ellipse([-0.25 * W, -0.45 * H, 0.45 * W, 0.55 * H], fill=(30, 28, 18))
+    img = ImageChops.add(img, glow.filter(ImageFilter.GaussianBlur(W * 0.08)))
+    planet(img, 0.70 * W, 0.53 * H, 0.27 * W)
+    img = day_wash(img, "#cfe3d7", 55)
+    HORIZON = 0.55
+    # thick air at the horizon: the planet's foot sinks into it
+    hz = Image.new("L", (W, H))
+    hd = ImageDraw.Draw(hz)
+    for yy in range(int(0.30 * H), int((HORIZON + 0.06) * H)):
+        t = (yy - 0.30 * H) / ((HORIZON - 0.30) * H)
+        hd.line([(0, yy), (W, yy)], fill=int(150 * max(0.0, min(1.0, t)) ** 2.2))
+    img = Image.composite(Image.new("RGB", (W, H), day_hexrgb("#d4e6d8")), img, hz.filter(ImageFilter.GaussianBlur(H * 0.01)))
+    rows = [  # (baseline, crown length, crown width, count, colour pair, mist)
+        (HORIZON + 0.015, 0.018, 0.0045, 190, day_lerp(day_hexrgb("#8fb8a3"), day_hexrgb("#cfe3d7"), 0.55), 90),
+        (HORIZON + 0.045, 0.032, 0.0075, 130, day_lerp(day_hexrgb("#8fb8a3"), day_hexrgb("#cfe3d7"), 0.3), 80),
+        (HORIZON + 0.10, 0.060, 0.013, 80, day_hexrgb("#8fb8a3"), 70),
+        (HORIZON + 0.19, 0.11, 0.024, 46, day_hexrgb("#719f88"), 55),
+        (HORIZON + 0.33, 0.20, 0.044, 24, day_hexrgb("#57866e"), 35),
+        (HORIZON + 0.58, 0.36, 0.08, 0, day_hexrgb("#3f6d55"), 0),
+    ]
+    for k, (base, cl, cw, n, col, mist_a) in enumerate(rows):
+        r = random.Random(40 + k)
+        lay = Image.new("RGBA", (W, H), col + (0,))
+        d = ImageDraw.Draw(lay)
+        fill = col + (255,)
+        shade = day_lerp(col, (20, 50, 38), 0.12) + (255,)
+        if k == len(rows) - 1:
+            xs = [0.025, 0.115, 0.89, 0.975]
+        else:
+            xs = [(i + r.uniform(0.0, 1.0)) / n for i in range(n)]
+        # the canopy body this row's crowns rise from: a lumpy top edge
+        pts = [(0, H)]
+        for i in range(0, 121):
+            u = i / 120
+            pts.append((u * W, base * H - cl * H * 0.18 * (0.5 + 0.5 * math.sin(u * 37 + k) * math.sin(u * 11 + 2 * k))))
+        pts.append((W, H))
+        if k < len(rows) - 1:
+            d.polygon(pts, fill=fill)
+        for fx in xs:
+            x = fx * W
+            L = cl * H * r.uniform(0.7, 1.3)
+            ww = cw * W * r.uniform(0.85, 1.2)
+            top = base * H - L * 0.85
+            crown(d, x, top, ww, base * H + L * 0.15, fill, shade, r)
+            if k == len(rows) - 1:  # near tops run off the bottom, trunk and all
+                crown(d, x, top + L * 0.7, ww * 1.5, H * 1.15, fill, shade, r)
+        if k < 3:
+            lay = lay.filter(ImageFilter.GaussianBlur(W * 0.0007 * (3 - k)))
+        img.paste(lay, (0, 0), lay)
+        # mist settling into the canopy below this row's tips
+        if mist_a:
+            mist = Image.new("L", (W, H))
+            md = ImageDraw.Draw(mist)
+            for yy in range(int((base - 0.01) * H), H):
+                t = (yy - (base - 0.01) * H) / (0.09 * H)
+                md.line([(0, yy), (W, yy)], fill=int(mist_a * min(1, t * 1.6) * math.exp(-t * 0.8)))
+            mist = mist.filter(ImageFilter.GaussianBlur(H * 0.01))
+            img = Image.composite(Image.new("RGB", (W, H), day_hexrgb(DP["fog"])), img, mist)
+    return img
+
+
+if DAY:
+    img = day()
+    noise = Image.effect_noise((W, H), DP["grain"]).convert("RGB")
+    img = ImageChops.add(img, noise, scale=1.0, offset=-128)
+    img.save(OUT, quality=90, optimize=True, progressive=True)
+    print(OUT)
+    sys.exit(0)
+
+
+# ---- Night.
+# Night palette: sky stops, star brightness, the planet (lit, shadow, bands,
 # halo strength, opacity), forest layers far to near as (trunk, shade) colors,
-# the fog between them, the ground mist, fireflies, light shafts, and grain.
+# the fog between them, the ground mist, fireflies, and grain.
 NIGHT = dict(
     sky=[(0.0, "#03100f"), (0.30, "#082221"), (0.55, "#15403b"), (0.78, "#2a5e53"), (1.0, "#2f6656")],
     stars=210,
@@ -30,24 +189,9 @@ NIGHT = dict(
     fog="#3d7a69", fog_alpha=[150, 110, 70, 30, 0],
     mist=("#4f8d7a", 120),
     fireflies=("#e9f5a6", 44),
-    shafts=0,
     grain=6,
 )
-# Mid-tone, so it still shows through 45% near-white terminals; dark text stays readable.
-DAYTIME = dict(
-    sky=[(0.0, "#8fc2b2"), (0.40, "#a9d2c2"), (0.75, "#c4ddcd"), (1.0, "#b2d0bb")],
-    stars=0,
-    planet=dict(lit="#f7e3b0", dark="#94b5a3", bands=["#cdb27a", "#e0c995", "#b3b98a", "#d3bd86"],
-                halo=0.0, alpha=245),
-    layers=[("#8fb8a3", "#84ae98"), ("#719f88", "#66957d"), ("#57866e", "#4c7b63"),
-            ("#3f6d55", "#35614a"), ("#2a5440", "#214834")],
-    fog="#cfe3d7", fog_alpha=[120, 85, 50, 20, 0],
-    mist=("#dcebe1", 100),
-    fireflies=None,
-    shafts=46,
-    grain=3,
-)
-P = DAYTIME if DAY else NIGHT
+P = NIGHT
 rng = random.Random(7)
 
 
@@ -235,18 +379,6 @@ for i, (spec, (col, shade)) in enumerate(zip(layers, P["layers"])):
         t = 1 - abs(yy - ground) / band
         md.line([(0, yy), (W, yy)], fill=int(max(0, t) * P["fog_alpha"][i]))
     img = Image.composite(Image.new("RGB", (W, H), hexrgb(P["fog"])), img, mist)
-
-# Daylight: soft shafts slanting down through the canopy.
-if P["shafts"]:
-    sh = Image.new("L", (W, H))
-    sd = ImageDraw.Draw(sh)
-    r = random.Random(11)
-    for _ in range(9):
-        x = r.uniform(-0.1, 1.0) * W
-        w = r.uniform(0.02, 0.06) * W
-        sd.polygon([(x, 0), (x + w, 0), (x + w + 0.35 * W, H), (x + 0.35 * W, H)], fill=int(P["shafts"] * r.uniform(0.5, 1)))
-    sh = sh.filter(ImageFilter.GaussianBlur(W * 0.02))
-    img = Image.composite(Image.new("RGB", (W, H), (255, 252, 240)), img, sh)
 
 # Ground mist over the forest floor
 gm = Image.new("L", (W, H))
