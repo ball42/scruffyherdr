@@ -1,6 +1,8 @@
-"""Render an original twin-suns desert wallpaper: a starry dusk, or with --day
-a dusty-rose morning-coloured day under high suns for light mode. Layered mesas
-and dunes fade into dust haze for depth.
+"""Render an original twin-suns desert wallpaper. The night picture is a
+starry dusk over layered mesas and dunes that fade into dust haze, with two low
+suns and a galaxy band. With --day it is a bright morning looking down a dry
+canyon wash: banded rock walls either side, rippled sand running to the viewer
+and pale dunes under high twin suns at the far mouth, for light mode.
 
 Original artwork, drawn in code. Needs Pillow.
 Usage: python3 scripts/twin-suns.py [--day] OUT.jpg [WIDTH HEIGHT]
@@ -16,7 +18,288 @@ DAY = "--day" in sys.argv
 ARGS = [a for a in sys.argv[1:] if a != "--day"]
 W, H = (int(ARGS[1]), int(ARGS[2])) if len(ARGS) > 2 else (3024, 1964)
 OUT = ARGS[0]
+S = W / 3024  # scale for sizes drawn in 3024-wide pixels
 
+# ---- Day: down a dry canyon wash toward the dunes. Runs and exits before the night code below.
+DAY_SKY = [(0.0, "#7f93d6"), (0.30, "#a5a6e0"), (0.45, "#d0acd2"), (0.52, "#eab1a4"), (0.56, "#eda77c"), (1.0, "#e89e70")]
+DAY_HAZE = "#e2b9b4"
+DAY_LAYERS = [("#b98fb4", "#b087ab"), ("#d0927a", "#c4846e"), ("#b4747a", "#a6686e"),
+              ("#b06e58", "#9f604c"), ("#8e5650", "#7e4a45"), ("#6c403f", "#5e3636")]
+DAY_SUNS = [(255, 246, 228), (255, 241, 218)]
+drng = random.Random(41)
+
+
+def rgb_of(h):
+    if isinstance(h, tuple):
+        return h[:3]
+    return tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
+
+
+def mix(a, b, t):
+    a, b = rgb_of(a), rgb_of(b)
+    t = max(0.0, min(1.0, t))
+    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def new_layer(col=(0, 0, 0)):
+    lay = Image.new("RGBA", (W, H), rgb_of(col) + (0,))
+    return lay, ImageDraw.Draw(lay)
+
+
+def sky_gradient(stops, horizontal=False):
+    """Vertical gradient from (pos, colour) stops, pos as a frame fraction."""
+    img = Image.new("RGBA", (W, H))
+    st = [(p, rgb_of(c)) for p, c in stops]
+    d = ImageDraw.Draw(img)
+    n = W if horizontal else H
+    for i in range(n):
+        f = i / n
+        col = st[-1][1]
+        for (p0, c0), (p1, c1) in zip(st, st[1:]):
+            if p0 <= f <= p1:
+                col = mix(c0, c1, (f - p0) / max(p1 - p0, 1e-6))
+                break
+        if f < st[0][0]:
+            col = st[0][1]
+        if horizontal:
+            d.line([(i, 0), (i, H)], fill=col + (255,))
+        else:
+            d.line([(0, i), (W, i)], fill=col + (255,))
+    return img
+
+
+def grad_fill(img, mask, top, bottom, y0, y1, ease=1.0):
+    """Paste a vertical gradient through mask (L image)."""
+    g = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(g)
+    top, bottom = rgb_of(top), rgb_of(bottom)
+    for y in range(H):
+        t = min(1, max(0, (y - y0) / max(1, y1 - y0))) ** ease
+        d.line([(0, y), (W, y)], fill=mix(top, bottom, t) + (255,))
+    img.paste(g, (0, 0), mask)
+
+
+def poly_mask(pts, blur=0):
+    m = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(m).polygon(pts, fill=255)
+    if blur:
+        m = m.filter(ImageFilter.GaussianBlur(blur))
+    return m
+
+
+def soft_glow(img, x, y, r, c, a):
+    c = rgb_of(c)
+    for rr, aa, blur in ((r * 7, a // 6, 0.6), (r * 2.6, a // 2, 0.5), (r, a, 0.1)):
+        g = Image.new("RGBA", (W, H), c + (0,))
+        ImageDraw.Draw(g).ellipse([x - rr, y - rr, x + rr, y + rr], fill=c + (aa,))
+        img.alpha_composite(g.filter(ImageFilter.GaussianBlur(max(1, rr * blur))))
+
+
+def wash(img, col, alpha, mask=None):
+    """Flat colour veil over the frame (or through a mask)."""
+    lay = Image.new("RGBA", (W, H), rgb_of(col) + (alpha,))
+    if mask is not None:
+        a = Image.new("L", (W, H), 0)
+        a.paste(alpha, (0, 0), mask)
+        lay.putalpha(a)
+    img.alpha_composite(lay)
+
+
+def vfade(img, col, y0, y1, a0, a1):
+    """A haze band whose alpha runs a0 -> a1 from y0 to y1 (frame px)."""
+    m = Image.new("L", (W, H), 0)
+    d = ImageDraw.Draw(m)
+    for y in range(H):
+        t = min(1, max(0, (y - y0) / max(1, y1 - y0)))
+        if y < y0:
+            t = 0
+        a = a0 + (a1 - a0) * t if y0 <= y <= y1 else (a0 if y < y0 else a1)
+        d.line([(0, y), (W, y)], fill=int(a))
+    lay = Image.new("RGBA", (W, H), rgb_of(col) + (0,))
+    lay.putalpha(m)
+    img.alpha_composite(lay)
+
+
+def noise_line(x0, x1, base, amps, drng, step=6):
+    """A wavy horizon line: list of (x, y). amps: [(amp, freq)]."""
+    ph = [drng.uniform(0, 6.28) for _ in amps]
+    pts = []
+    for x in range(int(x0), int(x1) + step, step):
+        u = x / W
+        y = base + sum(a * math.sin(u * f + p) for (a, f), p in zip(amps, ph))
+        pts.append((x, y))
+    return pts
+
+
+def blur(im, r):
+    """Gaussian blur on premultiplied alpha, so transparent pixels don't bleed a dark fringe."""
+    if im.mode != "RGBA":
+        return im.filter(ImageFilter.GaussianBlur(r))
+    return im.convert("RGBa").filter(ImageFilter.GaussianBlur(r)).convert("RGBA")
+
+
+def suns(img, x, y):
+    soft_glow(img, x * W, y * H, 0.024 * W, DAY_SUNS[0], 230)
+    soft_glow(img, (x + 0.055) * W, (y + 0.035) * H, 0.015 * W, DAY_SUNS[1], 220)
+
+
+def mesa(d, cx, base, w, h, col, drng):
+    top = base - h
+    slope = w * 0.12
+    pts = [(cx - w / 2 - slope, base)]
+    x = cx - w / 2
+    pts.append((x, top + h * 0.15))
+    while x < cx + w / 2:
+        x += drng.uniform(8, 30) * S
+        pts.append((min(x, cx + w / 2), top + drng.uniform(-3, 3) * S))
+    pts += [(cx + w / 2, top + h * 0.15), (cx + w / 2 + slope, base)]
+    d.polygon(pts, fill=col + (255,))
+
+
+def dune_band(img, base, amp, top, bot, crest_a, freq=(3.0, 7.0), haze_k=0.0, shade=0):
+    pts = noise_line(0, W, base, [(amp, freq[0]), (amp * 0.4, freq[1]), (amp * 0.12, 23)], drng)
+    m = poly_mask([(0, H)] + pts + [(W, H)], blur=1.5 * S)
+    t, b = mix(top, DAY_HAZE, haze_k), mix(bot, DAY_HAZE, haze_k)
+    grad_fill(img, m, t, b, min(p[1] for p in pts), H * 0.95)
+    if shade:
+        lay, d = new_layer((90, 50, 60))
+        for k in range(6):
+            dy = shade * (k + 1) / 6
+            d.polygon(pts + [(x, y + dy) for x, y in reversed(pts)], fill=(110, 60, 70, int(26)))
+        img.alpha_composite(blur(lay, shade * 0.35))
+    if crest_a:
+        lay, d = new_layer((255, 236, 214))
+        d.line(pts, fill=(255, 236, 214, crest_a), width=int(4 * S))
+        img.alpha_composite(blur(lay, 3 * S))
+    return pts
+
+
+def ripples(img, y0, y1, col, alpha, n, persp=True):
+    lay, d = new_layer(col)
+    for i in range(n):
+        f = (i / n) ** (2.0 if persp else 1.0)
+        y = y0 + (y1 - y0) * f
+        amp = (2 + 18 * f) * S
+        ph = drng.uniform(0, 6)
+        pts = [(x, y + amp * math.sin(x / (90 + 400 * f) / S + ph)) for x in range(0, W + 10, 10)]
+        d.line(pts, fill=rgb_of(col) + (int(alpha * (0.3 + 0.7 * f)),), width=max(1, int((1 + 4 * f) * S)))
+    img.alpha_composite(blur(lay, 1.2 * S))
+
+
+def rock(d, x, y, r, base, lit, drng, shadow=(100, 56, 48, 90)):
+    n = drng.randint(6, 9)
+    pts = []
+    for i in range(n):
+        a = math.pi + math.pi * i / (n - 1)
+        rr = r * drng.uniform(0.7, 1.1)
+        pts.append((x + math.cos(a) * rr * 1.2, y + math.sin(a) * rr * 0.9))
+    d.ellipse([x - r * 0.4, y - r * 0.15, x + r * 2.6, y + r * 0.4], fill=shadow)
+    d.polygon(pts + [(x + r * 1.2, y + r * 0.15), (x - r * 1.2, y + r * 0.15)], fill=rgb_of(base) + (255,))
+    top = [p for p in pts if p[1] < y - r * 0.35] or pts[2:5]
+    d.polygon(top + [(x + r * 0.2, y - r * 0.3), (x - r * 0.5, y - r * 0.25)], fill=rgb_of(lit) + (220,))
+
+
+def strata(img, mask, y0, y1, cols, drng, slope=0.0, alpha=70):
+    lay, d = new_layer()
+    y = y0
+    while y < y1:
+        h = drng.uniform(14, 60) * S
+        c = rgb_of(drng.choice(cols))
+        pts = [(0, y), (W, y + slope * W), (W, y + slope * W + h), (0, y + h)]
+        d.polygon(pts, fill=c + (drng.randint(alpha // 2, alpha),))
+        y += h
+    a = Image.new("L", (W, H), 0)
+    a.paste(lay.getchannel("A"), (0, 0), mask)
+    lay.putalpha(a)
+    img.alpha_composite(blur(lay, 1.5 * S))
+
+
+def day():
+    img = sky_gradient(DAY_SKY[:3] + [(0.55, "#eab1a4"), (1.0, "#eda77c")])
+    suns(img, 0.42, 0.13)
+    # through the canyon mouth: bright dunes far off
+    lay, d = new_layer()
+    mesa(d, W * 0.52, H * 0.53, 260 * S, 70 * S, mix(DAY_LAYERS[0][0], DAY_HAZE, 0.4), drng)
+    img.alpha_composite(blur(lay, 2 * S))
+    for base, amp, li, hk in ((0.53, 8, 0, 0.5), (0.56, 12, 1, 0.35), (0.60, 16, 1, 0.2)):
+        dune_band(img, H * base, amp * S, DAY_LAYERS[li][0], DAY_LAYERS[li][1], 80, freq=(5, 12), haze_k=hk)
+    vfade(img, DAY_HAZE, H * 0.46, H * 0.56, 0, 60)
+    # the wash floor: pale sand, rippled, running to us
+    floor = noise_line(0, W, H * 0.62, [(6 * S, 3), (3 * S, 11)], drng)
+    m = poly_mask([(0, H)] + floor + [(W, H)])
+    grad_fill(img, m, "#e8b48e", "#d09070", H * 0.62, H)
+    ripples(img, H * 0.63, H * 1.0, "#fbe0c4", 70, 34)
+    ripples(img, H * 0.64, H * 1.0, "#a86a52", 40, 30)
+
+    # canyon walls, banded; left wall in sun, right wall in shade
+    def jag(xs, r):
+        out = []
+        for (x0, y0), (x1, y1) in zip(xs, xs[1:]):
+            for k in range(8):
+                t = k / 8
+                j = r.uniform(-14, 14) * S if 0 < k else 0
+                step = (r.uniform(0, 1) < 0.25) * r.uniform(10, 30) * S
+                out.append((W * (x0 + (x1 - x0) * t) + j + step, H * (y0 + (y1 - y0) * t)))
+        out.append((W * xs[-1][0], H * xs[-1][1]))
+        return out
+
+    def wall(side):
+        rngw = random.Random(7 if side < 0 else 8)
+        if side < 0:
+            xs = [(0.0, -0.02), (0.20, 0.0), (0.27, 0.10), (0.29, 0.28), (0.34, 0.36), (0.36, 0.52), (0.40, 0.60),
+                  (0.43, 0.64), (0.30, 0.82), (0.16, 1.02)]
+            poly = [(0, 0)] + jag(xs, rngw) + [(0, H)]
+        else:
+            xs = [(1.0, -0.02), (0.84, 0.0), (0.78, 0.14), (0.76, 0.30), (0.70, 0.40), (0.68, 0.55), (0.62, 0.62),
+                  (0.585, 0.645), (0.70, 0.84), (0.86, 1.02)]
+            poly = [(W, 0)] + jag(xs, rngw) + [(W, H)]
+        return poly
+    for side, top, bot, cols, lit in ((-1, "#d4906e", "#a8644e", ["#e0a682", "#b8745a", "#c8866a", "#eab894"], True),
+                                       (1, "#9e6464", "#7c4c4e", ["#a86e68", "#8a5656", "#b47a6e", "#946060"], False)):
+        poly = wall(side)
+        m = poly_mask(poly, blur=1 * S)
+        grad_fill(img, m, top, bot, 0, H)
+        strata(img, m, 0, H, cols, random.Random(3 if lit else 4), slope=0.03 * side * -1, alpha=80)
+        # reflected light glows up from the sand onto the wall bases
+        lay = Image.new("RGBA", (W, H), (255, 200, 160, 0))
+        g = Image.new("L", (W, H), 0)
+        gd = ImageDraw.Draw(g)
+        for y in range(int(H * 0.5), H):
+            gd.line([(0, y), (W, y)], fill=int(60 * (y - H * 0.5) / (H * 0.5)))
+        a = Image.new("L", (W, H), 0)
+        a.paste(g, (0, 0), m)
+        lay.putalpha(a)
+        img.alpha_composite(lay)
+        # sunlit lip along the inner edge of the left wall
+        if lit:
+            lay, d = new_layer()
+            d.line(poly[1:-1], fill=(255, 230, 200, 120), width=int(6 * S))
+            img.alpha_composite(blur(lay, 3 * S))
+    # a band of shade across the floor from the right wall
+    sh = poly_mask([(W * 0.585, H * 0.645), (W * 0.70, H * 0.84), (W * 0.86, H), (W * 0.62, H), (W * 0.52, H * 0.80),
+                    (W * 0.50, H * 0.66)], blur=30 * S)
+    wash(img, "#8a5a5a", 70, sh)
+    # boulders on the floor
+    lay, d = new_layer()
+    for x, y, r in ((0.40, 0.78, 50), (0.47, 0.70, 22), (0.62, 0.88, 70), (0.33, 0.93, 34), (0.55, 0.74, 16)):
+        x, y, r = x * W, y * H, r * S
+        rock(d, x, y, r, "#b47058", "#e8ae8c", drng, shadow=(130, 80, 70, 90))
+    img.alpha_composite(blur(lay, 0.8 * S))
+    return img
+
+
+if DAY:
+    final = day().convert("RGB")
+    # Fine grain: a light blend of noise into the picture.
+    noise = Image.effect_noise((W, H), 40).convert("L")
+    noise = noise.point(lambda v: 128 + (v - 128) * 3 / 20)
+    grained = Image.merge("RGB", [Image.blend(c, noise, 0.06) for c in final.split()])
+    final = Image.blend(final, grained, 0.5)
+    final.save(OUT, quality=90)
+    print(OUT)
+    sys.exit(0)
+
+# ---- Night.
 # Each palette: sky stops, stars (count per megapixel, brightness), the
 # galaxy band (colour, strength), suns as (x, y, radius, colour) in frame
 # fractions, glow strength, the haze far layers fade into, six layers far to
@@ -32,19 +315,7 @@ DUSK = dict(
     crest=(255, 176, 116, 90),
     grain=6,
 )
-# Mid-tone, so it still shows through 45% near-white terminals; dark text stays readable.
-MORNING = dict(
-    sky=[(0.0, "#7f93d6"), (0.30, "#a5a6e0"), (0.45, "#d0acd2"), (0.52, "#eab1a4"),
-         (0.56, "#eda77c"), (1.0, "#e89e70")],
-    stars=None, galaxy=None,
-    suns=[(0.335, 0.19, 0.024, (255, 246, 228)), (0.39, 0.225, 0.015, (255, 241, 218))], glow=0.14,
-    haze="#e2b9b4",
-    layers=[("#b98fb4", "#b087ab"), ("#d0927a", "#c4846e"), ("#b4747a", "#a6686e"),
-            ("#b06e58", "#9f604c"), ("#8e5650", "#7e4a45"), ("#6c403f", "#5e3636")],
-    crest=(255, 232, 210, 80),
-    grain=3,
-)
-P = MORNING if DAY else DUSK
+P = DUSK
 # How much each layer, far to near, fades into the haze.
 FADE = [0.62, 0.48, 0.34, 0.2, 0.08, 0.0]
 rng = random.Random(42)
