@@ -102,6 +102,7 @@ Everything here is off by default. The ones marked "coming soon" aren't in this 
 | --- | --- | --- |
 | `readme_tabs` | Keep a README tab first in every space whose repo has one | available |
 | `auto_spotlight` | Spotlight a Claude in the grid when it newly needs you | available |
+| `addons: ["kit-jira"]` | Jira status on each Claude named after a ticket (see Add-ons) | available |
 | `pr_status` | Show each Claude's PR state on its rail card | coming soon |
 | `usage_meter` | A 5-hour and weekly usage meter on the strip | coming soon |
 | `run_cards` | Run buttons for the commands a Claude asks you to run | coming soon |
@@ -131,11 +132,37 @@ Everything here is off by default. The ones marked "coming soon" aren't in this 
 | `run_cards` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Draw the Run rows a Claude's cards leave on the rail. |
 | `run_log_pipe` | `""` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). A command a finished run's record is piped through, given the log's name; it prints the path it filed the log at. Empty writes `~/.config/herdr-kit/runlogs/`. |
 | `addons` | `[]` | Add-on mods to run (folder names under Herdr's `mods/`), each in a 0-px block beside the strip. Rerun `./install.sh` after changing it. See [docs/addons.md](docs/addons.md). |
+| `jira_url` | `""` | kit-jira: your Jira site, such as `https://acme.atlassian.net`. Empty leaves the badges and rows without a link. |
+| `acli` | `""` | kit-jira: the path to Atlassian's `acli`. Empty tries `/opt/homebrew/bin/acli`, `/usr/local/bin/acli`, then `acli` on Herdr's PATH. |
+| `jira_projects` | `[]` | kit-jira: the project keys to look up, such as `["ACME"]`. Empty looks up any name that starts like a key, so `GPT-4 notes` is asked about too, which costs one search per key that minute. |
+| `jira_mine` | `false` | kit-jira: list your own tickets no Claude is on, under the rail's Claudes. |
+| `jira_mine_jql` | `assignee = currentUser() AND statusCategory = "In Progress" ORDER BY updated DESC` | kit-jira: which tickets count as yours for `jira_mine` (at most 20 are shown). |
+| `jira_publish` | `true` | kit-jira: write the badge and row keys. `false` leaves them to another add-on that reads kit-jira's `kit.jira` key instead (see [docs/addons.md](docs/addons.md)). |
 | `look.glass` | `0.6` | How solid the glass tint over the sidebar, tab bar and status bar is (0..1). `false` keeps them solid. Rerun `./install.sh` after changing it. |
 
 ## Add-ons
 
 A mod listed in `addons` can put a badge on a Claude's rail card, add rows for work no Claude is on, and add buttons to the strip, all through shared keys. The kit itself holds no add-on logic. See [docs/addons.md](docs/addons.md).
+
+### Jira tickets (kit-jira)
+
+`kit-jira` ships with the kit and does nothing until `addons` lists it. With it on, a Claude whose name starts with a Jira key (`/rename ACME-12 fix the upload`) gets the ticket's status and summary in place of its hint line, as `In Progress · fix the upload`. With `jira_url` set, a click on the line opens the ticket, and the grid places Claudes on the same ticket side by side. With `jira_mine` on, your tickets that no Claude is on are listed under the rail's Claudes.
+
+To turn it on:
+
+1. Install Atlassian's CLI, `acli` ([install guide](https://developer.atlassian.com/cloud/acli/guides/install-acli/)), and log in to your Jira site with it.
+2. Add `"kit-jira"` to `addons` and set `jira_url` in `~/.config/herdr-kit/config.json`:
+
+   ```json
+   { "addons": ["kit-jira"], "jira_url": "https://acme.atlassian.net", "jira_projects": ["ACME"] }
+   ```
+
+3. Rerun `./install.sh`, so the layout gets the add-on's block.
+4. Restart Herdr. A new mod folder loads only on a restart.
+
+Herdr is a desktop app, so the programs it runs may not see your shell's PATH. Set `acli` to the full path (`which acli`) if yours isn't in `/opt/homebrew/bin` or `/usr/local/bin`. Without `acli`, kit-jira logs one line and shows nothing until Herdr restarts. Other failures, such as an expired login, are logged and retried a minute later, and the badges keep the last status read. A name that only looks like a key (`UTF-8 notes`) makes Jira reject the batched search, so kit-jira then asks about each key alone; set `jira_projects` to skip such names. kit-jira reads its config when it starts: after changing a `jira_` key or `addons`, rerun `./install.sh`, which reloads the mods.
+
+The badge also carries the Claude's PR state (`In Progress · #12 ● · fix the upload`) when `pr_status` is on, which is coming soon (see Opt-in extras). Without it, badges show the status and summary only. kit-jira reads Jira and never changes a ticket.
 
 ## Contributing
 

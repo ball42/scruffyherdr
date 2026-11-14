@@ -14,12 +14,13 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const IN_PRIVATE = existsSync(join(ROOT, "public"));
 
 // Built from pieces so this file passes its own scan: a macOS home folder,
-// account and domain names, a LAN address, notes and recall tools, an issue
-// tracker and its keys, a first name, and project names. The account name is
-// allowed only as the public repo's own path (the README's clone URL).
+// account and domain names, a LAN address, notes and recall tools, an
+// employer and its ticket keys, a first name, and project names. The account
+// name is allowed only as the public repo's own path (the README's clone URL).
+// Jira itself is fair game (the kit-jira add-on); a site name isn't.
 export const PERSONAL = new RegExp(
   [
-    "\\/Us" + "ers\\/", "ball" + "42(?!\\/scruffyherdr(?![\\w-]))", "reli" + "quary", "claude-" + "recall", "ac" + "li", "ji" + "ra", "atlas" + "sian",
+    "\\/Us" + "ers\\/", "ball" + "42(?!\\/scruffyherdr(?![\\w-]))", "reli" + "quary", "claude-" + "recall", "ja" + "mf",
     "ball" + "\\.works", "192" + "\\.168\\.", "\\bH" + "AL-\\d", "\\bch" + "ris\\b",
     "plex" + "-hub", "green" + "-thumb", "roll" + "-call", "pick" + "-ems", "Pycharm" + "Projects",
   ].join("|"),
@@ -174,10 +175,12 @@ test("metadata checks: EXIF and COM in a JPEG, text and EXIF chunks in a PNG", (
 
 test("the scrub's pattern catches each kind of string it guards", () => {
   for (const s of [
-    "/Us" + "ers/x", "ball" + "42", "reli" + "quary", "ac" + "li", "Ji" + "ra", "ball" + ".works", "192" + ".168.0.1",
-    "H" + "AL-12", "Ch" + "ris", "plex" + "-hub", "Pycharm" + "Projects",
+    "/Us" + "ers/x", "ball" + "42", "reli" + "quary", "ja" + "mf", "https://" + "ja" + "mf.atlassian.net", "ball" + ".works",
+    "192" + ".168.0.1", "H" + "AL-12", "Ch" + "ris", "plex" + "-hub", "Pycharm" + "Projects",
   ]) assert.match(s, PERSONAL, s);
-  for (const s of ["/home/me", "the user", "ACME-12", "christmas", "web-app"]) assert.doesNotMatch(s, PERSONAL, s);
+  for (const s of ["/home/me", "the user", "ACME-12", "christmas", "web-app", "kit-jira", "acli", "https://example.atlassian.net"]) {
+    assert.doesNotMatch(s, PERSONAL, s);
+  }
   // the public repo's own URL is the one place the account name may appear
   assert.doesNotMatch("https://github.com/" + "ball" + "42/scruffyherdr.git", PERSONAL);
   for (const s of ["github.com/" + "ball" + "42/herdr-kit", "ball" + "42/scruffyherdr-private", "@" + "ball" + "42"]) assert.match(s, PERSONAL, s);
