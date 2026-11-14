@@ -1401,5 +1401,57 @@ else
   fail "an overlay outside the checkout keeps its picture override"
 fi
 
+# An unknown argument (a typo, the old --export, a stray word, two modes) prints the usage and
+# exits 2 before touching anything: HOME and HERDR_APP_HOME list the same before and after.
+# The overlay script is there too, so a run that got past the arguments would show.
+# Names, link targets and checksums, so an edit in place shows too.
+listing() {
+  for d in "$HOME" "$HERDR_APP_HOME"; do
+    (cd "$d" && find . | LC_ALL=C sort | while read -r f; do
+      if [ -L "$f" ]; then echo "$f -> $(readlink "$f")"
+      elif [ -f "$f" ]; then echo "$f $(cksum < "$f")"
+      else echo "$f"; fi
+    done)
+  done
+}
+fresh
+OV="$(mktemp -d)"
+printf 'echo ran >> "%s/ran"\n' "$OV" > "$OV/install.sh"
+BEFORE="$(listing)"
+for args in "--chek" "--export" "--export out.bundle" "--hooks --chek" "--check extra" "--check --uninstall" "-h" "install" ""; do
+  rc=0
+  if [ -z "$args" ]; then
+    OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" "" </dev/null 2>&1)" || rc=$?
+  else
+    # $args splits into words on purpose.
+    # shellcheck disable=SC2086
+    OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" $args </dev/null 2>&1)" || rc=$?
+  fi
+  if [ "$rc" = 2 ] && echo "$OUT" | grep -q "^usage: ./install.sh" && [ "$(listing)" = "$BEFORE" ] && [ ! -e "$OV/ran" ]; then
+    pass "unknown arguments '$args' print the usage, exit 2 and touch nothing"
+  else
+    fail "unknown arguments '$args' print the usage, exit 2 and touch nothing (rc $rc)"
+  fi
+done
+# The usage goes to stderr, so a script reading stdout gets nothing.
+if [ -z "$("$REPO/install.sh" --chek 2>/dev/null)" ]; then pass "the usage goes to stderr"; else fail "the usage goes to stderr"; fi
+
+# The known arguments still work, and --hooks / --no-hooks sit on either side of the mode.
+fresh
+if "$REPO/install.sh" --no-hooks </dev/null >/dev/null 2>&1 && [ -L "$HERDR_APP_HOME/mods/herdr-signals" ]; then
+  pass "--no-hooks still installs"
+else
+  fail "--no-hooks still installs"
+fi
+rc=0; "$REPO/install.sh" --check --no-hooks </dev/null >/dev/null 2>&1 || rc=$?
+rc2=0; "$REPO/install.sh" --no-hooks --check </dev/null >/dev/null 2>&1 || rc2=$?
+if [ "$rc" = 0 ] && [ "$rc2" = 0 ]; then pass "--check takes --no-hooks on either side"; else fail "--check takes --no-hooks on either side (rc $rc, $rc2)"; fi
+OUT="$("$REPO/install.sh" --hooks --uninstall </dev/null 2>&1)"; rc=$?
+if [ "$rc" = 0 ] && echo "$OUT" | grep -q "^removed the Claude name and card hooks"; then
+  pass "--uninstall takes --hooks before it"
+else
+  fail "--uninstall takes --hooks before it (rc $rc)"
+fi
+
 echo
 if [ $FAILS -eq 0 ]; then echo "all passed"; exit 0; else echo "$FAILS failed"; exit 1; fi

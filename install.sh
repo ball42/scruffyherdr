@@ -9,6 +9,7 @@
 #                         exists and neither is given, install behaves as --hooks.
 #                         With the hooks, install also wraps Claude Code's status line so ctx-tap
 #                         gets fed (claude/statusline.mjs), unless something already feeds it.
+# Any other argument, or two modes, prints the usage and exits 2 before anything is touched.
 # When an overlay script exists (HERDR_KIT_PRIVATE, else private/install.sh: its add-ons, settings,
 # keys, config keys and the pictures and glyph layers in herdr/ beside it that replace the kit's),
 # install, --check and --uninstall run it last. The contract: docs/addons.md, Overlays.
@@ -16,6 +17,44 @@
 set -eu
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
+
+usage() {
+  cat >&2 <<'EOF'
+usage: ./install.sh [--check | --uninstall] [--hooks | --no-hooks]
+  (no mode)    link everything and build the scruffy layout
+  --check      report links that drifted (exit 1 on any)
+  --uninstall  remove the Claude hooks, the kit keys and the kit layout
+  --hooks      add the Claude Code hooks without asking
+  --no-hooks   skip the Claude Code hooks
+EOF
+}
+
+# Read the arguments before anything else runs, so an unknown one (a typo, or the old --export)
+# prints the usage and exits 2 having touched nothing.
+# --hooks / --no-hooks can sit anywhere; at most one mode, --check or --uninstall.
+HOOKS_FLAG=""
+MODE=""
+for arg in "$@"; do
+  case "$arg" in
+    --hooks) [ "$HOOKS_FLAG" = "no" ] || HOOKS_FLAG=yes ;;
+    --no-hooks) HOOKS_FLAG=no ;;
+    --check|--uninstall)
+      if [ -n "$MODE" ]; then
+        echo "install.sh: one mode at a time ($MODE, then $arg)" >&2
+        usage
+        exit 2
+      fi
+      MODE="$arg"
+      ;;
+    *)
+      echo "install.sh: unknown argument: $arg" >&2
+      usage
+      exit 2
+      ;;
+  esac
+done
+[ -n "$MODE" ] || MODE=install
+
 SRC="$REPO/herdr"
 APP_HOME="${HERDR_APP_HOME:-$HOME/.config/herdr-app}"
 KIT_HOME="$HOME/.config/herdr-kit"
@@ -26,16 +65,6 @@ KIT_LAYOUTS="$(node "$REPO/scripts/make-layout.js" --list 2>/dev/null || true)"
 LEGACY_LAYOUTS="$(node "$REPO/scripts/make-layout.js" --legacy 2>/dev/null || true)"
 # The one layout's old name (scenes.js OLD_KIT_LAYOUT), one of LEGACY_LAYOUTS.
 OLD_KIT_LAYOUT="$(node "$REPO/scripts/make-layout.js" --old 2>/dev/null || true)"
-# --hooks / --no-hooks can sit anywhere; the rest stay positional.
-HOOKS_FLAG=""
-for arg in "$@"; do
-  case "$arg" in
-    --hooks) [ "$HOOKS_FLAG" = "no" ] || HOOKS_FLAG=yes; shift ;;
-    --no-hooks) HOOKS_FLAG=no; shift ;;
-    *) set -- "$@" "$arg"; shift ;;
-  esac
-done
-MODE="${1:-install}"
 # The overlay's script (docs/addons.md, Overlays): HERDR_KIT_PRIVATE names it, else private/install.sh.
 PRIVATE="${HERDR_KIT_PRIVATE:-$REPO/private/install.sh}"
 HOOK_CMD="node \"$REPO/claude/name-hook.mjs\""

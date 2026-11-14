@@ -73,6 +73,8 @@ Check the install, or undo it:
 ./install.sh --uninstall
 ```
 
+`--hooks` and `--no-hooks` go with either. Any other argument prints the usage and exits 2 without changing anything.
+
 Uninstall removes the hooks and the kit's key bindings, and puts your old status line back exactly as it was if it's still the kit's wrapper. It leaves the links in `~/.config/herdr-app/` (`mods/`, `themes/`, `backgrounds/`, `glyphs/` and `layouts/scruffy.svg`) and your config in place: remove the links by hand, or delete them before you delete the clone, or Herdr is left with links to nothing.
 
 ## Keys
