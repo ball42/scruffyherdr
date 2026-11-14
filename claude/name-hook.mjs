@@ -44,6 +44,10 @@ function main() {
   if (!terminal || !/^[A-Za-z0-9_-]+$/.test(terminal)) return;
   const input = JSON.parse(readFileSync(0, "utf8"));
   const event = input.hook_event_name;
+  // A background subagent's tool calls carry the parent's session_id and an
+  // agent_id (set only inside a subagent). They must not touch the parent's
+  // record, or a subagent's next command wipes the Decide buttons.
+  if (event === "PreToolUse" && typeof input.agent_id === "string" && input.agent_id) return;
   // PermissionRequest and PreToolUse fire on every tool call: patch the file, never read the transcript.
   const fast = event === "PermissionRequest" || event === "PreToolUse";
   if (!fast && !input.transcript_path) return;

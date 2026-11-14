@@ -332,6 +332,23 @@ test("name-hook card: decide, then Stop sets the kind, a prompt clears it", () =
   assert.equal(h.read().card, null);
 });
 
+test("name-hook: a subagent's tool call keeps the parent's question", () => {
+  const h = nameSetup();
+  h.run("SessionStart");
+  const tool_input = { questions: [{ question: "Ship it?", header: "Ship", options: [{ label: "Yes", description: "go" }, { label: "No", description: "wait" }] }] };
+  h.run("PreToolUse", { tool_name: "AskUserQuestion", tool_input });
+  const before = h.read();
+  assert.ok(before.menu);
+  h.run("PreToolUse", { tool_name: "Bash", tool_input: { command: "sed -n 1p x" }, agent_id: "a123", agent_type: "general-purpose" });
+  const after = h.read();
+  assert.deepEqual(after.menu, before.menu);
+  assert.equal(after.card, "decide");
+  assert.deepEqual(after.tool, before.tool);
+  // The parent's own next tool call still clears the menu.
+  h.run("PreToolUse", { tool_name: "Bash", tool_input: { command: "ls" } });
+  assert.equal(h.read().menu, null);
+});
+
 test("name-hook card: Stop falls back to the transcript", () => {
   const msg = JSON.stringify({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text: "Which name?" }] } });
   const h = nameSetup([msg]);
