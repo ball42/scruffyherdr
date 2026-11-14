@@ -21,6 +21,10 @@
 <td><picture><source media="(prefers-color-scheme: light)" srcset="docs/shots/kamino-day.jpg"><img src="docs/shots/kamino-night.jpg" alt="Kamino"></picture></td>
 <td><picture><source media="(prefers-color-scheme: light)" srcset="docs/shots/small-moon-day.jpg"><img src="docs/shots/small-moon-night.jpg" alt="Small Moon"></picture></td>
 </tr>
+<tr>
+<td><picture><source media="(prefers-color-scheme: light)" srcset="docs/shots/mustafar-day.jpg"><img src="docs/shots/mustafar-night.jpg" alt="Mustafar"></picture></td>
+<td><picture><source media="(prefers-color-scheme: light)" srcset="docs/shots/asteroid-belt-day.jpg"><img src="docs/shots/asteroid-belt-night.jpg" alt="Asteroid Belt"></picture></td>
+</tr>
 </table>
 
 A layout for [Herdr](https://herdr.dev) that makes "this Claude needs you" hard to miss, dressed in twelve Star Wars scenes that follow your Mac from night to day.
