@@ -69,10 +69,11 @@ OLD_KIT_LAYOUT="$(node "$REPO/scripts/make-layout.js" --old 2>/dev/null || true)
 PRIVATE="${HERDR_KIT_PRIVATE:-$REPO/private/install.sh}"
 HOOK_CMD="node \"$REPO/claude/name-hook.mjs\""
 CARD_CMD="node \"$REPO/claude/card-hook.mjs\""
-# On every tool call (PreToolUse, PermissionRequest) the name hook only patches
-# its file and decides nothing, so it runs async: Claude doesn't wait ~150 ms of
-# node startup. The events that read the transcript stay synchronous.
-NAME_EVENTS=SessionStart,UserPromptSubmit,Stop,Notification,PermissionRequest:async,PreToolUse:async
+# The name hook only writes its file and tells Claude nothing, so every event runs
+# async: Claude never waits on node's startup, which takes ~150 ms on a quiet Mac
+# and past Claude's 30 s hook timeout on a loaded one. The card hook stays
+# synchronous: its Stop answer is what makes Claude rewrite a reply.
+NAME_EVENTS=SessionStart:async,UserPromptSubmit:async,Stop:async,Notification:async,PermissionRequest:async,PreToolUse:async
 CARD_EVENTS=SessionStart,Stop
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 # The status line install replaced, kept for statusline.mjs and for --uninstall.
