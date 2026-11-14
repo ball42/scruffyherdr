@@ -650,15 +650,12 @@ if [ "$(jget "$HOME/.claude/settings.json" hooks.PermissionRequest.0.hooks.0.com
 else
   fail "hooks PermissionRequest and PreToolUse"
 fi
-# the per-tool-call events run async; the transcript-reading ones stay synchronous
-if [ "$(jget "$HOME/.claude/settings.json" hooks.PreToolUse.0.hooks.0.async)" = "true" ] \
-  && [ "$(jget "$HOME/.claude/settings.json" hooks.PermissionRequest.0.hooks.0.async)" = "true" ] \
-  && [ -z "$(jget "$HOME/.claude/settings.json" hooks.Stop.0.hooks.0.async)" ] \
-  && [ -z "$(jget "$HOME/.claude/settings.json" hooks.UserPromptSubmit.0.hooks.0.async)" ]; then
-  pass "name hook is async on PreToolUse and PermissionRequest only"
-else
-  fail "name hook is async on PreToolUse and PermissionRequest only"
-fi
+# the name hook runs async on every event, so Claude never waits on it
+async_all=yes
+for ev in SessionStart UserPromptSubmit Stop Notification PermissionRequest PreToolUse; do
+  [ "$(jget "$HOME/.claude/settings.json" hooks.$ev.0.hooks.0.async)" = "true" ] || async_all=no
+done
+if [ "$async_all" = "yes" ]; then pass "name hook is async on every event"; else fail "name hook is async on every event"; fi
 
 # the new key bindings are added, and cmd-shift-g toggles the view
 fresh

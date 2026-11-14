@@ -120,3 +120,22 @@ test("gitBranch reads the branch from a repo and from a worktree", async () => {
   assert.equal(gitBranch(join(root, "wt")), "ACME-1949-x");
   assert.equal(gitBranch(root), null);
 });
+
+test("a first prompt on a long transcript finishes inside 2 s", () => {
+  // First sight of the session reads the whole transcript once: give it ~4 MB.
+  const line = JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "x".repeat(2000) }] } });
+  const h = setup([JSON.stringify({ type: "custom-title", customTitle: "Night Shift" }), ...Array(2000).fill(line)]);
+  const t0 = performance.now();
+  const r = h.run("UserPromptSubmit", { prompt: "go" });
+  const ms = performance.now() - t0;
+  assert.equal(r.status, 0);
+  assert.equal(h.read().name, "Night Shift");
+  assert.ok(ms < 2000, `took ${Math.round(ms)} ms`);
+});
+
+test("install runs the name hook async on every event, so Claude never waits on it", () => {
+  const sh = readFileSync(join(dirname(HOOK), "..", "install.sh"), "utf8");
+  const events = sh.match(/^NAME_EVENTS=(.+)$/m)[1].split(",");
+  assert.deepEqual(events.map((e) => e.split(":")[0]), ["SessionStart", "UserPromptSubmit", "Stop", "Notification", "PermissionRequest", "PreToolUse"]);
+  for (const e of events) assert.match(e, /:async$/, `${e} is synchronous`);
+});
