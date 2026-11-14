@@ -15,5 +15,11 @@
   "run_cards": false,
   "pr_status": false,
   "run_log_pipe": "",
-  "gh": "/opt/homebrew/bin/gh"
+  "gh": "/opt/homebrew/bin/gh",
+  "jira_url": "",
+  "acli": "",
+  "jira_projects": [],
+  "jira_mine": false,
+  "jira_mine_jql": "assignee = currentUser() AND statusCategory = \"In Progress\" ORDER BY updated DESC",
+  "jira_publish": true
 }

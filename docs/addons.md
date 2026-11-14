@@ -106,9 +106,27 @@ The model, `shared("herdr-kit")`, gives each Claude in `agents[]`:
 
 Compute badges from the model you read now. A saved agent list can name a terminal address that now belongs to a different Claude.
 
-## One add-on per key
+## One writer per key
 
-Each key holds one value, so two add-ons writing the same key overwrite each other. Run one add-on that owns all three keys, so there is one block and one writer. A second add-on would have to merge its entries into the existing value, or the contract would grow per-add-on keys.
+Each key holds one value, so two add-ons writing the same key overwrite each other. Every key has one writer. Two add-ons can run side by side only when they write different keys: one writes `badges` and `rows`, say, and the other writes `buttons`. Neither may write the other's keys, not even the empty values at init. Anything else needs one add-on to own the shared key and merge the other's entries into it.
+
+### kit-jira
+
+`herdr/mods/kit-jira` is the add-on the kit ships (README, Add-ons). It writes `kit.addon.badges` and `kit.addon.rows`, never `buttons`, and it reads no presses. It writes nothing at all unless `addons` lists it.
+
+It also writes its own key, `kit.jira`, on the same cadence:
+
+```ts
+type JiraFeed = {
+  at: number;                                    // epoch ms, as above
+  tickets: { [key: string]: { status: string; category: string | null; summary: string } };
+  keys: { [address: string]: string };           // each Claude's ticket key, from the model kit-jira read
+  badges: { [address: string]: Badge };          // what it would publish as kit.addon.badges
+  rows: Row[];                                   // and as kit.addon.rows
+};
+```
+
+With config `jira_publish` set to `false`, kit-jira writes only `kit.jira`. Another add-on can then own the badge and row keys, take Jira's entries from `kit.jira`, and merge in its own, so each key still has one writer. That add-on judges `kit.jira` by its `at`, as herdr-signals does.
 
 ## Overlays
 
