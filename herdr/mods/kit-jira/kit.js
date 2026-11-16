@@ -123,6 +123,16 @@ export function splitKeys(keys, bad, now) {
   return { batch, retry, bad: kept };
 }
 
+/**
+ * Whether a failed search's error names the key, as Jira's does for a key that
+ * isn't one (`The value 'UTF-8' does not exist for the field 'key'.`). An
+ * outage or a timeout names no key, so it never marks a key bad.
+ */
+export function rejectsKey(stderr, key) {
+  const esc = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^A-Za-z0-9_-])${esc}($|[^A-Za-z0-9_-])`).test(String(stderr ?? ""));
+}
+
 /** "My tickets" right away, then every 5 minutes. */
 export function mineDue(last, now) {
   if (last.busy || last.off) return false;

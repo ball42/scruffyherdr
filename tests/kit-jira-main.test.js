@@ -265,7 +265,58 @@ test("a bad key is forgotten once no Claude is named after it", async () => {
   });
 });
 
-test("when every key fails alone too, none is marked bad: the next minute tries the whole batch", async () => {
+test("names that only look like keys, and no real ticket: one fan-out, then nothing but the 15-minute looks", async () => {
+  await quietly(async () => {
+    const { cx } = await start({ exec: jira() });
+    host.shared["herdr-kit"].agents = [
+      { address: "t1", name: "UTF-8 notes", rawHint: null, pr: null },
+      { address: "t2", name: "GPT-4 tries", rawHint: null, pr: null },
+    ];
+    await cx.advance(4000);
+    assert.equal(searches().length, 3, "the batch, then each key alone");
+    host.execs.length = 0;
+    await cx.advance(10 * 60_000);
+    assert.equal(searches().length, 0, "no fan-out every minute");
+    await cx.advance(6 * 60_000);
+    assert.deepEqual(searches().map(([, a]) => a[4]).sort(), ["key in (GPT-4)", "key in (UTF-8)"]);
+  });
+});
+
+test("one name alone that Jira rejects: not searched every minute", async () => {
+  await quietly(async () => {
+    const { cx } = await start({ exec: jira() });
+    host.shared["herdr-kit"].agents = [{ address: "t1", name: "UTF-8 notes", rawHint: null, pr: null }];
+    await cx.advance(4000);
+    host.execs.length = 0;
+    await cx.advance(10 * 60_000);
+    assert.equal(searches().length, 0);
+    assert.deepEqual(last("kit.jira").tickets, {});
+    host.shared["herdr-kit"].agents.push({ address: "t2", name: "ACME-1645 x", rawHint: null, pr: null });
+    await cx.advance(4000);
+    assert.equal(last("kit.addon.badges").items.t2.short, "ACME-1645 In Progress", "a real key added later badges");
+  });
+});
+
+test("a key whose own search fails with no word on the key keeps its badge and stays in the batch", async () => {
+  await quietly(async () => {
+    let flaky = false;
+    const base = jira();
+    const { cx, started } = await start({
+      exec: async (c, a) => (flaky && a[4] === "key in (ACME-1645)" ? { code: 1, stdout: "", stderr: "timed out" } : base(c, a)),
+    });
+    await cx.advance(4000);
+    host.shared["herdr-kit"].agents.push({ address: "t2", name: "UTF-8 notes", rawHint: null, pr: null });
+    flaky = true;
+    await cx.advance(2000);
+    assert.equal(read(started).badges.t1.short, "ACME-1645 In Progress", "the last ticket is kept");
+    flaky = false;
+    host.execs.length = 0;
+    await cx.advance(60_000);
+    assert.deepEqual(searches().map(([, a]) => a[4]), ["key in (ACME-1645)"], "still batched, the rejected key left out");
+  });
+});
+
+test("an outage names no key, so none is marked bad: the next minute tries the whole batch", async () => {
   await quietly(async () => {
     const { cx } = await start({ exec: async (c, a) => (a[2] === "search" ? { code: 1, stdout: "", stderr: "unauthorized" } : acliOk(c, a)) });
     host.shared["herdr-kit"].agents.push({ address: "t2", name: "ACME-7 x", rawHint: null, pr: null });
