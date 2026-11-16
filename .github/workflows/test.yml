@@ -15,5 +15,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: scrub the PR's title, body and commit messages
+        if: github.event_name == 'pull_request'
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          { printf '%s\n%s\n' "$TITLE" "$BODY"; git log --format='%B' "$BASE..$HEAD"; } | node scripts/scrub-text.mjs
       - run: npm test
       - run: bash tests/install.test.sh
