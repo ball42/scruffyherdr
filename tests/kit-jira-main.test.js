@@ -204,6 +204,78 @@ test("one unknown key fails the batch: each key is searched alone, and the good 
   });
 });
 
+// acli that knows ACME-1645, and ACME-7 once `made` is set; any other key in a search fails it.
+function jira(made = () => false) {
+  return async (c, a) => {
+    if (a[2] !== "search" || !a[4].startsWith("key in")) return acliOk(c, a);
+    const keys = a[4].slice("key in (".length, -1).split(",");
+    const unknown = keys.find((k) => k !== "ACME-1645" && !(k === "ACME-7" && made()));
+    if (unknown) return { code: 1, stdout: "", stderr: `The value '${unknown}' does not exist for the field 'key'.` };
+    const rows = keys.map((k) => ({ key: k, fields: { summary: k === "ACME-7" ? "Seventh" : "Retry the upload", status: { name: "In Progress", statusCategory: { key: "indeterminate" } } } }));
+    return { code: 0, stdout: JSON.stringify(rows), stderr: "" };
+  };
+}
+
+test("a key that fails alone is left out of the batch: one search a minute, and it is asked about alone every 15 minutes", async () => {
+  await quietly(async (logs) => {
+    const { cx, started } = await start({ exec: jira() });
+    host.shared["herdr-kit"].agents.push({ address: "t2", name: "UTF-8 notes", rawHint: null, pr: null });
+    await cx.advance(4000);
+    assert.equal(searches().length, 3, "the batch, then each key alone");
+    host.execs.length = 0;
+    await cx.advance(10 * 60_000);
+    assert.deepEqual([...new Set(searches().map(([, a]) => a[4]))], ["key in (ACME-1645)"], "the bad key is left out");
+    assert.equal(searches().length, 10, "one search a minute, no fan-out");
+    assert.equal(read(started).badges.t1.short, "ACME-1645 In Progress");
+    host.execs.length = 0;
+    await cx.advance(6 * 60_000);
+    assert.equal(searches().filter(([, a]) => a[4] === "key in (UTF-8)").length, 1, "asked about alone once, 15 minutes on");
+    assert.equal(logs.filter((m) => m.includes("no ticket for UTF-8")).length, 1, "logged once");
+  });
+});
+
+test("a bad key that turns into a ticket badges at its next solo look, then joins the batch", async () => {
+  await quietly(async () => {
+    let made = false;
+    const { cx, started } = await start({ exec: jira(() => made) });
+    host.shared["herdr-kit"].agents.push({ address: "t2", name: "ACME-7 new work", rawHint: null, pr: null });
+    await cx.advance(4000);
+    assert.equal(read(started).badges.t2, undefined);
+    made = true;
+    await cx.advance(16 * 60_000);
+    assert.equal(read(started).badges.t2.short, "ACME-7 In Progress");
+    host.execs.length = 0;
+    await cx.advance(60_000);
+    assert.deepEqual(searches().map(([, a]) => a[4]), ["key in (ACME-1645,ACME-7)"]);
+  });
+});
+
+test("a bad key is forgotten once no Claude is named after it", async () => {
+  await quietly(async () => {
+    const { cx } = await start({ exec: jira() });
+    const agents = host.shared["herdr-kit"].agents;
+    agents.push({ address: "t2", name: "UTF-8 notes", rawHint: null, pr: null });
+    await cx.advance(4000);
+    agents.pop();
+    await cx.advance(2000);
+    agents.push({ address: "t2", name: "UTF-8 notes", rawHint: null, pr: null });
+    host.execs.length = 0;
+    await cx.advance(2000);
+    assert.deepEqual(searches().map(([, a]) => a[4]), ["key in (ACME-1645,UTF-8)", "key in (ACME-1645)", "key in (UTF-8)"], "a fresh look");
+  });
+});
+
+test("when every key fails alone too, none is marked bad: the next minute tries the whole batch", async () => {
+  await quietly(async () => {
+    const { cx } = await start({ exec: async (c, a) => (a[2] === "search" ? { code: 1, stdout: "", stderr: "unauthorized" } : acliOk(c, a)) });
+    host.shared["herdr-kit"].agents.push({ address: "t2", name: "ACME-7 x", rawHint: null, pr: null });
+    await cx.advance(4000);
+    host.execs.length = 0;
+    await cx.advance(60_000);
+    assert.equal(searches()[0][1][4], "key in (ACME-1645,ACME-7)");
+  });
+});
+
 test("a failed search keeps the last tickets", async () => {
   let fail = false;
   const { cx } = await start({ exec: async (c, a) => (fail && a[2] === "search" ? { code: 1, stdout: "", stderr: "unauthorized" } : acliOk(c, a)) });

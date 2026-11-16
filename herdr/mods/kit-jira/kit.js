@@ -18,6 +18,8 @@ export const TICK_MS = 2000; // herdr-signals' default poll
 export const REPUBLISH_MS = 15_000;
 export const SEARCH_MS = 60_000; // Jira status drifts slowly
 export const MINE_MS = 300_000; // the list only changes when tickets are assigned or moved
+// A key Jira rejected on its own is asked about alone this often, outside the batch.
+export const BAD_MS = 15 * 60_000;
 
 export const NAME = "kit-jira";
 
@@ -100,6 +102,25 @@ export function publishDue(sig, last, now) {
 export function searchDue(keys, last, now) {
   if (!keys.length || last.busy || last.off) return false;
   return keys.join(",") !== last.sig || now - last.at >= SEARCH_MS;
+}
+
+/**
+ * Split the keys for one search turn. `bad` maps each key Jira rejected on its
+ * own to when it was last asked about. The batch leaves those out, so one bad
+ * name can't fail it and set off a search per key every minute; each bad key
+ * is asked about alone once BAD_MS has passed (`retry`). A key no Claude is
+ * named after any more is dropped from `bad`, so a new name gets a fresh look.
+ */
+export function splitKeys(keys, bad, now) {
+  const kept = {};
+  const batch = [];
+  const retry = [];
+  for (const k of keys) {
+    if (!(k in bad)) { batch.push(k); continue; }
+    kept[k] = bad[k];
+    if (now - bad[k] >= BAD_MS) retry.push(k);
+  }
+  return { batch, retry, bad: kept };
 }
 
 /** "My tickets" right away, then every 5 minutes. */
