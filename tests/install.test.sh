@@ -64,11 +64,11 @@ echo '{"discord_webhook":"keep-me"}' > "$CFG"
 if grep -q keep-me "$CFG"; then pass "keeps existing config"; else fail "keeps existing config"; fi
 
 # --check passes on a clean install
-if "$REPO/install.sh" --check >/dev/null 2>&1; then pass "check clean"; else fail "check clean"; fi
+if "$REPO/install.sh" --check --verbose >/dev/null 2>&1; then pass "check clean"; else fail "check clean"; fi
 
 # the gallery's files (herdr/keys.json, RECIPE.md, preview.png, layouts/scruffy.json) are never linked
 if [ ! -L "$HERDR_APP_HOME/keys.json" ] && [ ! -e "$HERDR_APP_HOME/RECIPE.md" ] && [ ! -e "$HERDR_APP_HOME/preview.png" ] \
-  && [ ! -L "$HERDR_APP_HOME/layouts/scruffy.json" ] && ! "$REPO/install.sh" --check 2>&1 | grep -qE "RECIPE|preview.png"; then
+  && [ ! -L "$HERDR_APP_HOME/layouts/scruffy.json" ] && ! "$REPO/install.sh" --check --verbose 2>&1 | grep -qE "RECIPE|preview.png"; then
   pass "the gallery files stay unlinked, and check doesn't ask for them"
 else
   fail "the gallery files stay unlinked, and check doesn't ask for them"
@@ -79,7 +79,7 @@ LINKED=themes/github-dark-colorblind.json
 [ -n "$HAS_PRIVATE" ] && LINKED=settings.json
 rm "$HERDR_APP_HOME/$LINKED"
 echo '{}' > "$HERDR_APP_HOME/$LINKED"
-OUT="$("$REPO/install.sh" --check 2>&1)"; RC=$?
+OUT="$("$REPO/install.sh" --check --verbose 2>&1)"; RC=$?
 if [ $RC -ne 0 ] && echo "$OUT" | grep -q "DRIFT .*$LINKED"; then
   pass "check reports drift"
 else
@@ -128,7 +128,7 @@ else
   fail "reinstall keeps the scene and the rail size"
 fi
 rm -f "$L"
-if "$REPO/install.sh" --check 2>&1 | grep -q "DRIFT .*layouts/scruffy.json"; then
+if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "DRIFT .*layouts/scruffy.json"; then
   pass "check reports a missing scruffy layout"
 else
   fail "check reports a missing scruffy layout"
@@ -445,7 +445,7 @@ OUT="$("$REPO/install.sh" 2>&1)"
 if echo "$OUT" | grep -q "launch Herdr once"; then pass "warns without main layout"; else fail "warns without main layout"; fi
 
 # --check flags a missing kit layout
-if "$REPO/install.sh" --check 2>&1 | grep -q "DRIFT .*layouts/scruffy.json"; then
+if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "DRIFT .*layouts/scruffy.json"; then
   pass "check reports missing kit layout"
 else
   fail "check reports missing kit layout"
@@ -455,23 +455,23 @@ fi
 fresh
 "$REPO/install.sh" >/dev/null 2>&1
 SRC_COPY="$HOME/.config/herdr-kit/layout-source.json"
-if [ -f "$SRC_COPY" ] && "$REPO/install.sh" --check 2>&1 | grep -q "ok    .*layouts/scruffy.json" \
-  && ! "$REPO/install.sh" --check 2>&1 | grep -q "main layout changed"; then
+if [ -f "$SRC_COPY" ] && "$REPO/install.sh" --check --verbose 2>&1 | grep -q "ok    .*layouts/scruffy.json" \
+  && ! "$REPO/install.sh" --check --verbose 2>&1 | grep -q "main layout changed"; then
   pass "check passes right after install"
 else
   fail "check passes right after install"
 fi
 # the same layout, rewritten with other spacing and key order, is not a change
 echo '{"type":"column","id":"root","children":[{"type":"row","id":"work-body","children":[{"id":"main","type":"block","content":{"tab":"active"}}]},{"id":"status","type":"block","content":{"mod":"workspace-status"}}]}' > "$HERDR_APP_HOME/layouts/main.json"
-if "$REPO/install.sh" --check 2>&1 | grep -q "main layout changed"; then fail "check ignores a same-content rewrite"; else pass "check ignores a same-content rewrite"; fi
+if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "main layout changed"; then fail "check ignores a same-content rewrite"; else pass "check ignores a same-content rewrite"; fi
 echo '{"id":"root","type":"column","children":[{"id":"status","type":"block","content":{"mod":"workspace-status"}}]}' > "$HERDR_APP_HOME/layouts/main.json"
-if "$REPO/install.sh" --check 2>&1 | grep -q "DRIFT .*main layout changed since install"; then
+if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "DRIFT .*main layout changed since install"; then
   pass "check flags a changed main layout"
 else
   fail "check flags a changed main layout"
 fi
 "$REPO/install.sh" >/dev/null 2>&1
-if "$REPO/install.sh" --check 2>&1 | grep -q "main layout changed"; then fail "reinstall clears the layout drift"; else pass "reinstall clears the layout drift"; fi
+if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "main layout changed"; then fail "reinstall clears the layout drift"; else pass "reinstall clears the layout drift"; fi
 
 # links the bundled wallpaper and puts it in the kit layout
 fresh
@@ -636,7 +636,7 @@ else
   fail "install reloads the mods"
 fi
 touch -t 202001010000 "$REPO/herdr/mods/kit-rail/main.js"
-"$REPO/install.sh" --check >/dev/null 2>&1
+"$REPO/install.sh" --check --verbose >/dev/null 2>&1
 if [ "$(stat -f %m "$REPO/herdr/mods/kit-rail/main.js")" -lt 1600000000 ]; then pass "check doesn't reload the mods"; else fail "check doesn't reload the mods"; fi
 touch "$REPO/herdr/mods/kit-rail/main.js"
 
@@ -755,15 +755,15 @@ else
 fi
 "$REPO/install.sh" --hooks >/dev/null 2>&1
 if [ "$(cardcount "$S")" = "SessionStart,Stop" ]; then pass "card hook re-install is idempotent"; else fail "card hook re-install is idempotent"; fi
-if "$REPO/install.sh" --check 2>&1 | grep -q "ok    $S"; then pass "check reports the hooks ok"; else fail "check reports the hooks ok"; fi
+if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "ok    $S"; then pass "check reports the hooks ok"; else fail "check reports the hooks ok"; fi
 node -e 'const f=process.argv[1],s=JSON.parse(require("fs").readFileSync(f,"utf8"));delete s.hooks.SessionStart;require("fs").writeFileSync(f,JSON.stringify(s))' "$S"
-if "$REPO/install.sh" --check 2>&1 | grep -q "DRIFT $S"; then pass "check reports a missing hook"; else fail "check reports a missing hook"; fi
+if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "DRIFT $S"; then pass "check reports a missing hook"; else fail "check reports a missing hook"; fi
 # an install from before the async flag: every hook present, PreToolUse not async
 "$REPO/install.sh" --hooks >/dev/null 2>&1
 node -e 'const f=process.argv[1],s=JSON.parse(require("fs").readFileSync(f,"utf8"));for(const e of s.hooks.PreToolUse)for(const h of e.hooks)delete h.async;require("fs").writeFileSync(f,JSON.stringify(s))' "$S"
-if "$REPO/install.sh" --check 2>&1 | grep -q "DRIFT $S (name or card hook missing or out of date"; then pass "check reports a hook that lost async"; else fail "check reports a hook that lost async"; fi
+if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "DRIFT $S (name or card hook missing or out of date"; then pass "check reports a hook that lost async"; else fail "check reports a hook that lost async"; fi
 before="$(cat "$S")"
-"$REPO/install.sh" --check >/dev/null 2>&1
+"$REPO/install.sh" --check --verbose >/dev/null 2>&1
 if [ "$(cat "$S")" = "$before" ]; then pass "check writes nothing"; else fail "check writes nothing"; fi
 "$REPO/install.sh" --uninstall >/dev/null 2>&1
 if [ "$(cardcount "$S")" = "" ] && [ "$(hookcount "$S")" = "0" ] && grep -q mine.sh "$S"; then
@@ -802,7 +802,7 @@ if [ "$(cardcount "$HOME/.claude/settings.json")" = "" ] && [ "$(hookcount "$HOM
 # --check on a declined install is not drift
 fresh
 HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" </dev/null >/dev/null 2>&1
-if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check </dev/null 2>&1 | grep -q "skip  .*settings.json"; then pass "check: declined hooks are not drift"; else fail "check: declined hooks are not drift"; fi
+if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check --verbose </dev/null 2>&1 | grep -q "skip  .*settings.json"; then pass "check: declined hooks are not drift"; else fail "check: declined hooks are not drift"; fi
 # --no-hooks leaves settings alone and never asks, private/ or not
 fresh
 mkdir -p "$HOME/.claude"
@@ -868,13 +868,13 @@ for order in "--hooks --no-hooks" "--no-hooks --hooks"; do
   HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" $order </dev/null >/dev/null 2>&1
   if [ "$(cat "$HOME/.claude/settings.json")" = '{"model":"x"}' ]; then pass "--no-hooks wins: $order"; else fail "--no-hooks wins: $order"; fi
 done
-# a failing overlay script stops install before the hooks, saying the overlay failed
+# a failing overlay script, run last after the core's hooks, fails the install, saying the overlay failed
 fresh
 BADPRIV="$(mktemp -d)/install.sh"
 printf '#!/usr/bin/env bash\n[ "${1:-}" = install ] && exit 3\nexit 0\n' > "$BADPRIV"
 OUT="$(HERDR_KIT_PRIVATE=$BADPRIV "$REPO/install.sh" </dev/null 2>&1)"; RC=$?
-if [ $RC -ne 0 ] && echo "$OUT" | grep -qxF "overlay install failed" && ! echo "$OUT" | grep -q "hooks skipped" \
-  && [ ! -f "$HOME/.claude/settings.json" ]; then
+if [ $RC -eq 1 ] && echo "$OUT" | grep -qxF "overlay install failed" && [ "$(echo "$OUT" | tail -n 1)" = "overlay install failed" ] \
+  && grep -q name-hook.mjs "$HOME/.claude/settings.json"; then
   pass "overlay install failure: says the overlay failed, exits non-zero"
 else
   fail "overlay install failure: says the overlay failed, exits non-zero"
@@ -900,7 +900,7 @@ if [ "$(jget "$PREVF" statusLine)" = "$BEFORE" ] && [ "$(jget "$S" statusLine.co
 else
   fail "reinstall keeps the saved old line (never the wrapper)"
 fi
-if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check </dev/null 2>&1 | grep -q "status line wrapped"; then pass "check: status line wrapped"; else fail "check: status line wrapped"; fi
+if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check --verbose </dev/null 2>&1 | grep -q "status line wrapped"; then pass "check: status line wrapped"; else fail "check: status line wrapped"; fi
 HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --uninstall </dev/null >/dev/null 2>&1
 if [ "$(jget "$S" statusLine)" = "$BEFORE" ] && [ ! -e "$PREVF" ] \
   && node -e 'const s=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));process.exit(s.statusLine.command===JSON.parse(process.argv[2]).command?0:1)' "$S" "$OLDLINE"; then
@@ -908,7 +908,7 @@ if [ "$(jget "$S" statusLine)" = "$BEFORE" ] && [ ! -e "$PREVF" ] \
 else
   fail "uninstall restores the old status line byte for byte"
 fi
-if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check </dev/null 2>&1 | grep -q "status line not wrapped"; then pass "check: status line not wrapped"; else fail "check: status line not wrapped"; fi
+if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check --verbose </dev/null 2>&1 | grep -q "status line not wrapped"; then pass "check: status line not wrapped"; else fail "check: status line not wrapped"; fi
 # no status line before: install sets the wrapper, uninstall removes it
 fresh
 S="$HOME/.claude/settings.json"; PREVF="$HOME/.config/herdr-kit/statusline-prev.json"
@@ -947,7 +947,7 @@ if [ "$(jget "$S" statusLine.command)" = "~/.claude/line.sh | node ~/kit/claude/
 else
   fail "a status line that runs ctx-tap is left alone"
 fi
-if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check </dev/null 2>&1 | grep -q "status line already feeds ctx-tap"; then pass "check: status line already wired"; else fail "check: status line already wired"; fi
+if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check --verbose </dev/null 2>&1 | grep -q "status line already feeds ctx-tap"; then pass "check: status line already wired"; else fail "check: status line already wired"; fi
 # a ctx file written in the last day means something already feeds ctx-tap: left alone
 fresh
 S="$HOME/.claude/settings.json"; PREVF="$HOME/.config/herdr-kit/statusline-prev.json"
@@ -999,7 +999,7 @@ if [ "$(jget "$S" statusLine.command)" = "node ~/.claude/statusline.mjs" ] && [ 
 else
   fail "a user's own statusline.mjs is left alone"
 fi
-if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check </dev/null 2>&1 | grep -q "ok    status line already feeds ctx-tap"; then pass "check: a user's statusline.mjs is already wired"; else fail "check: a user's statusline.mjs is already wired"; fi
+if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check --verbose </dev/null 2>&1 | grep -q "ok    status line already feeds ctx-tap"; then pass "check: a user's statusline.mjs is already wired"; else fail "check: a user's statusline.mjs is already wired"; fi
 # even with a saved line from an earlier wrap, uninstall doesn't touch it
 echo '{"statusLine":{"type":"command","command":"old.sh"}}' > "$PREVF"
 OUT="$(HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --uninstall </dev/null 2>&1)"
@@ -1037,7 +1037,7 @@ S="$HOME/.claude/settings.json"; PREVF="$HOME/.config/herdr-kit/statusline-prev.
 mkdir -p "$HOME/.claude" "$HOME/.config/herdr-kit"
 echo '{"statusLine":{"type":"command","command":"node \"/gone/herdr-kit/claude/statusline.mjs\"","padding":1}}' > "$S"
 echo '{"statusLine":{"type":"command","command":"orig.sh"}}' > "$PREVF"
-if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check </dev/null 2>&1 | grep -q "DRIFT status line wrapper points at another checkout"; then pass "check: a moved wrapper is drift"; else fail "check: a moved wrapper is drift"; fi
+if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check --verbose </dev/null 2>&1 | grep -q "DRIFT status line wrapper points at another checkout"; then pass "check: a moved wrapper is drift"; else fail "check: a moved wrapper is drift"; fi
 OUT="$(HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --hooks </dev/null 2>&1)"
 if [ "$(jget "$S" statusLine.command)" = "node \"$REPO/claude/statusline.mjs\"" ] && [ "$(jget "$S" statusLine.padding)" = "1" ] \
   && [ "$(jget "$PREVF" statusLine.command)" = "orig.sh" ] && echo "$OUT" | grep -q "status line wrapper moved to this checkout"; then
@@ -1072,7 +1072,7 @@ if [ "$(jget "$S" statusLine.command)" = "node \"$HOME/claude/statusline.mjs\"" 
 else
   fail "a user's own claude/statusline.mjs with no saved line is left alone, nothing saved"
 fi
-if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check </dev/null 2>&1 | grep -q "ok    status line already feeds ctx-tap"; then pass "check: that line is already wired, not drift"; else fail "check: that line is already wired, not drift"; fi
+if HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --check --verbose </dev/null 2>&1 | grep -q "ok    status line already feeds ctx-tap"; then pass "check: that line is already wired, not drift"; else fail "check: that line is already wired, not drift"; fi
 # a user's own ~/bin/statusline.mjs isn't wired: it gets wrapped
 fresh
 S="$HOME/.claude/settings.json"; PREVF="$HOME/.config/herdr-kit/statusline-prev.json"
@@ -1119,9 +1119,9 @@ if grep -q '"addon-kit-private"' "$HERDR_APP_HOME/layouts/scruffy.json" \
 else
   fail "private: the kit layout gets the kit-private block"
 fi
-if "$REPO/install.sh" --check >/dev/null 2>&1; then pass "private: check clean"; else fail "private: check clean"; fi
+if "$REPO/install.sh" --check --verbose >/dev/null 2>&1; then pass "private: check clean"; else fail "private: check clean"; fi
 rm "$HERDR_APP_HOME/mods/kit-private"
-if "$REPO/install.sh" --check 2>&1 | grep -q "DRIFT .*mods/kit-private"; then pass "private: check reports a missing private mod"; else fail "private: check reports a missing private mod"; fi
+if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "DRIFT .*mods/kit-private"; then pass "private: check reports a missing private mod"; else fail "private: check reports a missing private mod"; fi
 
 # private/ on a fresh machine (no user config yet): the example's empty addons list still gets kit-private
 fresh
@@ -1137,7 +1137,7 @@ echo '{"addons":["kit-mine"]}' > "$CFG"
 "$REPO/install.sh" >/dev/null 2>&1
 if [ "$(jget "$CFG" addons)" = '["kit-mine","kit-private"]' ]; then pass "private: kit-private joins the user's addons, theirs first"; else fail "private: kit-private joins the user's addons, theirs first"; fi
 echo '{"addons":[]}' > "$CFG"
-if "$REPO/install.sh" --check 2>&1 | grep -q "DRIFT .*addons lacks kit-private"; then pass "private: check reports kit-private missing from addons"; else fail "private: check reports kit-private missing from addons"; fi
+if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "DRIFT .*addons lacks kit-private"; then pass "private: check reports kit-private missing from addons"; else fail "private: check reports kit-private missing from addons"; fi
 
 # private/herdr/: a scene picture or glyph layer there is linked over the kit's, core --check calls it an override, private --check reports it
 fresh
@@ -1152,7 +1152,7 @@ if [ -n "$ok" ] && [ "$(readlink "$HERDR_APP_HOME/backgrounds/twin-suns.jpg")" =
 else
   fail "private: its scene pictures and glyph layers are linked over the kit's, the rest stay the kit's"
 fi
-OUT="$("$REPO/install.sh" --check 2>&1)"; RC=$?
+OUT="$("$REPO/install.sh" --check --verbose 2>&1)"; RC=$?
 if [ $RC -eq 0 ] && echo "$OUT" | grep -qxF "ok    $HERDR_APP_HOME/backgrounds/small-moon.jpg (private override)" \
   && echo "$OUT" | grep -qxF "ok    $HERDR_APP_HOME/backgrounds/thumbs/small-moon-day.jpg (private override)" \
   && echo "$OUT" | grep -qxF "ok    $HERDR_APP_HOME/glyphs/small-moon-light.svg (private override)" \
@@ -1262,8 +1262,8 @@ if [ -z "$(jget "$HERDR_APP_HOME/keys.json" "global.cmd-shift-j")" ] && [ "$(jge
 else
   fail "no private/: no cmd-shift-j (the old day binding dropped), none in the keys line"
 fi
-CHK0="$("$PUB/install.sh" --check 2>&1)"
-if "$PUB/install.sh" --check >/dev/null 2>&1; then pass "no private/: check clean"; else fail "no private/: check clean"; fi
+CHK0="$("$PUB/install.sh" --check --verbose 2>&1)"
+if "$PUB/install.sh" --check --verbose >/dev/null 2>&1; then pass "no private/: check clean"; else fail "no private/: check clean"; fi
 if [ "$(readlink "$HERDR_APP_HOME/backgrounds/small-moon.jpg")" = "$PUB/herdr/backgrounds/small-moon.jpg" ] \
   && [ "$(readlink "$HERDR_APP_HOME/backgrounds/thumbs/small-moon-day.jpg")" = "$PUB/herdr/backgrounds/thumbs/small-moon-day.jpg" ]; then
   pass "no private/: the kit's own scene pictures are linked"
@@ -1291,7 +1291,7 @@ mv "$PUB/mover.keep" "$PUB/herdr/glyphs/small-moon-mover.svg"
 # a link left by an older private override, whose file is gone with private/: check flags it, install puts the kit's picture back
 ln -sf "$PUB/private/herdr/backgrounds/small-moon.jpg" "$HERDR_APP_HOME/backgrounds/small-moon.jpg"
 ln -sf "$PUB/private/herdr/glyphs/small-moon-mover.svg" "$HERDR_APP_HOME/glyphs/small-moon-mover.svg"
-CHK="$("$PUB/install.sh" --check 2>&1)"
+CHK="$("$PUB/install.sh" --check --verbose 2>&1)"
 "$PUB/install.sh" --no-hooks >/dev/null 2>&1
 if echo "$CHK" | grep -qxF "DRIFT $HERDR_APP_HOME/backgrounds/small-moon.jpg" \
   && echo "$CHK" | grep -qxF "DRIFT $HERDR_APP_HOME/glyphs/small-moon-mover.svg" \
@@ -1320,7 +1320,7 @@ if [ $RC -eq 0 ] && [ ! -L "$HERDR_APP_HOME/settings.json" ] && [ ! -e "$HERDR_A
 else
   fail "leftovers: no link to herdr/settings.json or a mods/ folder without mod.json, old ones removed"
 fi
-CHK="$("$PUB/install.sh" --check 2>&1)"; RC=$?
+CHK="$("$PUB/install.sh" --check --verbose 2>&1)"; RC=$?
 if [ $RC -eq 0 ] && ! echo "$CHK" | grep -q "settings.json$\|mods/kit-day"; then pass "leftovers: check neither lists nor asks for them"; else fail "leftovers: check neither lists nor asks for them"; fi
 rm -rf "$PUB/herdr/mods/kit-day" "$PUB/herdr/settings.json"
 
@@ -1337,7 +1337,7 @@ if [ $RC -eq 0 ] && echo "$OUT" | grep -q "no claude/card-hook.mjs: skipped the 
 else
   fail "no card hook: run_cards on prints a note and adds the name hook only"
 fi
-if "$PUB/install.sh" --check 2>&1 | grep -q "ok    $S (name hook)"; then pass "no card hook: check wants the name hook only"; else fail "no card hook: check wants the name hook only"; fi
+if "$PUB/install.sh" --check --verbose 2>&1 | grep -q "ok    $S (name hook)"; then pass "no card hook: check wants the name hook only"; else fail "no card hook: check wants the name hook only"; fi
 # the same with an overlay script: the overlay brings its own card hook, so no note
 fresh
 OVL="$(mktemp -d)/install.sh"
@@ -1388,7 +1388,7 @@ ln -sfn "$(cd "$(dirname "$0")" && pwd)/herdr/backgrounds/bespin.jpg" "$HERDR_AP
 SH
 HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --no-hooks </dev/null >/dev/null 2>&1
 HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --no-hooks </dev/null >/dev/null 2>&1
-OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --check </dev/null 2>&1)"
+OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --check --verbose </dev/null 2>&1)"
 OVPIC="$(cd "$OV" && pwd)/herdr/backgrounds/bespin.jpg"
 if [ "$(readlink "$HERDR_APP_HOME/backgrounds/bespin.jpg")" = "$OVPIC" ] \
   && echo "$OUT" | grep -q "^ok .*bespin.jpg (private override)" \
@@ -1440,7 +1440,7 @@ if "$REPO/install.sh" --no-hooks </dev/null >/dev/null 2>&1 && [ -L "$HERDR_APP_
 else
   fail "--no-hooks still installs"
 fi
-rc=0; "$REPO/install.sh" --check --no-hooks </dev/null >/dev/null 2>&1 || rc=$?
+rc=0; "$REPO/install.sh" --check --verbose --no-hooks </dev/null >/dev/null 2>&1 || rc=$?
 rc2=0; "$REPO/install.sh" --no-hooks --check </dev/null >/dev/null 2>&1 || rc2=$?
 if [ "$rc" = 0 ] && [ "$rc2" = 0 ]; then pass "--check takes --no-hooks on either side"; else fail "--check takes --no-hooks on either side (rc $rc, $rc2)"; fi
 OUT="$("$REPO/install.sh" --hooks --uninstall </dev/null 2>&1)"; rc=$?
@@ -1448,6 +1448,202 @@ if [ "$rc" = 0 ] && echo "$OUT" | grep -q "^removed the Claude name and card hoo
   pass "--uninstall takes --hooks before it"
 else
   fail "--uninstall takes --hooks before it (rc $rc)"
+fi
+
+# --check ends on one summary line; a clean run lists no ok lines unless --verbose is given.
+SUMMARY_OK='^✓ [0-9][0-9]* ok · 0 drift( · [0-9][0-9]* warnings?)?$'
+fresh
+"$REPO/install.sh" --hooks </dev/null >/dev/null 2>&1
+OUT="$("$REPO/install.sh" --check </dev/null 2>&1)"; RC=$?
+VOUT="$("$REPO/install.sh" --check --verbose </dev/null 2>&1)"
+if [ $RC -eq 0 ] && echo "$OUT" | tail -n 1 | grep -qE "$SUMMARY_OK" && [ "$(echo "$OUT" | wc -l)" -le 20 ] \
+  && ! echo "$OUT" | grep -q "^ok    $HERDR_APP_HOME/" && echo "$VOUT" | grep -qxF "ok    $HERDR_APP_HOME/mods/kit-rail" \
+  && echo "$VOUT" | tail -n 1 | grep -qE "$SUMMARY_OK"; then
+  pass "check: a clean run is a few lines and a summary, --verbose lists the ok lines"
+else
+  fail "check: a clean run is a few lines and a summary, --verbose lists the ok lines"
+fi
+# The summary's ok count is the number of ok lines --verbose prints.
+n_verbose="$(echo "$VOUT" | grep -c '^ok ')"
+if echo "$OUT" | tail -n 1 | grep -q "^✓ $n_verbose ok "; then pass "check: the summary counts every ok line"; else fail "check: the summary counts every ok line ($n_verbose)"; fi
+rm "$HERDR_APP_HOME/themes/github-dark-colorblind.json"
+rm "$HERDR_APP_HOME/mods/kit-tabs"
+OUT="$("$REPO/install.sh" --check </dev/null 2>&1)"; RC=$?
+if [ $RC -eq 1 ] && echo "$OUT" | tail -n 1 | grep -qE '^! 2 drift: (themes/github-dark-colorblind.json, mods/kit-tabs|mods/kit-tabs, themes/github-dark-colorblind.json) · [0-9]+ ok' \
+  && echo "$OUT" | grep -qxF "DRIFT $HERDR_APP_HOME/mods/kit-tabs"; then
+  pass "check: drift prints its lines and a summary naming them, exit 1"
+else
+  fail "check: drift prints its lines and a summary naming them, exit 1"
+fi
+
+# The overlay's --check lines are counted too: its ok lines show only with --verbose, a path the
+# core already reported as its override isn't listed twice, other lines pass through, and its
+# DRIFT lines (or a bare non-zero exit) are drift in the summary.
+fresh
+OV="$(mktemp -d)"
+mkdir -p "$OV/herdr/backgrounds"
+cp "$REPO/herdr/backgrounds/bespin.jpg" "$OV/herdr/backgrounds/bespin.jpg"
+cat > "$OV/install.sh" <<'SH'
+case "$1" in
+  install) ln -sfn "$(cd "$(dirname "$0")" && pwd)/herdr/backgrounds/bespin.jpg" "$HERDR_APP_HOME/backgrounds/bespin.jpg" ;;
+  --check)
+    echo "ok    $HERDR_APP_HOME/backgrounds/bespin.jpg"
+    echo "ok    $HOME/overlay-thing (an overlay check)"
+    echo "note  an overlay remark"
+    [ -f "$HOME/overlay-drift" ] && echo "DRIFT $HOME/.config/herdr-kit/config.json (overlay says so)"
+    [ -f "$HOME/overlay-same" ] && echo "DRIFT $HERDR_APP_HOME/mods/kit-tabs"
+    [ -f "$HOME/overlay-fail" ] && exit 1
+    [ ! -f "$HOME/overlay-drift" ]
+    ;;
+esac
+exit $?
+SH
+HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --no-hooks </dev/null >/dev/null 2>&1
+OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --check </dev/null 2>&1)"; RC=$?
+VOUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --check --verbose </dev/null 2>&1)"
+n_verbose="$(echo "$VOUT" | grep -c '^ok ')"
+if [ $RC -eq 0 ] && [ "$(echo "$VOUT" | grep -c 'backgrounds/bespin.jpg')" = "1" ] \
+  && echo "$VOUT" | grep -qxF "ok    $HOME/overlay-thing (an overlay check)" \
+  && ! echo "$OUT" | grep -q "overlay-thing" && echo "$OUT" | grep -qxF "note  an overlay remark" \
+  && echo "$OUT" | tail -n 1 | grep -q "^✓ $n_verbose ok · 0 drift"; then
+  pass "overlay check: its ok lines counted, an override listed once, other lines pass through"
+else
+  fail "overlay check: its ok lines counted, an override listed once, other lines pass through"
+fi
+touch "$HOME/overlay-drift"
+OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --check </dev/null 2>&1)"; RC=$?
+if [ $RC -eq 1 ] && echo "$OUT" | grep -qxF "DRIFT $HOME/.config/herdr-kit/config.json (overlay says so)" \
+  && echo "$OUT" | tail -n 1 | grep -q '^! 1 drift: ~/.config/herdr-kit/config.json · '; then
+  pass "overlay check: its DRIFT line is named in the summary"
+else
+  fail "overlay check: its DRIFT line is named in the summary"
+fi
+rm "$HOME/overlay-drift"
+touch "$HOME/overlay-same"
+rm "$HERDR_APP_HOME/mods/kit-tabs"
+OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --check </dev/null 2>&1)"; RC=$?
+if [ $RC -eq 1 ] && echo "$OUT" | tail -n 1 | grep -q '^! 1 drift: mods/kit-tabs · '; then
+  pass "overlay check: a DRIFT line for a path the core already flagged isn't counted twice"
+else
+  fail "overlay check: a DRIFT line for a path the core already flagged isn't counted twice"
+fi
+rm "$HOME/overlay-same"
+HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --no-hooks </dev/null >/dev/null 2>&1
+touch "$HOME/overlay-fail"
+OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --check </dev/null 2>&1)"; RC=$?
+if [ $RC -eq 1 ] && echo "$OUT" | tail -n 1 | grep -q "^! 1 drift: the overlay's check · "; then
+  pass "overlay check: a non-zero exit with no DRIFT line is still drift"
+else
+  fail "overlay check: a non-zero exit with no DRIFT line is still drift"
+fi
+
+# kit-jira listed: --check finds acli where the mod looks, and warns (not drift) without it.
+fresh
+"$REPO/install.sh" --no-hooks </dev/null >/dev/null 2>&1
+CFG="$HOME/.config/herdr-kit/config.json"
+OUT="$("$REPO/install.sh" --check </dev/null 2>&1)"
+if ! echo "$OUT" | grep -q acli; then pass "acli: nothing said while kit-jira isn't listed"; else fail "acli: nothing said while kit-jira isn't listed"; fi
+echo "{\"addons\":[\"kit-jira\"],\"acli\":\"$HOME/no/acli\"}" > "$CFG"
+before="$(cat "$CFG")"
+OUT="$("$REPO/install.sh" --check </dev/null 2>&1)"; RC=$?
+if [ $RC -eq 0 ] && echo "$OUT" | grep -qF "warn  kit-jira is in addons, but acli wasn't found (tried $HOME/no/acli): install acli, or set config \"acli\" to its path" \
+  && echo "$OUT" | tail -n 1 | grep -qE '^✓ [0-9]+ ok · 0 drift · [0-9]+ warnings?$' && [ "$(cat "$CFG")" = "$before" ]; then
+  pass "acli: listed with no acli at the config's path warns, naming it, exit 0"
+else
+  fail "acli: listed with no acli at the config's path warns, naming it, exit 0"
+fi
+STUB="$(mktemp -d)"
+printf '#!/bin/sh\nexit 0\n' > "$STUB/acli-stub"
+chmod +x "$STUB/acli-stub"
+echo "{\"addons\":[\"kit-jira\"],\"acli\":\"$STUB/acli-stub\"}" > "$CFG"
+OUT="$("$REPO/install.sh" --check --verbose </dev/null 2>&1)"
+if echo "$OUT" | grep -qxF "ok    acli at $STUB/acli-stub (kit-jira)" && ! echo "$OUT" | grep -q "^warn .*acli"; then
+  pass "acli: one at the config's path is ok"
+else
+  fail "acli: one at the config's path is ok"
+fi
+echo '{"addons":["kit-jira"],"acli":"acli-stub"}' > "$CFG"
+OUT="$(PATH="$STUB:$PATH" "$REPO/install.sh" --check </dev/null 2>&1)"
+if echo "$OUT" | grep -qF "warn  kit-jira runs acli from Herdr's PATH, which may not reach $STUB/acli-stub: set config \"acli\" to $STUB/acli-stub"; then
+  pass "acli: one found only on this shell's PATH warns that Herdr may not see it"
+else
+  fail "acli: one found only on this shell's PATH warns that Herdr may not see it"
+fi
+
+# The checkout against its upstream as last fetched: a line before the summary, never a fetch,
+# nothing without an upstream or without git.
+fresh
+GITK="$(mktemp -d)/kit"
+mkdir -p "$GITK"
+tar -C "$REPO" --exclude=.git --exclude=node_modules -cf - . | tar -C "$GITK" -xf -
+g() { git -C "$GITK" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false "$@"; }
+g init -q -b main
+g commit -q --allow-empty -m one
+g commit -q --allow-empty -m two
+g commit -q --allow-empty -m three
+g remote add origin "$GITK/no-such-remote"
+g update-ref refs/remotes/origin/main HEAD
+g branch -q --set-upstream-to=origin/main main
+g reset -q --soft HEAD~2
+gitstate() { (cd "$GITK/.git" && find . -type f | LC_ALL=C sort | while read -r f; do echo "$f $(cksum < "$f")"; done); }
+GBEFORE="$(gitstate)"
+OUT="$("$GITK/install.sh" --check </dev/null 2>&1)"
+if [ "$(echo "$OUT" | tail -n 2 | head -n 1)" = "warn  checkout is 2 commits behind origin/main (as last fetched): git pull, then ./install.sh" ] \
+  && echo "$OUT" | tail -n 1 | grep -qE '^! [0-9]+ drift: .* · [0-9]+ warning$' && [ "$(gitstate)" = "$GBEFORE" ]; then
+  pass "behind: two commits behind the last-fetched upstream, said last, git untouched"
+else
+  fail "behind: two commits behind the last-fetched upstream, said last, git untouched"
+fi
+g reset -q --soft origin/main
+OUT="$("$GITK/install.sh" --check </dev/null 2>&1)"
+if echo "$OUT" | grep -qxF "ok    checkout is up to date with origin/main (as last fetched)" && ! echo "$OUT" | grep -q "behind"; then
+  pass "behind: up to date says so"
+else
+  fail "behind: up to date says so"
+fi
+g checkout -q --detach
+OUT="$("$GITK/install.sh" --check </dev/null 2>&1)"
+if ! echo "$OUT" | grep -q "checkout"; then pass "behind: a detached HEAD (a pinned submodule) says nothing"; else fail "behind: a detached HEAD (a pinned submodule) says nothing"; fi
+g checkout -q main
+g branch -q --unset-upstream
+OUT="$("$GITK/install.sh" --check </dev/null 2>&1)"
+if ! echo "$OUT" | grep -q "checkout"; then pass "behind: no upstream says nothing"; else fail "behind: no upstream says nothing"; fi
+rm -rf "$GITK/.git"
+OUT="$("$GITK/install.sh" --check </dev/null 2>&1)"
+if ! echo "$OUT" | grep -q "checkout"; then pass "behind: not a git checkout says nothing"; else fail "behind: not a git checkout says nothing"; fi
+rm -rf "$(dirname "$GITK")"
+
+# The overlay runs after every core step that can fail: it sees the Claude hooks already in,
+# and a core that fails late (here, no folder for the hooks) stops before the overlay changes anything.
+fresh
+OV="$(mktemp -d)"
+cat > "$OV/install.sh" <<'SH'
+[ "$1" = install ] || exit 0
+echo ran > "$(dirname "$0")/ran"
+grep -q name-hook.mjs "$HOME/.claude/settings.json" 2>/dev/null && echo hooks > "$(dirname "$0")/saw-hooks"
+exit 0
+SH
+OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" </dev/null 2>&1)"; RC=$?
+if [ $RC -eq 0 ] && [ -f "$OV/ran" ] && [ -f "$OV/saw-hooks" ]; then
+  pass "the overlay runs after the Claude hooks are in"
+else
+  fail "the overlay runs after the Claude hooks are in"
+fi
+fresh
+rm -f "$OV/ran" "$OV/saw-hooks"
+echo "not a folder" > "$HOME/.claude"
+OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" </dev/null 2>&1)"; RC=$?
+if [ $RC -eq 1 ] && echo "$OUT" | grep -qF "install failed: couldn't make $HOME/.claude for the Claude hooks" \
+  && echo "$OUT" | grep -qF "the overlay's install didn't run" && [ ! -e "$OV/ran" ]; then
+  pass "a core that fails late stops before the overlay runs, and says so"
+else
+  fail "a core that fails late stops before the overlay runs, and says so"
+fi
+OUT="$("$REPO/install.sh" --hooks </dev/null 2>&1)"; RC=$?
+if [ $RC -eq 1 ] && echo "$OUT" | grep -qF "install failed: couldn't make $HOME/.claude" && ! echo "$OUT" | grep -q "overlay"; then
+  pass "without an overlay, the late failure doesn't mention one"
+else
+  fail "without an overlay, the late failure doesn't mention one"
 fi
 
 echo

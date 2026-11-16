@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Link scruffyherdr's mods, themes and pictures into Herdr's home so the clone stays the record.
 #   ./install.sh          link everything (backs up any regular file it replaces)
-#   ./install.sh --check  report links that drifted (exit 1 on any)
+#   ./install.sh --check  report links that drifted (exit 1 on any), ending on one summary line;
+#                         --verbose lists every ok line too
 #   ./install.sh --uninstall  remove the Claude hooks (name and card), our keys and the kit layout,
 #                             and restore the status line install wrapped
 #   --hooks / --no-hooks  add the Claude Code hooks without asking / skip them. With neither, install
@@ -20,9 +21,10 @@ REPO="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
   cat >&2 <<'EOF'
-usage: ./install.sh [--check | --uninstall] [--hooks | --no-hooks]
+usage: ./install.sh [--check | --uninstall] [--hooks | --no-hooks] [--verbose]
   (no mode)    link everything and build the scruffy layout
-  --check      report links that drifted (exit 1 on any)
+  --check      report links that drifted (exit 1 on any), then a summary line
+  --verbose    with --check, list every ok line too
   --uninstall  remove the Claude hooks, the kit keys and the kit layout
   --hooks      add the Claude Code hooks without asking
   --no-hooks   skip the Claude Code hooks
@@ -31,11 +33,13 @@ EOF
 
 # Read the arguments before anything else runs, so an unknown one (a typo, or the old --export)
 # prints the usage and exits 2 having touched nothing.
-# --hooks / --no-hooks can sit anywhere; at most one mode, --check or --uninstall.
+# --hooks / --no-hooks / --verbose can sit anywhere; at most one mode, --check or --uninstall.
 HOOKS_FLAG=""
 MODE=""
+VERBOSE=""
 for arg in "$@"; do
   case "$arg" in
+    --verbose) VERBOSE=1 ;;
     --hooks) [ "$HOOKS_FLAG" = "no" ] || HOOKS_FLAG=yes ;;
     --no-hooks) HOOKS_FLAG=no ;;
     --check|--uninstall)
@@ -155,7 +159,8 @@ overridden() {
 # in glyphs/ only on a restart. glyphs_note: on a first install (FIRST, set before the
 # links go in) name all three; otherwise, when the glyph links, or a file behind one,
 # differ from what the last install saw (~/.config/herdr-kit/glyphs-seen), say so once.
-# Either way remember them. It runs after the overlay script, so it sees its overrides too.
+# Either way remember them. It runs after the overlay script, so it sees its overrides too,
+# and nothing in it stops the install.
 glyphs_note() {
   if [ ! -d "$APP_HOME/glyphs" ]; then
     [ -n "$FIRST" ] && echo "restart Herdr to load the new mods, themes and glyph art"
@@ -168,8 +173,7 @@ glyphs_note() {
   seen=""
   [ -f "$KIT_HOME/glyphs-seen" ] && seen="$(cat "$KIT_HOME/glyphs-seen")"
   if [ "$now" != "$seen" ]; then
-    mkdir -p "$KIT_HOME"
-    printf '%s\n' "$now" > "$KIT_HOME/glyphs-seen"
+    { mkdir -p "$KIT_HOME" && printf '%s\n' "$now" > "$KIT_HOME/glyphs-seen"; } 2>/dev/null || true
     [ -z "$FIRST" ] && [ -n "$now" ] && echo "restart Herdr to load new glyph art"
   fi
   [ -n "$FIRST" ] && echo "restart Herdr to load the new mods, themes and glyph art"
@@ -191,65 +195,206 @@ if [ "$MODE" = "--uninstall" ]; then
 fi
 
 if [ "$MODE" = "--check" ]; then
+  # --check writes nothing and never touches the network. Every check is counted: a drift
+  # or warn line always prints, an ok line only with --verbose, and the last line sums them up.
   drift=0
+  n_ok=0
+  n_drift=0
+  n_warn=0
+  drift_names=""
+  # The paths reported as an overlay's override, or as drift, so the overlay's own ok or
+  # DRIFT line for one is the same check, not a second one.
+  overrides_seen=""
+  drifts_seen=""
+  # A path as the summary names it: under Herdr's home relative to it, else with ~ for HOME.
+  short_name() {
+    s="$1"
+    case "$s" in
+      "$APP_HOME"/*) s="${s#"$APP_HOME"/}" ;;
+      "$HOME"/*) s="~/${s#"$HOME"/}" ;;
+    esac
+    printf '%s\n' "$s"
+  }
+  ok_line() {
+    n_ok=$((n_ok + 1))
+    [ -z "$VERBOSE" ] || echo "ok    $1"
+  }
+  # drift_line <name for the summary> <line>
+  drift_line() {
+    n_drift=$((n_drift + 1))
+    drift=1
+    drift_names="$drift_names${drift_names:+, }$1"
+    echo "DRIFT $2"
+  }
+  warn_line() {
+    n_warn=$((n_warn + 1))
+    echo "warn  $1"
+  }
   for rel in $(targets); do
     dst="$APP_HOME/$rel"
     if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$SRC/$rel" ]; then
-      echo "ok    $dst"
+      ok_line "$dst"
     elif overridden "$dst" "$rel"; then
-      echo "ok    $dst (private override)"
+      ok_line "$dst (private override)"
+      overrides_seen="$overrides_seen$dst
+"
     else
-      echo "DRIFT $dst"
-      drift=1
+      drift_line "$rel" "$dst"
+      drifts_seen="$drifts_seen$dst
+"
     fi
   done
   for name in $KIT_LAYOUTS; do
     lay="$APP_HOME/layouts/$name.json"
     if [ -f "$lay" ] && grep -q '"herdr-signals"' "$lay"; then
-      echo "ok    $lay"
+      ok_line "$lay"
     else
-      echo "DRIFT $lay (missing or without the signals strip: rerun ./install.sh)"
-      drift=1
+      drift_line "layouts/$name.json" "$lay (missing or without the signals strip: rerun ./install.sh)"
     fi
   done
   # Herdr can rewrite main.json after install (an update); the kit layouts are built from it.
   if [ -f "$APP_HOME/layouts/main.json" ] && command -v node >/dev/null 2>&1 \
     && ! node "$REPO/scripts/make-layout.js" --changed "$APP_HOME/layouts/main.json" "$KIT_HOME/layout-source.json"; then
-    echo "DRIFT $APP_HOME/layouts (Herdr's main layout changed since install: rerun ./install.sh)"
-    drift=1
+    drift_line "layouts/main.json" "$APP_HOME/layouts (Herdr's main layout changed since install: rerun ./install.sh)"
   fi
   # Exactly what install would write: every event, and async where it belongs.
   # The card hook only when run_cards is on. A settings file with no kit hook at all
   # means the hooks were declined: not drift.
+  settings_name="$(short_name "$CLAUDE_SETTINGS")"
   if [ ! -f "$CLAUDE_SETTINGS" ] || ! grep -q "name-hook.mjs" "$CLAUDE_SETTINGS"; then
     echo "skip  $CLAUDE_SETTINGS (no kit hooks: ./install.sh --hooks adds them)"
   elif [ "$(cards_hook_on)" = "yes" ]; then
     if node "$REPO/scripts/merge-config.js" hooks-check "$CLAUDE_SETTINGS" "$HOOK_CMD" "$NAME_EVENTS" -- "$CARD_CMD" "$CARD_EVENTS" 2>/dev/null; then
-      echo "ok    $CLAUDE_SETTINGS (name and card hooks)"
+      ok_line "$CLAUDE_SETTINGS (name and card hooks)"
     else
-      echo "DRIFT $CLAUDE_SETTINGS (name or card hook missing or out of date: rerun ./install.sh)"
-      drift=1
+      drift_line "$settings_name" "$CLAUDE_SETTINGS (name or card hook missing or out of date: rerun ./install.sh)"
     fi
   elif node "$REPO/scripts/merge-config.js" hooks-check "$CLAUDE_SETTINGS" "$HOOK_CMD" "$NAME_EVENTS" 2>/dev/null; then
-    echo "ok    $CLAUDE_SETTINGS (name hook)"
+    ok_line "$CLAUDE_SETTINGS (name hook)"
   else
-    echo "DRIFT $CLAUDE_SETTINGS (name hook missing or out of date: rerun ./install.sh)"
-    drift=1
+    drift_line "$settings_name" "$CLAUDE_SETTINGS (name hook missing or out of date: rerun ./install.sh)"
   fi
   # The status line wrap is reported, never drift: declining the hooks declines it too.
   if [ -f "$CLAUDE_SETTINGS" ] && command -v node >/dev/null 2>&1; then
     case "$(node "$REPO/scripts/merge-config.js" statusstate "$CLAUDE_SETTINGS" node "$REPO" "$(ctx_fresh)" "$STATUS_PREV" 2>/dev/null || true)" in
-      wrapped) echo "ok    status line wrapped: it feeds ctx-tap, then runs your old one" ;;
-      wired) echo "ok    status line already feeds ctx-tap" ;;
-      moved) echo "DRIFT status line wrapper points at another checkout: rerun ./install.sh"; drift=1 ;;
+      wrapped) ok_line "status line wrapped: it feeds ctx-tap, then runs your old one" ;;
+      wired) ok_line "status line already feeds ctx-tap" ;;
+      moved) drift_line "status line" "status line wrapper points at another checkout: rerun ./install.sh" ;;
       notcommand) echo "skip  status line isn't a command (the context meters need a command status line)" ;;
       *) echo "skip  status line not wrapped (no context meters: ./install.sh --hooks wraps it)" ;;
     esac
   else
     echo "skip  status line not wrapped (no context meters: ./install.sh --hooks wraps it)"
   fi
+  # kit-jira reads Jira through acli, and without one it only logs a line in Herdr. While
+  # addons lists it, look where the mod looks (kit-jira/kit.js acliPlaces): the config's
+  # "acli", else Homebrew's two folders, then acli on PATH. Herdr's PATH may be shorter than
+  # this shell's, so an acli found only on PATH is a warning too.
+  if command -v node >/dev/null 2>&1; then
+    places="$(node --input-type=module -e '
+import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+const { readJiraConfig, acliPlaces } = await import(pathToFileURL(process.argv[1]).href);
+let text = "";
+try { text = readFileSync(process.argv[2], "utf8"); } catch {}
+const { cfg, listed } = readJiraConfig(text);
+if (listed) console.log(acliPlaces(cfg).join("\n"));
+' "$SRC/mods/kit-jira/kit.js" "$KIT_HOME/config.json" 2>/dev/null || true)"
+    if [ -n "$places" ]; then
+      acli_at=""
+      acli_path=""
+      tried=""
+      old_ifs="$IFS"
+      IFS='
+'
+      set -f
+      for p in $places; do
+        case "$p" in
+          */*)
+            tried="$tried${tried:+, }$p"
+            if [ -z "$acli_at$acli_path" ] && [ -f "$p" ] && [ -x "$p" ]; then acli_at="$p"; fi
+            ;;
+          *)
+            tried="$tried${tried:+, }$p on PATH"
+            if [ -z "$acli_at$acli_path" ]; then acli_path="$(command -v "$p" 2>/dev/null || true)"; fi
+            ;;
+        esac
+      done
+      set +f
+      IFS="$old_ifs"
+      if [ -n "$acli_at" ]; then
+        ok_line "acli at $acli_at (kit-jira)"
+      elif [ -n "$acli_path" ]; then
+        warn_line "kit-jira runs acli from Herdr's PATH, which may not reach $acli_path: set config \"acli\" to $acli_path"
+      else
+        warn_line "kit-jira is in addons, but acli wasn't found (tried $tried): install acli, or set config \"acli\" to its path"
+      fi
+    fi
+  fi
+  # The overlay's lines (docs/addons.md, Overlays), counted the same way. Its exit code
+  # still decides: non-zero is drift, with or without a DRIFT line.
   if [ -f "$PRIVATE" ]; then
-    bash "$PRIVATE" --check || drift=1
+    ov_rc=0
+    ov_out="$(bash "$PRIVATE" --check)" || ov_rc=$?
+    ov_drift_before=$n_drift
+    old_ifs="$IFS"
+    IFS='
+'
+    set -f
+    for line in $ov_out; do
+      case "$line" in
+        "ok "*)
+          rest="${line#ok}"
+          rest="${rest#"${rest%%[! ]*}"}"
+          printf '%s' "$overrides_seen" | grep -qxF -- "$rest" && continue
+          ok_line "$rest"
+          ;;
+        "DRIFT "*)
+          rest="${line#DRIFT}"
+          rest="${rest#"${rest%%[! ]*}"}"
+          if printf '%s' "$drifts_seen" | grep -qxF -- "${rest%% (*}"; then
+            printf '%s\n' "$line"
+            continue
+          fi
+          drift_line "$(short_name "${rest%% (*}")" "$rest"
+          ;;
+        *) printf '%s\n' "$line" ;;
+      esac
+    done
+    set +f
+    IFS="$old_ifs"
+    if [ "$ov_rc" -ne 0 ]; then
+      drift=1
+      [ "$n_drift" -gt "$ov_drift_before" ] || drift_line "the overlay's check" "the overlay's check failed (exit $ov_rc)"
+    fi
+  fi
+  # The checkout against its upstream branch as last fetched (never fetched here): a merged
+  # fix that was never pulled leaves every link ok. Nothing without a git checkout (a
+  # download, which mustn't wake macOS's git installer) or without an upstream (a detached
+  # HEAD, as in a submodule pinned at a tag).
+  if [ -e "$REPO/.git" ] && command -v git >/dev/null 2>&1; then
+    upstream="$(git -C "$REPO" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)"
+    if [ -n "$upstream" ]; then
+      behind="$(git -C "$REPO" rev-list --count 'HEAD..@{upstream}' 2>/dev/null || true)"
+      case "$behind" in
+        ""|*[!0-9]*) ;;
+        0)
+          # The one ok line --check always prints: a stale checkout passes every other check.
+          n_ok=$((n_ok + 1))
+          echo "ok    checkout is up to date with $upstream (as last fetched)"
+          ;;
+        1) warn_line "checkout is 1 commit behind $upstream (as last fetched): git pull, then ./install.sh" ;;
+        *) warn_line "checkout is $behind commits behind $upstream (as last fetched): git pull, then ./install.sh" ;;
+      esac
+    fi
+  fi
+  warns=""
+  [ "$n_warn" -eq 0 ] || warns=" · $n_warn warning"
+  [ "$n_warn" -le 1 ] || warns="${warns}s"
+  if [ "$drift" -eq 0 ]; then
+    echo "✓ $n_ok ok · 0 drift$warns"
+  else
+    echo "! $n_drift drift: $drift_names · $n_ok ok$warns"
   fi
   exit $drift
 fi
@@ -485,23 +630,16 @@ if [ -f "$APP_HOME/keys.json" ]; then
   fi
 fi
 
-# An overlay's parts go on last, over the kit: private/install.sh links its mods and Herdr's
-# settings, adds its config keys and rebuilds the layout with the add-on blocks.
-if [ -f "$PRIVATE" ]; then
-  if ! bash "$PRIVATE" install; then
-    echo "overlay install failed" >&2
-    exit 1
-  fi
-fi
-glyphs_note
-[ -n "$OPEN_HINT" ] && echo "to open the layout: cmd-shift-s, or Settings > Look > scruffy"
-
-# Claude hooks, after private/ so its config keys (run_cards) are in. The name hook tells the rail each session's /rename name. The
+# Claude hooks. The name hook tells the rail each session's /rename name. The
 # card hook injects the card rules at SessionStart and blocks a badly formatted
 # final message once on Stop so Claude rewrites it. Events: NAME_EVENTS and
 # CARD_EVENTS at the top.
 if [ "$HOOKS" = "yes" ]; then
-  mkdir -p "$(dirname "$CLAUDE_SETTINGS")"
+  if ! mkdir -p "$(dirname "$CLAUDE_SETTINGS")" 2>/dev/null; then
+    echo "install failed: couldn't make $(dirname "$CLAUDE_SETTINGS") for the Claude hooks" >&2
+    [ ! -f "$PRIVATE" ] || echo "the overlay's install didn't run, so none of its changes went in" >&2
+    exit 1
+  fi
   # A settings file the hooks step creates has nothing of the user's to back up.
   settings_new=""
   [ -f "$CLAUDE_SETTINGS" ] || settings_new=1
@@ -537,3 +675,19 @@ if [ "$HOOKS" = "yes" ]; then
 else
   echo "hooks skipped: rerun ./install.sh --hooks to add them"
 fi
+
+# An overlay's parts go on last, over the kit and after every core step that can fail, so a
+# core that stops early leaves nothing of the overlay's behind: private/install.sh links its
+# mods and Herdr's settings, adds its config keys and rebuilds the layout with the add-on blocks.
+# Config keys it adds (run_cards) reach the hooks step above on the next install.
+if [ -f "$PRIVATE" ]; then
+  if ! bash "$PRIVATE" install; then
+    echo "overlay install failed" >&2
+    exit 1
+  fi
+fi
+# Only notes from here on, which never fail the install: they come after the overlay so
+# glyphs_note sees its glyph overrides.
+glyphs_note || true
+if [ -n "$OPEN_HINT" ]; then echo "to open the layout: cmd-shift-s, or Settings > Look > scruffy"; fi
+exit 0

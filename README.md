@@ -77,6 +77,8 @@ Check the install, or undo it:
 ./install.sh --uninstall
 ```
 
+`--check` changes nothing. It prints each link or setting that drifted from what install would write, and warnings that don't count as drift (kit-jira listed without `acli`, or a checkout behind its upstream branch as last fetched: it never fetches, so run `git fetch` first for a fresh answer). It ends on one summary line, `✓ 97 ok · 0 drift` or `! 2 drift: mods/kit-rail, layouts/scruffy.json · 95 ok`, and exits 1 on any drift. A clean run prints only the skips, the checkout line and the summary; `--verbose` lists every ok line as well.
+
 `--hooks` and `--no-hooks` go with either. Any other argument prints the usage and exits 2 without changing anything.
 
 Uninstall removes the hooks and the kit's key bindings, and puts your old status line back exactly as it was if it's still the kit's wrapper. It leaves the links in `~/.config/herdr-app/` (`mods/`, `themes/`, `backgrounds/`, `glyphs/` and `layouts/scruffy.svg`) and your config in place: remove the links by hand, or delete them before you delete the clone, or Herdr is left with links to nothing.
@@ -160,7 +162,7 @@ To turn it on:
 3. Rerun `./install.sh`, so the layout gets the add-on's block.
 4. Restart Herdr. A new mod folder loads only on a restart.
 
-Herdr is a desktop app, so the programs it runs may not see your shell's PATH. Set `acli` to the full path (`which acli`) if yours isn't in `/opt/homebrew/bin` or `/usr/local/bin`. Without `acli`, kit-jira logs one line and shows nothing until Herdr restarts. Other failures, such as an expired login, are logged and retried a minute later, and the badges keep the last status read. A name that only looks like a key (`UTF-8 notes`) makes Jira reject the batched search, so kit-jira then asks about each key alone; set `jira_projects` to skip such names. kit-jira reads its config when it starts: after changing a `jira_` key or `addons`, rerun `./install.sh`, which reloads the mods.
+Herdr is a desktop app, so the programs it runs may not see your shell's PATH. Set `acli` to the full path (`which acli`) if yours isn't in `/opt/homebrew/bin` or `/usr/local/bin`. Without `acli`, kit-jira logs one line and shows nothing until Herdr restarts; `./install.sh --check` warns about it while `addons` lists kit-jira, naming the places it tried. Other failures, such as an expired login, are logged and retried a minute later, and the badges keep the last status read. A name that only looks like a key (`UTF-8 notes`) makes Jira reject the batched search, so kit-jira then asks about each key alone; set `jira_projects` to skip such names. kit-jira reads its config when it starts: after changing a `jira_` key or `addons`, rerun `./install.sh`, which reloads the mods.
 
 The badge also carries the Claude's PR state (`In Progress · #12 ● · fix the upload`) when `pr_status` is on, which is coming soon (see Opt-in extras). Without it, badges show the status and summary only. kit-jira reads Jira and never changes a ticket.
 
