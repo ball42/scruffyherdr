@@ -13,19 +13,9 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const IN_PRIVATE = existsSync(join(ROOT, "public"));
 
-// Built from pieces so this file passes its own scan: a macOS home folder,
-// account and domain names, a LAN address, notes and recall tools, an
-// employer and its ticket keys, a first name, and project names. The account
-// name is allowed only as the public repo's own path (the README's clone URL).
-// Jira itself is fair game (the kit-jira add-on); a site name isn't.
-export const PERSONAL = new RegExp(
-  [
-    "\\/Us" + "ers\\/", "ball" + "42(?!\\/scruffyherdr(?![\\w-]))", "reli" + "quary", "claude-" + "recall", "ja" + "mf",
-    "ball" + "\\.works", "192" + "\\.168\\.", "\\bH" + "AL-\\d", "\\bch" + "ris\\b",
-    "plex" + "-hub", "green" + "-thumb", "roll" + "-call", "pick" + "-ems", "Pycharm" + "Projects",
-  ].join("|"),
-  "i",
-);
+import { PERSONAL, TICKETS, scrubText } from "../scripts/scrub-patterns.js";
+
+export { PERSONAL, TICKETS, scrubText };
 
 function tracked() {
   const r = spawnSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" });
@@ -89,15 +79,13 @@ const BINARY = { jpg: jpegProblems, jpeg: jpegProblems, png: pngProblems };
 test("scrub: no shipped file names a personal path, account, tool or project, in its text or its name", async () => {
   const hits = [];
   for (const rel of await shipped()) {
-    const name = rel.match(PERSONAL);
-    if (name) hits.push(`${rel}: file name has ${name[0]}`);
+    for (const m of scrubText(rel)) hits.push(`${rel}: file name has ${m}`);
     const path = join(ROOT, rel);
     if (!existsSync(path)) continue;
     const buf = readFileSync(path);
     if (isBinary(buf)) continue; // pictures: the metadata test below
     buf.toString("utf8").split("\n").forEach((line, i) => {
-      const m = line.match(PERSONAL);
-      if (m) hits.push(`${rel}:${i + 1}: ${m[0]}`);
+      for (const m of scrubText(line)) hits.push(`${rel}:${i + 1}: ${m}`);
     });
   }
   assert.deepEqual(hits, []);
@@ -184,4 +172,12 @@ test("the scrub's pattern catches each kind of string it guards", () => {
   // the public repo's own URL is the one place the account name may appear
   assert.doesNotMatch("https://github.com/" + "ball" + "42/scruffyherdr.git", PERSONAL);
   for (const s of ["github.com/" + "ball" + "42/herdr-kit", "ball" + "42/scruffyherdr-private", "@" + "ball" + "42"]) assert.match(s, PERSONAL, s);
+});
+
+test("the scrub catches private ticket keys and machine and tracker names, case-sensitive for keys", () => {
+  for (const s of ["H" + "K-14", "see HER" + "DR-40", "Click" + "Up badges", "sonic" + "book", "new" + "mini"]) {
+    assert.notDeepEqual(scrubText(s), [], s);
+  }
+  // Herdr's own version in a fixture name, and any lower-case word with a number, stay fine.
+  for (const s of ["herdr-0.1.15-main.json", "hk-style", "ACME-12", "a new mini map"]) assert.deepEqual(scrubText(s), [], s);
 });
