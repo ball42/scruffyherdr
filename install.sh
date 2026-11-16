@@ -202,8 +202,10 @@ if [ "$MODE" = "--check" ]; then
   n_drift=0
   n_warn=0
   drift_names=""
-  # The paths reported as an overlay's override, so the overlay's own ok line for one is the same check, not a second one.
+  # The paths reported as an overlay's override, or as drift, so the overlay's own ok or
+  # DRIFT line for one is the same check, not a second one.
   overrides_seen=""
+  drifts_seen=""
   # A path as the summary names it: under Herdr's home relative to it, else with ~ for HOME.
   short_name() {
     s="$1"
@@ -238,6 +240,8 @@ if [ "$MODE" = "--check" ]; then
 "
     else
       drift_line "$rel" "$dst"
+      drifts_seen="$drifts_seen$dst
+"
     fi
   done
   for name in $KIT_LAYOUTS; do
@@ -303,6 +307,7 @@ if (listed) console.log(acliPlaces(cfg).join("\n"));
       old_ifs="$IFS"
       IFS='
 '
+      set -f
       for p in $places; do
         case "$p" in
           */*)
@@ -315,6 +320,7 @@ if (listed) console.log(acliPlaces(cfg).join("\n"));
             ;;
         esac
       done
+      set +f
       IFS="$old_ifs"
       if [ -n "$acli_at" ]; then
         ok_line "acli at $acli_at (kit-jira)"
@@ -346,6 +352,10 @@ if (listed) console.log(acliPlaces(cfg).join("\n"));
         "DRIFT "*)
           rest="${line#DRIFT}"
           rest="${rest#"${rest%%[! ]*}"}"
+          if printf '%s' "$drifts_seen" | grep -qxF -- "${rest%% (*}"; then
+            printf '%s\n' "$line"
+            continue
+          fi
           drift_line "$(short_name "${rest%% (*}")" "$rest"
           ;;
         *) printf '%s\n' "$line" ;;
@@ -369,6 +379,7 @@ if (listed) console.log(acliPlaces(cfg).join("\n"));
       case "$behind" in
         ""|*[!0-9]*) ;;
         0)
+          # The one ok line --check always prints: a stale checkout passes every other check.
           n_ok=$((n_ok + 1))
           echo "ok    checkout is up to date with $upstream (as last fetched)"
           ;;

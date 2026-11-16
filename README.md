@@ -77,7 +77,7 @@ Check the install, or undo it:
 ./install.sh --uninstall
 ```
 
-`--check` changes nothing. It prints each link or setting that drifted from what install would write, and warnings that don't count as drift (kit-jira listed without `acli`, or a checkout behind its upstream branch as last fetched: it never fetches, so run `git fetch` first for a fresh answer). It ends on one summary line, `✓ 97 ok · 0 drift` or `! 2 drift: mods/kit-rail, layouts/scruffy.json · 95 ok`, and exits 1 on any drift. `--verbose` lists every ok line as well.
+`--check` changes nothing. It prints each link or setting that drifted from what install would write, and warnings that don't count as drift (kit-jira listed without `acli`, or a checkout behind its upstream branch as last fetched: it never fetches, so run `git fetch` first for a fresh answer). It ends on one summary line, `✓ 97 ok · 0 drift` or `! 2 drift: mods/kit-rail, layouts/scruffy.json · 95 ok`, and exits 1 on any drift. A clean run prints only the skips, the checkout line and the summary; `--verbose` lists every ok line as well.
 
 `--hooks` and `--no-hooks` go with either. Any other argument prints the usage and exits 2 without changing anything.
 

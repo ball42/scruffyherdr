@@ -1491,6 +1491,7 @@ case "$1" in
     echo "ok    $HOME/overlay-thing (an overlay check)"
     echo "note  an overlay remark"
     [ -f "$HOME/overlay-drift" ] && echo "DRIFT $HOME/.config/herdr-kit/config.json (overlay says so)"
+    [ -f "$HOME/overlay-same" ] && echo "DRIFT $HERDR_APP_HOME/mods/kit-tabs"
     [ -f "$HOME/overlay-fail" ] && exit 1
     [ ! -f "$HOME/overlay-drift" ]
     ;;
@@ -1518,6 +1519,16 @@ else
   fail "overlay check: its DRIFT line is named in the summary"
 fi
 rm "$HOME/overlay-drift"
+touch "$HOME/overlay-same"
+rm "$HERDR_APP_HOME/mods/kit-tabs"
+OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --check </dev/null 2>&1)"; RC=$?
+if [ $RC -eq 1 ] && echo "$OUT" | tail -n 1 | grep -q '^! 1 drift: mods/kit-tabs · '; then
+  pass "overlay check: a DRIFT line for a path the core already flagged isn't counted twice"
+else
+  fail "overlay check: a DRIFT line for a path the core already flagged isn't counted twice"
+fi
+rm "$HOME/overlay-same"
+HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --no-hooks </dev/null >/dev/null 2>&1
 touch "$HOME/overlay-fail"
 OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --check </dev/null 2>&1)"; RC=$?
 if [ $RC -eq 1 ] && echo "$OUT" | tail -n 1 | grep -q "^! 1 drift: the overlay's check · "; then
