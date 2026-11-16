@@ -11,8 +11,17 @@ const KIT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const WRAPPER = join(KIT, "claude", "statusline.mjs");
 const TRICKY = { type: "command", command: `bash -c 'echo "hi there"' && printf '%s' "$X" # \\ ok`, padding: 0, refreshInterval: 5 };
 
+// The wrapper stops the old command at a wall-clock deadline (5 s unless
+// HERDR_KIT_STATUSLINE_TIMEOUT_MS says otherwise). On a loaded machine a
+// healthy command can take longer than that, and the deadline then cuts its
+// output short, so a test that isn't about the deadline sets it out of reach.
+// A test that is about the deadline gives the old command far longer than the
+// deadline to run, and checks that the wrapper was done well before that.
+const NO_DEADLINE = { HERDR_KIT_STATUSLINE_TIMEOUT_MS: "600000" };
+const SLOW = 30_000; // how long a hung old command would run, ms
+
 // run <home> <prev statusLine or null or undefined (no file)> <stdin>
-function run(home, prev, input, env = {}) {
+function run(home, prev, input, env = NO_DEADLINE) {
   if (prev !== undefined) {
     mkdirSync(join(home, ".config", "herdr-kit"), { recursive: true });
     writeFileSync(join(home, ".config", "herdr-kit", "statusline-prev.json"), JSON.stringify({ statusLine: prev }));
@@ -21,7 +30,7 @@ function run(home, prev, input, env = {}) {
     input: typeof input === "string" ? input : JSON.stringify(input),
     env: { ...process.env, HOME: home, HC_TERMINAL_ID: "t1", ...env },
     encoding: "utf8",
-    timeout: 20000,
+    timeout: 120_000, // a backstop: a passing run never waits on it
     maxBuffer: 64 * 1024 * 1024,
   });
 }
@@ -158,10 +167,11 @@ test("junk stdin: no ctx file, the old command still runs, exit 0", () => {
 
 test("a hung old command is cut off at the timeout: what it printed stays, nothing more", () => {
   const started = Date.now();
-  const r = run(home(), { type: "command", command: "printf early; sleep 10; printf late" }, "{}", { HERDR_KIT_STATUSLINE_TIMEOUT_MS: "300" });
+  // The deadline has to leave room for the shell to start and print first, loaded or not.
+  const r = run(home(), { type: "command", command: `printf early; sleep ${SLOW / 1000}; printf late` }, "{}", { HERDR_KIT_STATUSLINE_TIMEOUT_MS: "2000" });
   assert.equal(r.status, 0);
   assert.equal(r.stdout, "early");
-  assert.ok(Date.now() - started < 5000, `took ${Date.now() - started} ms`);
+  assert.ok(Date.now() - started < SLOW, `took ${Date.now() - started} ms`);
 });
 
 test("a large output passes through whole", () => {
@@ -176,9 +186,10 @@ test("SIGTERM on the wrapper kills the old command's process group", async () =>
   mkdirSync(join(h, ".config", "herdr-kit"), { recursive: true });
   writeFileSync(join(h, ".config", "herdr-kit", "statusline-prev.json"),
     JSON.stringify({ statusLine: { type: "command", command: `sleep 30 & echo $! > '${pidFile}'; wait` } }));
-  const w = spawn(process.execPath, [WRAPPER], { env: { ...process.env, HOME: h, HC_TERMINAL_ID: "t1" }, stdio: ["pipe", "ignore", "ignore"] });
+  const w = spawn(process.execPath, [WRAPPER], { env: { ...process.env, HOME: h, HC_TERMINAL_ID: "t1", ...NO_DEADLINE }, stdio: ["pipe", "ignore", "ignore"] });
   w.stdin.end("{}");
-  const until = async (ok, ms = 5000) => {
+  // Polls: a passing run returns as soon as the state is there.
+  const until = async (ok, ms = SLOW) => {
     for (const end = Date.now() + ms; Date.now() < end; await new Promise((r) => setTimeout(r, 50))) if (ok()) return true;
     return false;
   };
@@ -191,7 +202,7 @@ test("SIGTERM on the wrapper kills the old command's process group", async () =>
   assert.ok(await until(() => !alive()), "the grandchild is gone");
 });
 
-test("a reader that stops reading can't hold the wrapper past the timeout", async () => {
+test("a reader that stops reading can't hold the wrapper past the timeout", { timeout: 2 * SLOW }, async () => {
   const h = home();
   mkdirSync(join(h, ".config", "herdr-kit"), { recursive: true });
   writeFileSync(join(h, ".config", "herdr-kit", "statusline-prev.json"),
@@ -206,6 +217,7 @@ test("a reader that stops reading can't hold the wrapper past the timeout", asyn
   w.stdin.end("{}");
   const code = await new Promise((r) => w.on("exit", (c) => r(c)));
   assert.equal(code, 0);
-  assert.ok(Date.now() - started < 4000, `took ${Date.now() - started} ms`);
+  // Without the deadline the wrapper would wait on the full pipe for good.
+  assert.ok(Date.now() - started < SLOW, `took ${Date.now() - started} ms`);
   w.stdout.destroy();
 });

@@ -10,8 +10,8 @@ import {
   badges, rows, shortOf, siteUrl, browseUrl, MINE_LIMIT,
 } from "../herdr/mods/kit-jira/tickets.js";
 import {
-  ACLI_PLACES, DEFAULTS, KEYS, MINE_MS, REPUBLISH_MS, SEARCH_MS, acliPlaces, badgeSig, envelope, feed, isMissing, mineDue, modelAgents,
-  publishDue, readJiraConfig, searchDue,
+  ACLI_PLACES, BAD_MS, DEFAULTS, KEYS, MINE_MS, REPUBLISH_MS, SEARCH_MS, acliPlaces, badgeSig, envelope, feed, isMissing, mineDue, modelAgents,
+  publishDue, readJiraConfig, rejectsKey, searchDue, splitKeys,
 } from "../herdr/mods/kit-jira/kit.js";
 import { prMark as corePrMark } from "../herdr/mods/herdr-signals/prs.js";
 import { ADDON_KEYS, readAddon } from "../herdr/mods/herdr-signals/addons.js";
@@ -228,6 +228,26 @@ test("search: on a new key set or once a minute; never with no keys, busy, or ac
   assert.equal(searchDue([], { ...last, sig: "" }, SEARCH_MS), false);
   assert.equal(searchDue(["ACME-2"], { ...last, busy: true }, SEARCH_MS), false);
   assert.equal(searchDue(["ACME-2"], { ...last, off: true }, SEARCH_MS), false);
+});
+
+test("split keys: a bad key leaves the batch, is asked about alone every BAD_MS, and is forgotten when no Claude names it", () => {
+  const bad = { "UTF-8": 100, "GPT-4": 0 };
+  assert.deepEqual(splitKeys(["ACME-1", "UTF-8"], bad, 100 + BAD_MS - 1), { batch: ["ACME-1"], retry: [], bad: { "UTF-8": 100 } });
+  assert.deepEqual(splitKeys(["ACME-1", "UTF-8"], bad, 100 + BAD_MS), { batch: ["ACME-1"], retry: ["UTF-8"], bad: { "UTF-8": 100 } });
+  assert.deepEqual(splitKeys(["UTF-8"], bad, 200), { batch: [], retry: [], bad: { "UTF-8": 100 } });
+  assert.deepEqual(splitKeys(["ACME-1"], {}, 0), { batch: ["ACME-1"], retry: [], bad: {} });
+  assert.deepEqual(bad, { "UTF-8": 100, "GPT-4": 0 }, "the map passed in is not changed");
+});
+
+test("rejects key: only an error that names the key, as a whole word", () => {
+  const jira = "The value 'UTF-8' does not exist for the field 'key'.";
+  assert.equal(rejectsKey(jira, "UTF-8"), true);
+  assert.equal(rejectsKey("UTF-8", "UTF-8"), true);
+  assert.equal(rejectsKey(jira, "TF-8"), false);
+  assert.equal(rejectsKey("The value 'UTF-80' does not exist", "UTF-8"), false);
+  assert.equal(rejectsKey("unauthorized", "UTF-8"), false);
+  assert.equal(rejectsKey("", "UTF-8"), false);
+  assert.equal(rejectsKey(undefined, "UTF-8"), false);
 });
 
 test("my tickets: at once, then every 5 minutes", () => {

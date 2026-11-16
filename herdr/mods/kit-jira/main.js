@@ -8,7 +8,7 @@
 import { View, div } from "gpui-kit";
 import { exec, home, readTextFile, setShared, shared } from "herdr";
 import {
-  KEYS, MINE_MS, NAME, SEARCH_MS, TICK_MS, acliPlaces, badgeSig, envelope, feed, isMissing, mineDue, modelAgents, publishDue, readJiraConfig, searchDue,
+  KEYS, MINE_MS, NAME, SEARCH_MS, TICK_MS, acliPlaces, badgeSig, envelope, feed, isMissing, mineDue, modelAgents, publishDue, readJiraConfig, rejectsKey, searchDue, splitKeys,
 } from "./kit.js";
 import { agentKeys, badges, mineArgs, parseSearch, rows, searchArgs, ticketKeys } from "./tickets.js";
 
@@ -19,6 +19,7 @@ export default class KitJira extends View {
     this.tickets = {};
     this.mine = {};
     this.search = { sig: "", at: 0, busy: false, off: false };
+    this.bad = {}; // key -> when Jira last rejected it on its own (kit.js splitKeys)
     this.mineRun = { at: null, busy: false, off: false };
     this.places = [];
     this.place = 0; // the index in `places` of the acli being tried
@@ -110,45 +111,70 @@ export default class KitJira extends View {
 
   // One acli search for every named ticket. Runs beside the tick so a slow Jira never stalls it.
   // A failed batch (one unknown key fails Jira's whole `key in (...)`) falls
-  // back to one search per key, so the good keys still badge. Any failure keeps
-  // the last tickets it had.
+  // back to one search per key, so the good keys still badge. A key Jira
+  // rejects by name is left out of later batches and asked about alone every
+  // BAD_MS (kit.js splitKeys). Any other failure keeps the last tickets it had.
   refreshTickets(cx, keys) {
     const sig = keys.join(",");
     const acli = this.acli();
+    const { batch, retry, bad } = splitKeys(keys, this.bad, Date.now());
+    this.bad = bad;
     this.search.busy = true;
     cx.spawn(async () => {
-      let retry = false;
+      let again = false;
       try {
-        const r = await exec(acli, searchArgs(keys));
-        if (r.code === 0) { this.tickets = parseSearch(r.stdout); this.failed.search = null; }
-        else {
-          const why = r.stderr.trim() || `exit ${r.code}`;
-          if (keys.length < 2) this.noteFailure("search", why);
-          else await this.searchEach(acli, keys, why);
-        }
+        const got = await this.searchBatch(acli, batch);
+        if (got) await this.settle(acli, keys, got, retry);
       } catch (e) {
         this.acliRejected("search", e, acli);
-        retry = acli !== this.acli();
+        again = acli !== this.acli();
       } finally {
-        this.search.sig = retry ? "" : sig; // retry on the minute, not every tick
+        this.search.sig = again ? "" : sig; // retry on the minute, not every tick
         this.search.at = Date.now();
         this.search.busy = false;
       }
     });
   }
 
-  async searchEach(acli, keys, why) {
+  // The batch's tickets, or null when Jira answered for none of its keys (logged).
+  async searchBatch(acli, batch) {
+    if (!batch.length) return {};
+    const r = await exec(acli, searchArgs(batch));
+    if (r.code === 0) return parseSearch(r.stdout);
+    const one = {};
+    const got = batch.length > 1 ? await this.searchEach(acli, batch) : this.solo(batch[0], r, one) ? one : null;
+    if (got) return got;
+    this.noteFailure("search", r.stderr.trim() || `exit ${r.code}`);
+    return null;
+  }
+
+  // One search per key: their tickets, or null when Jira answered for none.
+  async searchEach(acli, keys) {
     const got = {};
-    const bad = [];
-    for (const k of keys) {
-      const r = await exec(acli, searchArgs([k]));
-      if (r.code === 0) Object.assign(got, parseSearch(r.stdout));
-      else bad.push(k);
-    }
-    if (bad.length === keys.length) { this.noteFailure("search", why); return; }
+    let answered = false;
+    for (const k of keys) if (this.solo(k, await exec(acli, searchArgs([k])), got)) answered = true;
+    return answered ? got : null;
+  }
+
+  // One key's own search into `got`. Jira answered when it found the ticket
+  // or rejected the key by name, and only then is the key marked good or bad.
+  // Any other failure (an outage, a timeout) keeps the key's last ticket.
+  solo(k, r, got) {
+    if (r.code === 0) { Object.assign(got, parseSearch(r.stdout)); delete this.bad[k]; return true; }
+    if (rejectsKey(r.stderr, k)) { this.bad[k] = Date.now(); return true; }
+    if (this.tickets[k]) got[k] = this.tickets[k];
+    return false;
+  }
+
+  // Ask about each bad key that is due again, then keep the tickets and log
+  // the bad keys when they change. A retry Jira didn't answer keeps its old
+  // stamp, so it is asked about again next turn.
+  async settle(acli, keys, got, retry) {
+    for (const k of retry) this.solo(k, await exec(acli, searchArgs([k])), got);
+    this.tickets = got;
+    const bad = keys.filter((k) => k in this.bad);
     if (bad.length) this.noteFailure("search", `no ticket for ${bad.join(", ")} (set jira_projects to skip names like these)`);
     else this.failed.search = null;
-    this.tickets = got;
   }
 
   refreshMine(cx) {
