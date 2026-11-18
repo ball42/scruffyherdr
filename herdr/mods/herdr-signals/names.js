@@ -131,12 +131,19 @@ export function resolveNames(memo, { agents, files, now }) {
     if (count[n.name] > 1 && n.source !== "fallback") n.name = sanitizeName(`${n.name} · ${a.space_name}`);
   }
 
+  // A /rename always names the tab. Without one, an unnamed tab (or one we named)
+  // takes Claude's own title; a tab name the user typed is left alone.
   const renames = [];
   for (const a of agents) {
+    if (perTab[a.tab] !== 1) continue;
     const n = names[a.address];
-    if (perTab[a.tab] === 1 && n.source === "rename" && a.tab_name !== n.name) {
-      renames.push({ tab: a.tab, name: n.name });
-      next.setByUs[a.tab] = n.name;
+    const f = files[a.address];
+    const ours = !a.tab_named || a.tab_name === memo.setByUs[a.tab];
+    const title = f && f.hint ? sanitizeName(f.hint) : "";
+    const want = n.source === "rename" ? n.name : ours && title && n.source !== "tab" ? title : "";
+    if (want && a.tab_name !== want) {
+      renames.push({ tab: a.tab, name: want });
+      next.setByUs[a.tab] = want;
     }
   }
   return { memo: next, names, renames };

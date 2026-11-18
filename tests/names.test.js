@@ -87,10 +87,30 @@ test("ignores files for unknown terminals", () => {
   assert.deepEqual(Object.keys(out.names), ["t1"]);
 });
 
-test("no /rename: Claude's own title names it, no tab rename", () => {
+test("no /rename: Claude's own title names it and its unnamed tab", () => {
   const out = run([{ agents: [ag("t1", "A")], files: { t1: { name: null, hint: "Some work", at: 1 } }, now: 2 }]);
   assert.deepEqual(out.names.t1, { name: "Some work", hint: null, ask: null, menu: null, perm: null, ask_text: null, said: null, card: null, card_at: null, runs: [], tool: null, source: "fallback" });
-  assert.deepEqual(out.renames, []);
+  assert.deepEqual(out.renames, [{ tab: "A", name: "Some work" }]);
+});
+
+test("a tab we named from the title follows a new title", () => {
+  const out = run([
+    { agents: [ag("t1", "A")], files: { t1: { name: null, hint: "Some work", at: 1 } }, now: 2 },
+    { agents: [ag("t1", "A", { tab_name: "Some work", tab_named: true })], files: { t1: { name: null, hint: "Other work", at: 3 } }, now: 4 },
+  ]);
+  assert.deepEqual(out.renames, [{ tab: "A", name: "Other work" }]);
+});
+
+test("the title never replaces a tab name the user typed", () => {
+  const out = run([{ agents: [ag("t1", "A", { tab_name: "mine", tab_named: true })], files: { t1: { name: null, hint: "Some work", at: 1 } }, now: 2 }]);
+  assert.equal(out.names.t1.name, "mine");
+  assert.deepEqual(out.allRenames, []);
+});
+
+test("a branch ticket shows on the rail, but the tab takes only the title", () => {
+  const out = run([{ agents: [ag("t1", "A", { branch: "acme-12-fix" })], files: { t1: { name: null, hint: "Some work", at: 1 } }, now: 2 }]);
+  assert.equal(out.names.t1.name, "ACME-12 Some work");
+  assert.deepEqual(out.renames, [{ tab: "A", name: "Some work" }]);
 });
 
 test("an unrenamed Claude takes the ticket key from its branch", async () => {
