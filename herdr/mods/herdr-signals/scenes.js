@@ -1,6 +1,7 @@
 // Scenes: each is a look for the one kit layout (KIT_LAYOUT): a theme pair,
 // a night and day picture, the glass tint and the needs-you colour, so one
 // pick sets the whole look. Pure.
+import { resolveAlerts } from "./alerts.js";
 
 export const SCENES = {
   tatooine: {
@@ -194,9 +195,12 @@ export function isGridTree(tree) {
 }
 
 /** What a scene publishes for the picker: its thumbnails sit next to its pictures, under backgrounds/thumbs/. */
-export function sceneList(scenes = SCENES) {
+export function sceneList(scenes = SCENES, alertColors = undefined) {
   const thumb = (wall) => wall.replace(/^backgrounds\//, "backgrounds/thumbs/");
-  return Object.entries(scenes).map(([key, s]) => ({
-    key, label: s.label, thumbs: { dark: thumb(s.walls.dark), light: thumb(s.walls.light) }, needs: s.needs, asks: s.asks, glyph: s.asks === "fireflies" ? "✦" : s.asks,
-  }));
+  return Object.entries(scenes).map(([key, s]) => {
+    // The picker previews each scene's needs-you as the config resolves it.
+    const { tones } = resolveAlerts(alertColors, key, s);
+    const needs = { dark: tones.dark.orange, light: tones.light.orange };
+    return { key, label: s.label, thumbs: { dark: thumb(s.walls.dark), light: thumb(s.walls.light) }, needs, asks: s.asks, glyph: s.asks === "fireflies" ? "✦" : s.asks };
+  });
 }

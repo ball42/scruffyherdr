@@ -376,3 +376,11 @@ test("a full grid on the generated layout nests no deeper than layout.set allows
   const spec = { ...gridSpec(many(9), "s1"), light: false, scene: "kamino" };
   assert.ok(depth({ layout: gridLayout(scruffy, spec) }) <= 16, "layout.set's argument nests 16 deep at most");
 });
+
+test("tile borders take resolved alert colours when the spec carries them", () => {
+  const spec = { ...gridSpec([ag("b", "blocked"), ag("d", "done")], "s1"), scene: "endor", needs: "#123456", done: "#00aaff" };
+  const [b, d] = tiles(gridLayout(base, spec));
+  assert.deepEqual(b.border, { width: 2, color: "#123456" });
+  assert.deepEqual(d.border, { width: 1, color: "#00aaff" });
+  assert.notEqual(gridSignature(spec), gridSignature({ ...spec, needs: "#654321" }));
+});

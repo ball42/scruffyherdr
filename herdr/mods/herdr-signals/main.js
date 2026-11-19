@@ -29,6 +29,7 @@ import { APPLY_PROBLEM, applyOutcome, validLook } from "./dress.js";
 import { readClicks } from "./clicks.js";
 import { readSizes, replaySizes, seedAside, sizesRecord, sizesText } from "./sizes.js";
 import { readConfig } from "./config.js";
+import { resolveAlerts } from "./alerts.js";
 import { hereTones } from "./colour.js";
 import { KIT_LAYOUT, SCENES, isGridTree, sceneList, sceneOfTree } from "./scenes.js";
 import { SCENES_DIALOG, buttonTexts, leftPx, leftTexts, signalsWidth, stripFit, usagePx } from "./strip-fit.js";
@@ -105,7 +106,7 @@ export default class Signals extends View {
     // Add-on data published before this start is a past session's (addons.js readAddon).
     this.started = Date.now();
     // The scene picker (kit-scenes) can't import SCENES, so it reads them from here, once.
-    setShared("kit.scenes", sceneList(SCENES));
+    setShared("kit.scenes", sceneList(SCENES, this.cfg?.alert_colors));
     this.cfg = null;
     this.problem = null;
     this.state = initialCardState();
@@ -615,8 +616,17 @@ export default class Signals extends View {
     if ((shared("kit.view") ?? null) !== view) setShared("kit.view", view);
     // The active card's bar and fill, for this theme; checked on every apply,
     // since a light/dark switch changes the theme without changing the scene.
-    const here = hereTones(theme(), (SCENES[scene] ?? SCENES.tatooine).needs);
+    const { tones } = this.alerts(scene);
+    if (JSON.stringify(shared("kit.tones") ?? null) !== JSON.stringify(tones)) setShared("kit.tones", tones);
+    const pair = (k) => ({ dark: tones.dark[k], light: tones.light[k] });
+    const here = hereTones(theme(), pair("orange"), pair("blue"));
     if (JSON.stringify(shared("kit.here") ?? null) !== JSON.stringify(here)) setShared("kit.here", here);
+  }
+
+  /** The shown scene's alert colours: config alert_colors over the scene defaults (alerts.js). */
+  alerts(scene) {
+    const key = Object.hasOwn(SCENES, scene) ? scene : "tatooine";
+    return resolveAlerts(this.cfg?.alert_colors, key, SCENES[key]);
   }
 
   /** kit.afterView ({view, address, argv?}): once `view` is shown, focus that Claude and maybe split under it. */
@@ -689,6 +699,9 @@ export default class Signals extends View {
     // Tile borders take the scene's light or dark tone; a theme or scene switch re-lays the grid.
     spec.light = light;
     spec.scene = scene;
+    const { tones } = this.alerts(scene);
+    spec.needs = tones[light ? "light" : "dark"].orange;
+    spec.done = tones[light ? "light" : "dark"].blue;
     return { spec, sig: gridSignature(spec), land, req };
   }
 

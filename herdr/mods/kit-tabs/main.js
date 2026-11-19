@@ -52,7 +52,7 @@ export default class Tabs extends View {
 
   render(cx) {
     const t = theme();
-    useTheme(t, shared("kit.scene"));
+    useTheme(t, shared("kit.scene"), shared("kit.tones"));
     const space = spaces().find(p => p.active);
     const shown = space?.tabs ?? [];
     const kitTabs = shared("herdr-kit")?.tabs ?? {};

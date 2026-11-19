@@ -141,3 +141,10 @@ test("scenes: no default sits within 15 of its theme's working colour", () => {
     }
   }
 });
+
+test("sceneList carries each scene's resolved needs-you colours", () => {
+  const list = scenes.sceneList(scenes.SCENES, { needs: "#123456", scenes: { hoth: { needs: { light: "#654321" } } } });
+  assert.deepEqual(list.find((s) => s.key === "endor").needs, { dark: "#123456", light: "#123456" });
+  assert.deepEqual(list.find((s) => s.key === "hoth").needs, { dark: "#123456", light: "#654321" });
+  assert.deepEqual(scenes.sceneList().find((s) => s.key === "hoth").needs, scenes.SCENES.hoth.needs);
+});

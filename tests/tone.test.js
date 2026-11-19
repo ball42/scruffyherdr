@@ -239,3 +239,20 @@ test("the kit's Small Moon glyph is its own art: no layer copies the overlay's",
     assert.notEqual(kit, readFileSync(new URL(name, priv), "utf8"), `herdr/glyphs/${name} is the overlay's art`);
   }
 });
+
+test("useTheme without kit.tones falls back to TONES", () => {
+  look.useTheme({ background: "#0f1726" }, "hoth", null);
+  assert.equal(look.ORANGE, look.TONES.hoth.dark.orange);
+  assert.equal(look.BLUE, look.TONES.hoth.dark.blue);
+});
+
+test("useTheme lays kit.tones over the scene's TONES, keeping the scene's own tones", () => {
+  look.useTheme({ background: "#0f1726" }, "hoth", { dark: { orange: "#123456", blue: "#00aaff", ink: "#ffffff" }, light: { orange: "#654321" } });
+  assert.equal(look.ORANGE, "#123456");
+  assert.equal(look.BLUE, "#00aaff");
+  assert.equal(look.INK, "#ffffff");
+  look.useTheme({ background: "#f6f9fc" }, "hoth", { dark: { orange: "#123456" }, light: { orange: "#654321" } });
+  assert.equal(look.ORANGE, "#654321");
+  assert.equal(look.BLUE, look.TONES.hoth.light.blue);
+  look.useTheme({ background: "#0f1726" }, "hoth", null);
+});

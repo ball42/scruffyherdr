@@ -15,10 +15,10 @@ const colsFor = (n) => (n <= 1 ? 1 : n <= 4 ? 2 : n <= 9 ? 3 : 4);
 const URGENT = { blocked: 0, done: 1 };
 // The same dark and light tones as kit-rail's look.js; needs-you follows the scene (spec.scene).
 const DONE = { dark: "#58a6ff", light: "#0969da" };
-function border(kind, light, scene) {
+function border(kind, light, scene, alerts = {}) {
   const tone = light ? "light" : "dark";
-  if (kind === "blocked") return { width: 2, color: sceneFor(scene).needs[tone] };
-  if (kind === "done") return { width: 1, color: DONE[tone] };
+  if (kind === "blocked") return { width: 2, color: alerts.needs ?? sceneFor(scene).needs[tone] };
+  if (kind === "done") return { width: 1, color: alerts.done ?? DONE[tone] };
   return { width: 1, color: "border" };
 }
 
@@ -74,14 +74,14 @@ export function gridSpec(agents, currentSpace, prevOrder = [], spotlight = null,
 
 /** What a re-layout depends on; names and hints redraw on their own. */
 export function gridSignature(spec) {
-  return `${spec.scene ?? "-"}|${spec.light ? "light" : "dark"}|${spec.all ? "all" : "one"}|${spec.cols}|${spec.tiles.map((a) => `${a.address}:${a.attention.kind ?? "-"}`).join(",")}|${spec.chips.length > 0}|${spec.spotlight ?? "-"}|${(spec.cards ?? []).length > 0}`;
+  return `${spec.scene ?? "-"}|${spec.needs ?? "-"}|${spec.done ?? "-"}|${spec.light ? "light" : "dark"}|${spec.all ? "all" : "one"}|${spec.cols}|${spec.tiles.map((a) => `${a.address}:${a.attention.kind ?? "-"}`).join(",")}|${spec.chips.length > 0}|${spec.spotlight ?? "-"}|${(spec.cards ?? []).length > 0}`;
 }
 
-function tile(a, light, scene) {
+function tile(a, light, scene, alerts) {
   return {
     id: `tile-${a.address}`,
     type: "column",
-    border: border(a.attention.kind, light, scene),
+    border: border(a.attention.kind, light, scene, alerts),
     children: [
       { id: `tile-${a.address}-head`, type: "block", size: { px: 28 }, content: { mod: "kit-pane", props: a.address } },
       { id: `tile-${a.address}-term`, type: "block", content: { terminal: a.address } },
@@ -222,7 +222,7 @@ export function gridLayout(base, spec) {
   }
   const rows = [];
   for (let i = 0; i < spec.tiles.length; i += spec.cols) {
-    rows.push({ id: `grid-row-${rows.length}`, type: "row", children: spec.tiles.slice(i, i + spec.cols).map((a) => tile(a, spec.light, spec.scene)) });
+    rows.push({ id: `grid-row-${rows.length}`, type: "row", children: spec.tiles.slice(i, i + spec.cols).map((a) => tile(a, spec.light, spec.scene, { needs: spec.needs, done: spec.done })) });
   }
   if (spec.cards?.length) {
     rows.push({ id: "grid-cards", type: "block", size: { px: 104 }, content: { mod: "kit-rail", props: { strip: true } } });

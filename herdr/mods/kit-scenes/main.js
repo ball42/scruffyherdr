@@ -77,7 +77,7 @@ export default class KitScenes extends View {
 
   render(cx) {
     const t = theme();
-    useTheme(t, shared("kit.scene"));
+    useTheme(t, shared("kit.scene"), shared("kit.tones"));
     const size = { w: TILE.w, h: TILE.h };
     const rows = Math.ceil(this.tiles.length / COLS);
     const grid = v_flex().gap(GAP).p(PAD);

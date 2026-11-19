@@ -123,13 +123,17 @@ export function isLight(hex) {
 
 /**
  * Pick the tone for theme `t` (from theme()) in scene `sceneKey` (shared
- * "kit.scene"): its scene's, Tatooine's for an unknown key or null. Nothing is
- * cached across calls, so a scene change shows on the next render.
+ * "kit.scene"): its scene's, Tatooine's for an unknown key or null, with
+ * `resolved` (shared "kit.tones": the config's alert colours, resolved by
+ * herdr-signals) laid over it. Nothing is cached across calls, so a scene or
+ * colour change shows on the next render.
  */
-export function useTheme(t, sceneKey = null) {
+export function useTheme(t, sceneKey = null, resolved = null) {
   scene = Object.hasOwn(TONES, sceneKey) ? sceneKey : "tatooine";
   const tones = TONES[scene] ?? TONES.tatooine;
-  tone = isLight(t?.background) ? tones.light : tones.dark;
+  const mode = isLight(t?.background) ? "light" : "dark";
+  const over = resolved && typeof resolved[mode] === "object" ? resolved[mode] : null;
+  tone = over ? { ...tones[mode], ...over } : tones[mode];
   ORANGE = tone.orange; BLUE = tone.blue; INK = tone.ink;
 }
 // The flare rises in 120 ms, so hold long enough to reach full strength.

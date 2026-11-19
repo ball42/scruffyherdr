@@ -113,14 +113,15 @@ const isHex = (h) => typeof h === "string" && /^#[0-9a-fA-F]{6}$/.test(h);
  * the OS appearance: a pinned night theme on a light Mac draws dark colours.
  * @param colors a theme() record
  * @param needs the scene's needs-you colours, {dark, light}
+ * @param doneColours the done colours, {dark, light} (the kit's blue unless overridden)
  * @returns {{here: string, hereFill: string}}
  */
-export function hereTones(colors, needs) {
+export function hereTones(colors, needs, doneColours = DONE) {
   const light = isHex(colors?.background) ? isLight(colors.background) : false;
   const need = needs?.[light ? "light" : "dark"];
   const fg = isHex(colors?.foreground) ? colors.foreground : light ? "#1f2328" : "#e6edf3";
   const accent = colors?.accent;
-  const done = DONE[light ? "light" : "dark"];
+  const done = doneColours?.[light ? "light" : "dark"] ?? DONE[light ? "light" : "dark"];
   const clashes = !isHex(accent) || deltaESim(accent, done) < CLASH || (isHex(need) && deltaESim(accent, need) < CLASH);
   const here = clashes ? fg : accent;
   const base = [colors?.selected, colors?.raised, colors?.background].find(isHex) ?? (light ? "#ffffff" : "#0d1117");
