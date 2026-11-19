@@ -336,6 +336,48 @@ test("a failed search keeps the last tickets", async () => {
   assert.equal(last("kit.addon.badges").items.t1.short, "ACME-1645 In Progress");
 });
 
+test("kit.jira's good_at is the last turn Jira answered: an outage moves at but not good_at", async () => {
+  let fail = false;
+  const { cx } = await start({
+    cfg: { ...BASE, jira_publish: false },
+    exec: async (c, a) => (fail && a[2] === "search" ? { code: 1, stdout: "", stderr: "unauthorized" } : acliOk(c, a)),
+  });
+  assert.equal(last("kit.jira").good_at, null, "no search yet");
+  await cx.advance(4000);
+  const good = last("kit.jira").good_at;
+  assert.equal(typeof good, "number");
+  fail = true;
+  await quietly(async () => cx.advance(15 * 60_000));
+  const f = last("kit.jira");
+  assert.equal(f.good_at, good, "the failed turns leave good_at alone");
+  assert.ok(f.at - good >= 14 * 60_000, "while at stays fresh");
+  assert.equal(f.tickets["ACME-1645"].status, "In Progress", "and the last tickets are kept");
+  fail = false;
+  await cx.advance(60_000);
+  assert.ok(last("kit.jira").good_at > good, "a good turn moves it on");
+});
+
+test("one key's search fails without naming it: the turn isn't good, so good_at stays", async () => {
+  const two = { address: "t2", name: "ACME-7 other", rawHint: "", session: "s2", status: "working" };
+  let outage = false;
+  const { cx } = await start({
+    cfg: { ...BASE, jira_publish: false },
+    exec: async (c, a) => {
+      if (a[2] !== "search") return acliOk(c, a);
+      if (a[4].includes(",")) return { code: 1, stdout: "", stderr: "bad batch" };
+      if (a[4].includes("ACME-7")) return outage ? { code: 1, stdout: "", stderr: "timeout" } : { code: 0, stdout: "[]", stderr: "" };
+      return acliOk(c, a);
+    },
+  });
+  host.shared["herdr-kit"].agents.push(two);
+  await quietly(async () => cx.advance(4000));
+  const good = last("kit.jira").good_at;
+  assert.equal(typeof good, "number");
+  outage = true;
+  await quietly(async () => cx.advance(60_000));
+  assert.equal(last("kit.jira").good_at, good);
+});
+
 test("a failed my-tickets search is retried in a minute, then every 5 minutes", async () => {
   let fail = true;
   await quietly(async () => {

@@ -1353,17 +1353,17 @@ fi
 
 # Herdr version: install warns on any Herdr other than the tested one, then carries on.
 fake main
-echo "0.1.16" > "$FAKEBIN/version"
+echo "0.1.15" > "$FAKEBIN/version"
 OUT="$(run_fake)"; RC=$?
-if [ $RC -eq 0 ] && echo "$OUT" | grep -q "warning: tested with Herdr 0.1.15, found 0.1.16"; then
+if [ $RC -eq 0 ] && echo "$OUT" | grep -q "warning: tested with Herdr 0.1.16, found 0.1.15"; then
   pass "another Herdr version: install warns and carries on"
 else
   fail "another Herdr version: install warns and carries on"
 fi
-echo "0.1.15" > "$FAKEBIN/version"
+echo "0.1.16" > "$FAKEBIN/version"
 fake main
 if run_fake | grep -q "warning: tested with Herdr"; then fail "the tested Herdr version: no warning"; else pass "the tested Herdr version: no warning"; fi
-printf '0.1.15 (abc123)\nupdate available: 0.2.0\n' > "$FAKEBIN/version"
+printf '0.1.16 (abc123)\nupdate available: 0.2.0\n' > "$FAKEBIN/version"
 fake main
 if run_fake | grep -q "warning: tested with Herdr"; then fail "the tested Herdr version with extra text: no warning"; else pass "the tested Herdr version with extra text: no warning"; fi
 rm -f "$FAKEBIN/version"

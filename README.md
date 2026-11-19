@@ -50,7 +50,7 @@ Unofficial fan project, not affiliated with Lucasfilm or Disney. The pictures ar
 ## Requirements
 
 - macOS, the only platform it's tested on.
-- [Herdr](https://herdr.dev) 0.1.15, launched once so `~/.config/herdr-app/layouts/main.json` exists. Install warns on any other version and carries on.
+- [Herdr](https://herdr.dev) 0.1.16, launched once so `~/.config/herdr-app/layouts/main.json` exists. Install warns on any other version and carries on.
 - Node.js 20 or newer to run it; 22.15 or newer to run the tests.
 - Claude Code, for the names, questions and context meters.
 

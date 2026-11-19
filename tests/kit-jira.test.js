@@ -172,7 +172,8 @@ test("what kit-jira publishes passes the core's checks, under the core's key nam
   const got = readAddon({ badges: envelope(b, at), rows: envelope(r, at) }, at);
   assert.deepEqual(got.badges, b);
   assert.deepEqual(got.rows, r);
-  assert.deepEqual(feed({ x: 1 }, { a: "ACME-1645" }, b, r, at), { at, tickets: { x: 1 }, keys: { a: "ACME-1645" }, badges: b, rows: r });
+  assert.deepEqual(feed({ x: 1 }, { a: "ACME-1645" }, b, r, at), { at, good_at: null, tickets: { x: 1 }, keys: { a: "ACME-1645" }, badges: b, rows: r });
+  assert.equal(feed({}, {}, {}, [], at, at - 5).good_at, at - 5);
 });
 
 test("config: the defaults, and kit-jira does nothing unless addons lists it", () => {
