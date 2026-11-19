@@ -10,7 +10,7 @@ export const SCENES = {
     // The theme pair's backgrounds: the glass tint over the sidebar and bars (glass.js).
     panel: { dark: "#14111f", light: "#fbf5ef" },
     // Needs-you: desert orange (the same tones as kit-rail's look.js), twin suns on the strip.
-    needs: { dark: "#ec8e2c", light: "#b35900" },
+    needs: { dark: "#fd9f01", light: "#b35900" },
     asks: "☀☀",
   },
   endor: {
@@ -19,7 +19,7 @@ export const SCENES = {
     walls: { dark: "backgrounds/forest-moon.jpg", light: "backgrounds/forest-moon-day.jpg" },
     panel: { dark: "#0c1a18", light: "#f4f8f4" },
     // Firefly gold, still warm against the blue "done"; a fir with fireflies on the strip.
-    needs: { dark: "#f2c14e", light: "#8a6400" },
+    needs: { dark: "#c9c510", light: "#8b8810" },
     asks: "fireflies",
   },
   hoth: {
@@ -28,7 +28,7 @@ export const SCENES = {
     walls: { dark: "backgrounds/hoth.jpg", light: "backgrounds/hoth-day.jpg" },
     panel: { dark: "#0f1726", light: "#f6f9fc" },
     // Signal coral, warm against the blue "done" on a cold blue scene; a snowflake on the strip.
-    needs: { dark: "#ff9e7a", light: "#b4542f" },
+    needs: { dark: "#ffe5de", light: "#d76549" },
     asks: "❄",
   },
   dagobah: {
@@ -37,7 +37,7 @@ export const SCENES = {
     walls: { dark: "backgrounds/dagobah.jpg", light: "backgrounds/dagobah-day.jpg" },
     panel: { dark: "#0d1512", light: "#f3f4ec" },
     // Swamp-lantern amber, warm against the blue "done"; ripples on the strip.
-    needs: { dark: "#f0b45a", light: "#9a5a00" },
+    needs: { dark: "#b4cc1d", light: "#63710b" },
     asks: "≈",
   },
   coruscant: {
@@ -46,7 +46,7 @@ export const SCENES = {
     walls: { dark: "backgrounds/coruscant.jpg", light: "backgrounds/coruscant-day.jpg" },
     panel: { dark: "#120f22", light: "#f8f6fb" },
     // Sodium-lamp amber, warm against the blue "done"; a lit window grid on the strip.
-    needs: { dark: "#ffb347", light: "#a85a00" },
+    needs: { dark: "#f775ad", light: "#c64882" },
     asks: "▥",
   },
   bespin: {
@@ -55,7 +55,7 @@ export const SCENES = {
     walls: { dark: "backgrounds/bespin.jpg", light: "backgrounds/bespin-day.jpg" },
     panel: { dark: "#161226", light: "#fbf6f6" },
     // Landing-light gold, warm against the blue "done"; a cloud on the strip.
-    needs: { dark: "#ffcf5c", light: "#946200" },
+    needs: { dark: "#fd8a8f", light: "#aa4049" },
     asks: "☁",
   },
   naboo: {
@@ -64,7 +64,7 @@ export const SCENES = {
     walls: { dark: "backgrounds/naboo.jpg", light: "backgrounds/naboo-day.jpg" },
     panel: { dark: "#0e1628", light: "#f5f8f4" },
     // Palace bronze, warm against the blue "done"; a palace roof on the strip.
-    needs: { dark: "#ffab66", light: "#a3520c" },
+    needs: { dark: "#cc930d", light: "#ae7c04" },
     asks: "⌂",
   },
   scarif: {
@@ -73,7 +73,7 @@ export const SCENES = {
     walls: { dark: "backgrounds/scarif.jpg", light: "backgrounds/scarif-day.jpg" },
     panel: { dark: "#0a1626", light: "#f3f9f8" },
     // Beacon orange, warm against the blue "done"; the shield gate's arc on the strip.
-    needs: { dark: "#ff9a3c", light: "#a14a00" },
+    needs: { dark: "#aba700", light: "#8b8810" },
     asks: "⌒",
   },
   kamino: {
@@ -82,7 +82,7 @@ export const SCENES = {
     walls: { dark: "backgrounds/kamino.jpg", light: "backgrounds/kamino-day.jpg" },
     panel: { dark: "#0b141c", light: "#f2f5f7" },
     // Storm amber, warm against the blue "done"; an umbrella for the rain on the strip.
-    needs: { dark: "#ffb84a", light: "#9a5800" },
+    needs: { dark: "#d1bc8a", light: "#958151" },
     asks: "☂",
   },
   mustafar: {
@@ -101,7 +101,7 @@ export const SCENES = {
     walls: { dark: "backgrounds/asteroid-belt.jpg", light: "backgrounds/asteroid-belt-day.jpg" },
     panel: { dark: "#0f1318", light: "#f6f5f2" },
     // Comet orange, warm against the blue "done" on grey rock; a comet on the strip.
-    needs: { dark: "#ff9a3c", light: "#a14a00" },
+    needs: { dark: "#fd9f01", light: "#a76700" },
     asks: "☄",
   },
   "small-moon": {
@@ -111,7 +111,7 @@ export const SCENES = {
     panel: { dark: "#0a0c14", light: "#f4f5f7" },
     // Reactor orange (a green beam would sit against the blue "done" as red
     // against green does), and the station with its light on the strip.
-    needs: { dark: "#ff8a3d", light: "#a24800" },
+    needs: { dark: "#c8be9a", light: "#89805e" },
     asks: "◉",
   },
 };

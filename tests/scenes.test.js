@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { checkAlert, deriveTones } from "../herdr/mods/herdr-signals/alerts.js";
+import { DONE } from "../herdr/mods/herdr-signals/colour.js";
 import { DEFAULT_SCENE, KIT_LAYOUT, LEGACY_LAYOUTS, isGridTree, legacyView, sceneFor, sceneOfTheme, sceneOfTree, kitLayouts } from "../herdr/mods/herdr-signals/scenes.js";
 import * as scenes from "../herdr/mods/herdr-signals/scenes.js";
 
@@ -92,4 +94,50 @@ test("isGridTree finds the kit-grid node anywhere", () => {
   assert.equal(isGridTree({ id: "root", children: [{ id: "a", children: [{ id: "kit-grid" }] }] }), true);
   assert.equal(isGridTree({ id: "root", children: [{ id: "main" }] }), false);
   assert.equal(isGridTree(null), false);
+});
+
+// The needs-you colours picked in the swatch round (2026-11-19), night and day.
+const PICKS = {
+  tatooine: ["#fd9f01", "#b35900"], endor: ["#c9c510", "#8b8810"], hoth: ["#ffe5de", "#d76549"],
+  dagobah: ["#b4cc1d", "#63710b"], coruscant: ["#f775ad", "#c64882"], bespin: ["#fd8a8f", "#aa4049"],
+  naboo: ["#cc930d", "#ae7c04"], scarif: ["#aba700", "#8b8810"], kamino: ["#d1bc8a", "#958151"],
+  mustafar: ["#ffd84d", "#8a6a00"], "asteroid-belt": ["#fd9f01", "#a76700"], "small-moon": ["#c8be9a", "#89805e"],
+};
+const themeFile = (name) => {
+  const f = JSON.parse(readFileSync(new URL(`../herdr/themes/${name}.json`, import.meta.url), "utf8"));
+  return { background: f.background, foreground: f.foreground, ...f.colors };
+};
+
+test("scenes: every scene's needs is its swatch-round pick", () => {
+  for (const [k, [dark, light]] of Object.entries(PICKS)) assert.deepEqual(scenes.SCENES[k].needs, { dark, light }, k);
+  assert.equal(Object.keys(scenes.SCENES).length, Object.keys(PICKS).length);
+});
+
+test("scenes: TONES matches deriveTones of each needs", async () => {
+  await import("./support/gpui-stub.js");
+  const { TONES } = await import("../herdr/mods/kit-rail/look.js");
+  for (const [k, s] of Object.entries(scenes.SCENES)) {
+    for (const mode of ["dark", "light"]) {
+      const want = deriveTones(s.needs[mode], mode === "light", DONE[mode]);
+      for (const key of Object.keys(want)) assert.equal(TONES[k][mode][key], want[key], `${k} ${mode} ${key}`);
+    }
+  }
+});
+
+test("scenes: every default passes the hard checks in its own theme", () => {
+  for (const [k, s] of Object.entries(scenes.SCENES)) {
+    for (const [mode, file] of [["dark", "night"], ["light", "day"]]) {
+      const c = checkAlert(s.needs[mode], DONE[mode], themeFile(`${k}-${file}`));
+      assert.ok(c.ok, `${k} ${file}: ${JSON.stringify(c)}`);
+    }
+  }
+});
+
+test("scenes: no default sits within 15 of its theme's working colour", () => {
+  for (const [k, s] of Object.entries(scenes.SCENES)) {
+    for (const [mode, file] of [["dark", "night"], ["light", "day"]]) {
+      const c = checkAlert(s.needs[mode], DONE[mode], themeFile(`${k}-${file}`));
+      assert.ok(c.working >= 15, `${k} ${file}: working ${c.working.toFixed(1)}`);
+    }
+  }
 });

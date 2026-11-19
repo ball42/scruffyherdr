@@ -16,7 +16,7 @@ test("deriveTones: Mustafar's yellow at night", () => {
   assert.equal(t.blue, "#58a6ff");
   assert.equal(t.ink, "#0d1117");
   assert.ok(contrast(t.ink, t.orange) >= 4.5);
-  for (const k of ["sun", "count", "badge"]) assert.match(t[k], /^#[0-9a-f]{6}$/);
+  for (const k of ["count", "badge"]) assert.match(t[k], /^#[0-9a-f]{6}$/);
 });
 
 test("deriveTones: light count is darker than the needs-you colour", () => {
@@ -75,4 +75,17 @@ test("checkAlert: Mustafar's yellow passes in its night theme", () => {
 
 test("checkAlert: done-blue as needs-you fails", () => {
   assert.equal(checkAlert("#58a6ff", DONE.dark, themeColors("mustafar-night")).ok, false);
+});
+
+test("deriveTones: the count reads on its badge (4.5:1) for every scene, night and day", () => {
+  for (const [k, s] of Object.entries(SCENES)) {
+    for (const mode of ["dark", "light"]) {
+      const t = deriveTones(s.needs[mode], mode === "light", DONE[mode]);
+      assert.ok(contrast(t.count, t.badge) >= 4.5, `${k} ${mode}: ${t.count} on ${t.badge} is ${contrast(t.count, t.badge).toFixed(2)}`);
+    }
+  }
+});
+
+test("deriveTones: leaves sun to the scene (it isn't derived)", () => {
+  assert.equal("sun" in deriveTones("#ffd84d", false, DONE.dark), false);
 });

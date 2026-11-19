@@ -12,7 +12,7 @@
   "colors": {
     "blocked": "#ec8e2c",
     "done": "#58a6ff",
-    "working": "#e0b864",
+    "working": "#c4a47b",
     "idle": "#8a7d96",
     "accent": "#b9a3e6"
   }

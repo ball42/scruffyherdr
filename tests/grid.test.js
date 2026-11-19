@@ -64,7 +64,7 @@ test("grid only current space", () => {
 test("tile borders follow attention", () => {
   const out = gridLayout(base, gridSpec([ag("b", "blocked"), ag("d", "done"), ag("w")], "s1"));
   const [b, d, w] = tiles(out);
-  assert.deepEqual(b.border, { width: 2, color: "#ec8e2c" });
+  assert.deepEqual(b.border, { width: 2, color: "#fd9f01" });
   assert.deepEqual(d.border, { width: 1, color: "#58a6ff" });
   assert.deepEqual(w.border, { width: 1, color: "border" });
   assert.deepEqual(b.children[0], { id: "tile-b-head", type: "block", size: { px: 28 }, content: { mod: "kit-pane", props: "b" } });
@@ -279,10 +279,10 @@ test("the grid uses the one layout's settings picture", () => {
 test("tile borders take the scene's needs-you color", () => {
   const spec = { ...gridSpec([ag("b", "blocked"), ag("d", "done")], "s1"), scene: "endor" };
   const [b, d] = tiles(gridLayout(base, spec));
-  assert.deepEqual(b.border, { width: 2, color: "#f2c14e" });
+  assert.deepEqual(b.border, { width: 2, color: "#c9c510" });
   assert.deepEqual(d.border, { width: 1, color: "#58a6ff" });
   const [lb] = tiles(gridLayout(base, { ...spec, light: true }));
-  assert.deepEqual(lb.border, { width: 2, color: "#8a6400" });
+  assert.deepEqual(lb.border, { width: 2, color: "#8b8810" });
   assert.notEqual(gridSignature(spec), gridSignature({ ...spec, scene: "tatooine" }));
 });
 

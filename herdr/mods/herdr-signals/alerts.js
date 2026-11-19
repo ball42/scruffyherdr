@@ -11,17 +11,31 @@ const INKS = ["#0d1117", "#ffffff"];
 
 /**
  * A scene's needs-you tones for one mode, from its needs-you and done colours:
- * the glyph's second colour (`sun`), the count, the badge behind it, and the
- * text drawn on a needs-you fill (`ink`).
+ * the count, the badge behind it, and the text drawn on a needs-you fill
+ * (`ink`). The badge is a faint tint of needs-you, kept faint enough (and a
+ * light count dark enough) that the count reads on it at 4.5:1. The glyph's
+ * second colour (`sun`) is the scene's own and isn't derived.
  */
 export function deriveTones(needs, light, done) {
   const n = needs.toLowerCase();
+  const base = light ? "#ffffff" : "#0d1117";
+  let count = n;
+  let badge = base;
+  for (const t of [0.14, 0.1, 0.07, 0.04, 0.02, 0]) {
+    badge = mix(base, n, t);
+    if (contrast(count, badge) >= 4.5) break;
+  }
+  if (light) {
+    for (const t of [0.25, 0.35, 0.45, 0.55, 0.65]) {
+      count = mix(n, "#000000", t);
+      if (contrast(count, badge) >= 4.5) break;
+    }
+  }
   return {
     orange: n,
     blue: done.toLowerCase(),
-    sun: mix(n, "#ffffff", light ? 0.35 : 0.45),
-    count: light ? mix(n, "#000000", 0.25) : n,
-    badge: light ? mix("#ffffff", n, 0.1) : mix("#0d1117", n, 0.14),
+    count,
+    badge,
     ink: INKS.reduce((best, c) => (contrast(c, n) > contrast(best, n) ? c : best)),
   };
 }
