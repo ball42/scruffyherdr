@@ -167,6 +167,38 @@ export function badges(agents, tickets, site, projects = []) {
   return items;
 }
 
+// Statuses from a search Jira last answered longer ago than this are shown
+// marked stale with the time they're from: an expired acli login otherwise
+// looks like Jira saying nothing changed.
+export const JIRA_STALE_MS = 10 * 60_000;
+
+const pad = (n) => String(n).padStart(2, "0");
+
+/** "⟳ stale · Jira as of 14:02" (local time). */
+export function staleMark(ms) {
+  const d = new Date(ms);
+  return `⟳ stale · Jira as of ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Whether statuses from a search last answered at `goodAt` are too old to show plain (null: no search yet, nothing to mark). */
+export function isStale(goodAt, now) {
+  return typeof goodAt === "number" && now - goodAt > JIRA_STALE_MS;
+}
+
+/** Badges with the stale mark on the end and dimmed, when `goodAt` is stale; else the same badges. */
+export function staleBadges(items, goodAt, now) {
+  if (!isStale(goodAt, now)) return items;
+  const mark = staleMark(goodAt);
+  return Object.fromEntries(Object.entries(items).map(([k, b]) => [k, { ...b, text: `${b.text} · ${mark}`, tone: "dim" }]));
+}
+
+/** Rows with the stale mark on the end, when `goodAt` is stale; else the same rows. */
+export function staleRows(list, goodAt, now) {
+  if (!isStale(goodAt, now)) return list;
+  const mark = staleMark(goodAt);
+  return list.map((r) => ({ ...r, text: `${r.text} · ${mark}` }));
+}
+
 /** Rows for my tickets no Claude is on: "KEY · Status", the summary under it. */
 export function rows(mine, agents, site, projects = []) {
   return unattended(mine, ticketKeys(agents, projects)).slice(0, MINE_LIMIT).map((t) => {

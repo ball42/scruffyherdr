@@ -122,6 +122,7 @@ It also writes its own key, `kit.jira`, on the same cadence:
 type JiraFeed = {
   at: number;                                    // epoch ms, as above
   good_at: number | null;                        // epoch ms of the last search turn Jira answered in full; null before one
+  mine_good_at: number | null;                   // epoch ms of the last "my tickets" search Jira answered (the rows); null before one
   tickets: { [key: string]: { status: string; category: string | null; summary: string } };
   keys: { [address: string]: string };           // each Claude's ticket key, from the model kit-jira read
   badges: { [address: string]: Badge };          // what it would publish as kit.addon.badges
@@ -129,7 +130,7 @@ type JiraFeed = {
 };
 ```
 
-With config `jira_publish` set to `false`, kit-jira writes only `kit.jira`. Another add-on can then own the badge and row keys, take Jira's entries from `kit.jira`, and merge in its own, so each key still has one writer. That add-on judges `kit.jira` by its `at`, as herdr-signals does. `at` moves on every publish, even while acli is failing (an expired login, an outage), and the tickets then keep their last statuses; `good_at` says how old those statuses are.
+With config `jira_publish` set to `false`, kit-jira writes only `kit.jira`. Another add-on can then own the badge and row keys, take Jira's entries from `kit.jira`, and merge in its own, so each key still has one writer. That add-on judges `kit.jira` by its `at`, as herdr-signals does. `at` moves on every publish, even while acli is failing (an expired login, an outage), and the tickets then keep their last statuses; `good_at` says how old those statuses are, and `mine_good_at` how old the rows are. The feed's `badges` and `rows` are plain. The ones kit-jira publishes itself end with `⟳ stale · Jira as of 14:02` once their search is over 10 minutes old, and a stale badge is dimmed.
 
 ## Overlays
 

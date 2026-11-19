@@ -10,7 +10,7 @@ import { exec, home, readTextFile, setShared, shared } from "herdr";
 import {
   KEYS, MINE_MS, NAME, SEARCH_MS, TICK_MS, acliPlaces, badgeSig, envelope, feed, isMissing, mineDue, modelAgents, publishDue, readJiraConfig, rejectsKey, searchDue, splitKeys,
 } from "./kit.js";
-import { agentKeys, badges, mineArgs, parseSearch, rows, searchArgs, ticketKeys } from "./tickets.js";
+import { agentKeys, badges, mineArgs, parseSearch, rows, searchArgs, staleBadges, staleRows, ticketKeys } from "./tickets.js";
 
 export default class KitJira extends View {
   init(_props, cx) {
@@ -28,6 +28,7 @@ export default class KitJira extends View {
     this.failed = { search: null, mine: null };
     this.goodAt = null; // when a search turn last had Jira answer for every key it asked about
     this.missed = false; // the running turn had a search Jira didn't answer
+    this.mineGoodAt = null; // when the "my tickets" search last answered
     cx.spawn(async () => this.loadConfig());
     cx.timer.every(TICK_MS, (cx) => this.tick(cx));
   }
@@ -66,17 +67,19 @@ export default class KitJira extends View {
   // Each key goes out when it changed, or when its last copy is getting old
   // (herdr-signals ignores a copy older than its own start, docs/addons.md).
   // With `jira_publish` off, another add-on owns the badge and row keys, and
-  // kit-jira writes only its feed.
+  // kit-jira writes only its feed. The feed's badges and rows stay plain, with
+  // the searches' last good times beside them; the published ones carry the
+  // stale mark once those are over JIRA_STALE_MS old.
   publish(list, now) {
     const { jira_url: site, jira_projects: projects } = this.cfg;
     const values = {
       badges: badges(list, this.tickets, site, projects),
       rows: this.cfg.jira_mine ? rows(this.mine, list, site, projects) : [],
     };
-    const out = { feed: feed(this.tickets, agentKeys(list, projects), values.badges, values.rows, now, this.goodAt) };
+    const out = { feed: feed(this.tickets, agentKeys(list, projects), values.badges, values.rows, now, this.goodAt, this.mineGoodAt) };
     if (this.cfg.jira_publish) {
-      out.badges = envelope(values.badges, now);
-      out.rows = envelope(values.rows, now);
+      out.badges = envelope(staleBadges(values.badges, this.goodAt, now), now);
+      out.rows = envelope(staleRows(values.rows, this.mineGoodAt, now), now);
     }
     for (const [k, v] of Object.entries(out)) {
       const sig = JSON.stringify({ ...v, at: 0 });
@@ -192,7 +195,7 @@ export default class KitJira extends View {
       let failed = false;
       try {
         const r = await exec(acli, mineArgs(this.cfg.jira_mine_jql));
-        if (r.code === 0) { this.mine = parseSearch(r.stdout); this.failed.mine = null; }
+        if (r.code === 0) { this.mine = parseSearch(r.stdout); this.failed.mine = null; this.mineGoodAt = Date.now(); }
         else { this.noteFailure("mine", r.stderr.trim() || `exit ${r.code}`); failed = true; }
       } catch (e) {
         this.acliRejected("mine", e, acli);
