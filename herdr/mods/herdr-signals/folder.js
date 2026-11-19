@@ -73,3 +73,40 @@ export const CTX_KEEP_MIN = 7 * 24 * 60;
 export function pruneCtxArgs(dir) {
   return [dir, "-maxdepth", "1", "-type", "f", "-mmin", `+${CTX_KEEP_MIN}`, "-delete"];
 }
+
+// names/bg-<session>.json: a Claude Code background session's file. Its daemon
+// worker kept the HC_TERMINAL_ID of the terminal it was started from, so the
+// hook keys it by session instead (claude/name-hook.mjs fileKey).
+const BG_KEY = /^bg-/;
+
+/** A title as a terminal shows it, compared loosely: Claude's spinner glyph and spaces off, case folded. */
+export function titleKey(s) {
+  return String(s ?? "").replace(/^[^\p{L}\p{N}]+/u, "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/**
+ * `files` ({key: parsed}) with each background session's file also under the
+ * address of the agent whose terminal title is that session's /rename name or
+ * title. Only a one-to-one match moves: a file two terminals' titles match, or
+ * an agent two files match, stays put. An agent whose own file matches its
+ * title keeps its own.
+ */
+export function homeBackground(agents, files) {
+  const bg = Object.keys(files ?? {}).filter((k) => BG_KEY.test(k));
+  if (!bg.length) return files;
+  const titles = (f) => [f?.name, f?.hint].map(titleKey).filter(Boolean);
+  const want = {};
+  for (const a of agents ?? []) {
+    const t = titleKey(a.title);
+    if (!t || BG_KEY.test(a.address)) continue;
+    const own = files[a.address];
+    if (own && titles(own).includes(t)) continue;
+    const m = bg.filter((k) => titles(files[k]).includes(t));
+    if (m.length === 1) want[a.address] = m[0];
+  }
+  const claims = {};
+  for (const k of Object.values(want)) claims[k] = (claims[k] ?? 0) + 1;
+  const out = { ...files };
+  for (const [addr, k] of Object.entries(want)) if (claims[k] === 1) out[addr] = files[k];
+  return out;
+}

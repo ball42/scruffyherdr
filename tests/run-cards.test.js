@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -456,6 +456,31 @@ test("name hook: a subagent's hand-back while a menu is up keeps its Run cards",
   say(user("go"), said(two), asks(), answer(), said("Closing them now."));
   hook({ hook_event_name: "Stop", last_assistant_message: "Closing them now." });
   assert.deepEqual(read().runs.map((r) => r.label), ["list", "where"], "and stay after the answer");
+});
+
+test("name hook: a background session writes bg-<session>.json, never its stale terminal's file", () => {
+  const home = mkdtempSync(join(tmpdir(), "kit-home-"));
+  const dir = join(home, ".config", "herdr-kit", "names");
+  const run = (env, session_id) => spawnSync("node", [NAME_HOOK], { input: JSON.stringify({ hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "ls" }, session_id }), env: { ...process.env, HOME: home, HC_TERMINAL_ID: "t5q", ...env }, encoding: "utf8" });
+  assert.equal(run({ CLAUDE_CODE_SESSION_KIND: "bg" }, "8852b980-cd24").status, 0);
+  assert.deepEqual(readdirSync(dir), ["bg-8852b980-cd24.json"]);
+  run({ CLAUDE_CODE_SESSION_KIND: "bg" }, "../evil");
+  assert.deepEqual(readdirSync(dir), ["bg-8852b980-cd24.json"], "an odd session id writes nothing");
+  run({ CLAUDE_CODE_SESSION_KIND: "" }, "s2");
+  assert.deepEqual(readdirSync(dir).sort(), ["bg-8852b980-cd24.json", "t5q.json"], "a normal session keeps its terminal's file");
+});
+
+test("name hook: outside Herdr it leaves without waiting on stdin", async () => {
+  const env = { ...process.env };
+  delete env.HC_TERMINAL_ID;
+  // stdin is left open: a hook that read it would never exit.
+  const child = spawn("node", [NAME_HOOK], { env, stdio: ["pipe", "ignore", "ignore"] });
+  const code = await new Promise((resolve) => {
+    const t = setTimeout(() => { child.kill(); resolve("hung"); }, 3000);
+    child.on("exit", (c) => { clearTimeout(t); resolve(c); });
+  });
+  child.stdin.destroy();
+  assert.equal(code, 0);
 });
 
 test("isHarnessPrompt: Run notes, hand-backs and task notifications, not the user", () => {
