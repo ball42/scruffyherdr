@@ -97,3 +97,28 @@ export function mix(a, b, t) {
   const la = linear(a), lb = linear(b);
   return hex(la.map((c, i) => c + (lb[i] - c) * k));
 }
+
+const CLASH = 15;
+const FILL_STEPS = [0.2, 0.15, 0.1, 0.05];
+const isHex = (h) => typeof h === "string" && /^#[0-9a-fA-F]{6}$/.test(h);
+
+/**
+ * The active card's bar and fill for one theme. The bar is the theme's accent
+ * unless, seen with deuteranopia, it is within CLASH of done or needs-you;
+ * then it is the foreground. The fill is the base card fill blended toward
+ * the bar, as far as the foreground keeps 4.5:1 on it.
+ * @param colors a theme() record
+ * @param needs the scene's needs-you colour for this mode
+ * @param light whether the theme is light
+ * @returns {{here: string, hereFill: string}}
+ */
+export function hereTones(colors, needs, light) {
+  const fg = isHex(colors?.foreground) ? colors.foreground : light ? "#1f2328" : "#e6edf3";
+  const accent = colors?.accent;
+  const done = DONE[light ? "light" : "dark"];
+  const clashes = !isHex(accent) || deltaESim(accent, done) < CLASH || (isHex(needs) && deltaESim(accent, needs) < CLASH);
+  const here = clashes ? fg : accent;
+  const base = [colors?.selected, colors?.raised, colors?.background].find(isHex) ?? (light ? "#ffffff" : "#0d1117");
+  const hereFill = FILL_STEPS.map((t) => mix(base, here, t)).find((c) => contrast(c, fg) >= 4.5) ?? base;
+  return { here, hereFill };
+}

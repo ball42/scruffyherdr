@@ -38,3 +38,52 @@ test("mix: the ends and clamping", () => {
 test("DONE is the kit's done-blue", () => {
   assert.deepEqual(DONE, { dark: "#58a6ff", light: "#0969da" });
 });
+
+import { readFileSync, readdirSync } from "node:fs";
+import { hereTones } from "../herdr/mods/herdr-signals/colour.js";
+import { SCENES } from "../herdr/mods/herdr-signals/scenes.js";
+
+const themeColors = (name) => {
+  const f = JSON.parse(readFileSync(new URL(`../herdr/themes/${name}.json`, import.meta.url), "utf8"));
+  return { background: f.background, foreground: f.foreground, ...f.colors };
+};
+
+test("hereTones: Scarif night keeps its teal accent for the bar", () => {
+  assert.equal(hereTones(themeColors("scarif-night"), SCENES.scarif.needs.dark, false).here, "#5fd4d0");
+});
+
+test("hereTones: Tatooine night's violet is too near done-blue, so the bar is foreground", () => {
+  const c = themeColors("tatooine-night");
+  assert.equal(hereTones(c, SCENES.tatooine.needs.dark, false).here, c.foreground);
+});
+
+test("hereTones: Mustafar day's accent is too near its needs-you, so the bar is foreground", () => {
+  const c = themeColors("mustafar-day");
+  assert.equal(hereTones(c, SCENES.mustafar.needs.light, true).here, c.foreground);
+});
+
+test("hereTones: every scene theme's fill keeps foreground readable", () => {
+  const names = readdirSync(new URL("../herdr/themes/", import.meta.url)).filter((f) => /-(day|night)\.json$/.test(f));
+  assert.equal(names.length, 24);
+  for (const f of names) {
+    const scene = f.replace(/-(day|night)\.json$/, "");
+    const light = f.includes("-day");
+    const c = themeColors(f.replace(".json", ""));
+    const { hereFill } = hereTones(c, SCENES[scene].needs[light ? "light" : "dark"], light);
+    assert.ok(contrast(hereFill, c.foreground) >= 4.5, f);
+    assert.notEqual(hereFill, c.background, `${f}: the fill should be stronger than the base`);
+  }
+});
+
+test("hereTones: a theme without accent or selected falls back without throwing", () => {
+  const t = hereTones({ foreground: "#e6edf3", raised: "#161b22" }, "#ec8e2c", false);
+  assert.equal(t.here, "#e6edf3");
+  assert.match(t.hereFill, /^#[0-9a-f]{6}$/);
+});
+
+test("hereTones: a light theme measures the bar against the light done-blue", () => {
+  const c = { foreground: "#1f2328", background: "#ffffff", accent: "#0a6adb" };
+  assert.equal(hereTones(c, "#b35900", true).here, c.foreground);
+  assert.ok(deltaESim("#0a6adb", DONE.dark) >= 15, "far from the dark blue, so the mode matters");
+  assert.equal(hereTones(c, "#b35900", false).here, "#0a6adb");
+});

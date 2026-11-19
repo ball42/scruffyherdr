@@ -29,6 +29,7 @@ import { APPLY_PROBLEM, applyOutcome, validLook } from "./dress.js";
 import { readClicks } from "./clicks.js";
 import { readSizes, replaySizes, seedAside, sizesRecord, sizesText } from "./sizes.js";
 import { readConfig } from "./config.js";
+import { hereTones } from "./colour.js";
 import { KIT_LAYOUT, SCENES, isGridTree, sceneList, sceneOfTree } from "./scenes.js";
 import { SCENES_DIALOG, buttonTexts, leftPx, leftTexts, signalsWidth, stripFit, usagePx } from "./strip-fit.js";
 import { NO_KIT_PROBLEM, SWITCH_PROBLEM, afterStep, findNode, pickFollow, pinFor, pinOf, readTree, recordTheme, stepPlan, switchStep, toggleWant, wantStep } from "./view.js";
@@ -612,6 +613,12 @@ export default class Signals extends View {
   publish(scene, view) {
     if ((shared("kit.scene") ?? null) !== scene) setShared("kit.scene", scene);
     if ((shared("kit.view") ?? null) !== view) setShared("kit.view", view);
+    // The active card's bar and fill, for this theme; checked on every apply,
+    // since a light/dark switch changes the theme without changing the scene.
+    const light = realLight();
+    const needs = (SCENES[scene] ?? SCENES.tatooine).needs[light ? "light" : "dark"];
+    const tones = hereTones(theme(), needs, light);
+    if (JSON.stringify(shared("kit.tones") ?? null) !== JSON.stringify(tones)) setShared("kit.tones", tones);
   }
 
   /** kit.afterView ({view, address, argv?}): once `view` is shown, focus that Claude and maybe split under it. */
