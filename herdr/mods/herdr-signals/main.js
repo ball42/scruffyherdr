@@ -18,7 +18,7 @@ import { paceAdd, parseLimits, usageView } from "./usage.js";
 import { initialCardState, cardStep, buildCard } from "./card.js";
 import { parseHidIdleSeconds } from "./idle.js";
 import { initialNamesMemo, resolveNames } from "./names.js";
-import { attentionStep, autoSpotlight, awayStep, awayToast, buildModel, readRunState, urgencyOrder, urgentHit } from "./model.js";
+import { attentionStep, autoSpotlight, awayStep, awayToast, buildModel, readRunState, railOrder, urgentHit } from "./model.js";
 import { DIGEST_MS, focusDigest, focusExpired, focusHolds, focusLabel, focusOn, focusToggle, heldLabel } from "./focus.js";
 import { pruneSnooze, snoozeActive } from "./snooze.js";
 import { prunePins } from "./pins.js";
@@ -780,7 +780,7 @@ export default class Signals extends View {
       if (json !== this.lastModel) {
         this.lastModel = json;
         setShared("herdr-kit", model);
-        setAgentOrder(urgencyOrder(model));
+        setAgentOrder(railOrder(model));
       }
       // Focus runs out on its own, so a forgotten toggle can't hide finished Claudes for good.
       if (focusExpired(shared("kit.focus"), now, this.cfg.focus_max_minutes)) { this.endFocus(now); cx.notify(); }

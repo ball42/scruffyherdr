@@ -102,30 +102,20 @@ export function buildModel(agents, names, attention, currentSpace, snooze = {}, 
       attention: { kind: att.kind, since: att.since, pulse: att.kind === "blocked" && !att.seen && !snoozed },
     };
   });
-  // Spaces after the current one go by their most urgent Claude, so a Claude
-  // that needs you is never below a row of idle spaces. A snoozed Claude
-  // counts as idle here: it asked not to be lifted.
-  const spaceRank = {};
-  for (const r of rows) {
-    const k = r.snoozed ? RANK.idle : rowRank(r);
-    spaceRank[r.space] = Math.min(spaceRank[r.space] ?? Infinity, k);
-  }
-  rows.sort((x, y) =>
-    (x.space === currentSpace ? 0 : 1) - (y.space === currentSpace ? 0 : 1) ||
-    spaceRank[x.space] - spaceRank[y.space] ||
-    x.space_name.localeCompare(y.space_name) ||
-    String(x.space).localeCompare(String(y.space)) ||
-    rowRank(x) - rowRank(y) ||
-    y.seq - x.seq);
+  // Rows keep agents() order (space, tab, pane): a card stays put when its
+  // Claude's state changes, so the one you were reading doesn't slide away.
 
   const perTab = {};
   for (const r of rows) perTab[r.tab] = (perTab[r.tab] ?? 0) + 1;
   const tabs = {};
   for (const r of rows) {
-    // rows are urgency-sorted, so the first one seen per tab is its most urgent.
+    // A tab's glyph follows its most urgent Claude (the first one on a tie).
     // A split tab keeps its own label (name null); only the glyph follows urgency.
-    if (!tabs[r.tab]) tabs[r.tab] = { name: perTab[r.tab] === 1 ? r.name : null, kind: r.attention.kind, pulse: r.attention.pulse, since: r.attention.since };
+    const held = tabs[r.tab];
+    if (held && rowRank(held.row) <= rowRank(r)) continue;
+    tabs[r.tab] = { row: r, name: perTab[r.tab] === 1 ? r.name : null, kind: r.attention.kind, pulse: r.attention.pulse, since: r.attention.since };
   }
+  for (const k of Object.keys(tabs)) delete tabs[k].row;
   return { v: 1, current_space: currentSpace, agents: rows.map(({ seq, ...r }) => r), tabs };
 }
 
@@ -137,7 +127,7 @@ export function urgentHit(agents) {
   return live.find((a) => a.attention.kind === "blocked") ?? live.find((a) => a.attention.kind === "done") ?? null;
 }
 
-export function urgencyOrder(model) {
+export function railOrder(model) {
   return model.agents.map((a) => a.address);
 }
 
