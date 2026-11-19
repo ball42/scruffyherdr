@@ -388,7 +388,7 @@ function hookRig() {
   const transcript = join(home, "t.jsonl");
   writeFileSync(transcript, "");
   const file = join(home, ".config", "herdr-kit", "names", "term1.json");
-  const hook = (input) => spawnSync("node", [NAME_HOOK], { input: JSON.stringify({ session_id: "s", transcript_path: transcript, ...input }), env: { ...process.env, HOME: home, HC_TERMINAL_ID: "term1" }, encoding: "utf8" });
+  const hook = (input) => spawnSync("node", [NAME_HOOK], { input: JSON.stringify({ session_id: "s", transcript_path: transcript, ...input }), env: { ...process.env, HOME: home, HC_TERMINAL_ID: "term1", CLAUDE_JOB_DIR: "", CLAUDE_CODE_SESSION_KIND: "" }, encoding: "utf8" });
   const say = (...recs) => writeFileSync(transcript, recs.map((r) => JSON.stringify(r)).join("\n") + "\n");
   return { hook, read: () => JSON.parse(readFileSync(file, "utf8")), say };
 }
@@ -461,13 +461,16 @@ test("name hook: a subagent's hand-back while a menu is up keeps its Run cards",
 test("name hook: a background session writes bg-<session>.json, never its stale terminal's file", () => {
   const home = mkdtempSync(join(tmpdir(), "kit-home-"));
   const dir = join(home, ".config", "herdr-kit", "names");
-  const run = (env, session_id) => spawnSync("node", [NAME_HOOK], { input: JSON.stringify({ hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "ls" }, session_id }), env: { ...process.env, HOME: home, HC_TERMINAL_ID: "t5q", ...env }, encoding: "utf8" });
+  const run = (env, session_id) => spawnSync("node", [NAME_HOOK], { input: JSON.stringify({ hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "ls" }, session_id }), env: { ...process.env, HOME: home, HC_TERMINAL_ID: "t5q", CLAUDE_JOB_DIR: "", CLAUDE_CODE_SESSION_KIND: "", ...env }, encoding: "utf8" });
   assert.equal(run({ CLAUDE_CODE_SESSION_KIND: "bg" }, "8852b980-cd24").status, 0);
   assert.deepEqual(readdirSync(dir), ["bg-8852b980-cd24.json"]);
   run({ CLAUDE_CODE_SESSION_KIND: "bg" }, "../evil");
   assert.deepEqual(readdirSync(dir), ["bg-8852b980-cd24.json"], "an odd session id writes nothing");
-  run({ CLAUDE_CODE_SESSION_KIND: "" }, "s2");
-  assert.deepEqual(readdirSync(dir).sort(), ["bg-8852b980-cd24.json", "t5q.json"], "a normal session keeps its terminal's file");
+  // What a background job's hooks really see: CLAUDE_CODE_SESSION_KIND is stripped, CLAUDE_JOB_DIR is set.
+  run({ CLAUDE_CODE_SESSION_KIND: "", CLAUDE_JOB_DIR: "/home/x/.claude/jobs/9a1b" }, "9a1b-77");
+  assert.deepEqual(readdirSync(dir).sort(), ["bg-8852b980-cd24.json", "bg-9a1b-77.json"]);
+  run({ CLAUDE_CODE_SESSION_KIND: "", CLAUDE_JOB_DIR: "" }, "s2");
+  assert.deepEqual(readdirSync(dir).sort(), ["bg-8852b980-cd24.json", "bg-9a1b-77.json", "t5q.json"], "a normal session keeps its terminal's file");
 });
 
 test("name hook: outside Herdr it leaves without waiting on stdin", async () => {
