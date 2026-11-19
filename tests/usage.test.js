@@ -158,6 +158,14 @@ test("deckUsage: numbers, reset text and flags for the deck", () => {
   assert.deepEqual(d.week, { used: 50, reset: "Fri 9a", over: false });
   assert.equal(d.out, "11:30a");
   assert.equal(d.stale, false);
+  assert.equal(d.asOf, "10:40a");
+});
+
+test("deckUsage: a stale reading carries its clock time for the deck", () => {
+  const v = U.usageView(lim({ used: 62, resets: at(15) }, null, hm(14, 5) / 1000), null, hm(14, 30));
+  const d = deckUsage(v);
+  assert.equal(d.stale, true);
+  assert.equal(d.asOf, "2:05p");
 });
 
 test("deckUsage: null without a meter; expired window has null numbers", () => {

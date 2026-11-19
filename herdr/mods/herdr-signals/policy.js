@@ -58,10 +58,11 @@ export function deckAsks(snapshot, focusedAddr) {
 /**
  * The usage meter for the Stream Deck, from usage.js's view: each window as
  * `{used, reset, over}` (`used` null once the window has reset), the projected
- * `out` time and `stale`. Null without a meter.
+ * `out` time, `stale`, and `asOf`, the reading's clock time ("2:05p"), so a
+ * stale key can say how old it is. Null without a meter.
  */
 export function deckUsage(view) {
   if (!view) return null;
   const win = (w) => (w ? { used: w.used, reset: w.reset, over: w.over } : null);
-  return { five: win(view.five), week: win(view.week), out: view.outTime, stale: view.stale };
+  return { five: win(view.five), week: win(view.week), out: view.outTime, stale: view.stale, asOf: view.asOf };
 }
