@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { alertTheme, checkAlert, deriveTones, resolveAlerts } from "../herdr/mods/herdr-signals/alerts.js";
+import { alertProblems, alertTheme, checkAlert, deriveTones, resolveAlerts } from "../herdr/mods/herdr-signals/alerts.js";
 import { DONE, contrast } from "../herdr/mods/herdr-signals/colour.js";
 import { SCENES } from "../herdr/mods/herdr-signals/scenes.js";
 
@@ -99,4 +99,35 @@ test("alertTheme: the theme's blocked and done become the resolved colours for i
   assert.equal(alertTheme({ background: "#ffffff", blocked: "#b4542f" }, tones).blocked, "#8a6a00");
   const t = { background: "#0d1117", blocked: "#ff9e7a" };
   assert.equal(alertTheme(t, null), t);
+});
+
+test("alertProblems: names a bad value anywhere in alert_colors, once", () => {
+  const one = (cfg, re) => {
+    const p = alertProblems(cfg);
+    assert.equal(p.length, 1, `${JSON.stringify(cfg)}: ${JSON.stringify(p)}`);
+    assert.match(p[0], re);
+  };
+  one({ scenes: { hoth: { needs: "salmon" } } }, /salmon/);
+  one({ needs: { light: "zzz" } }, /zzz/);
+  one({ needs: { lihgt: "#ffffff" } }, /lihgt/);
+  one({ scenes: { hoth: "#ffffff" } }, /hoth/);
+  one({ need: "#ffffff" }, /need/);
+  one("#ffd84d", /alert_colors/);
+  one({ scenes: { hot: { needs: "#ffffff" } } }, /hot/);
+  assert.deepEqual(alertProblems({ needs: "orange" }).length, 1);
+  assert.deepEqual(alertProblems(undefined), []);
+  assert.deepEqual(alertProblems({}), []);
+  assert.deepEqual(alertProblems({ needs: { dark: "#ffd84d", light: "#8a6a00" }, done: "#58a6ff", scenes: { hoth: { needs: "#ffe5de" } } }), []);
+});
+
+test("README: the alert_colors row's first example passes in every scene, night and day", () => {
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  const row = readme.split("\n").find((l) => l.startsWith("| `alert_colors`"));
+  const ex = JSON.parse(row.match(/`(\{"needs":.*?\})`/)[1]);
+  for (const [k, s] of Object.entries(SCENES)) {
+    const { tones } = resolveAlerts(ex, k, s);
+    for (const [mode, file] of [["dark", "night"], ["light", "day"]]) {
+      assert.ok(checkAlert(tones[mode].orange, tones[mode].blue, themeColors(`${k}-${file}`)).ok, `${k} ${file}`);
+    }
+  }
 });

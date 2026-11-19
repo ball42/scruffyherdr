@@ -118,7 +118,7 @@ Everything here is off by default. The ones marked "coming soon" aren't in this 
 | Key | Default | What it does |
 | --- | --- | --- |
 | `discord_webhook` | `""` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Discord webhook for the away card. Empty turns Discord off. |
-| `alert_colors` | `{}` | Your own needs-you and done colours, over each scene's. `{"needs": "#ffd84d"}` sets needs-you everywhere; `{"done": {"dark": "#58a6ff", "light": "#0969da"}}` sets done per mode; `{"scenes": {"hoth": {"needs": "#ffe5de"}}}` sets one scene, and beats the global entry. A colour is `#rrggbb`, or `{dark, light}` for night and day themes. Edits apply within 10 s; a bad value is skipped and named on the strip, and `./install.sh --check` warns when a colour is hard to tell from done with deuteranopia. |
+| `alert_colors` | `{}` | Your own needs-you and done colours, over each scene's. `{"needs": {"dark": "#ffd84d", "light": "#8a6a00"}}` sets needs-you everywhere (night and day themes need different colours to stay readable; one `#rrggbb` sets both); `{"done": {"dark": "#58a6ff", "light": "#0969da"}}` sets done per mode; `{"scenes": {"hoth": {"needs": "#ffe5de"}}}` sets one scene, and beats the global entry. A colour is `#rrggbb`, or `{dark, light}` for night and day themes. Edits apply within 10 s; a bad value is skipped and named on the strip, and `./install.sh --check` warns when a colour is hard to tell from done with deuteranopia. |
 | `away_seconds` | `120` | No input for this long counts as away. |
 | `grace_seconds` | `60` | A blocked Claude waits this long before it reaches Discord. |
 | `done_min_seconds` | `180` | Turns this long or longer join the card. |

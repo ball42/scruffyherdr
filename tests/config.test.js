@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { configChanged, readConfig } from "../herdr/mods/herdr-signals/config.js";
+import { configChanged, readConfig, reloadConfig } from "../herdr/mods/herdr-signals/config.js";
 
 const D = { poll_ms: 1500, readme_tabs: false };
 
@@ -38,4 +38,22 @@ test("configChanged is true only when the text changed", () => {
   assert.equal(configChanged("{}", '{"a":1}'), true);
   assert.equal(configChanged("{}", null), true);
   assert.equal(configChanged(null, null), false);
+});
+
+test("reloadConfig: a reload that can't parse keeps the last good config and names it", () => {
+  const good = readConfig('{"addons":["kit-jira"]}', { addons: [] }).cfg;
+  const bad = reloadConfig(good, '{"addons": [', { addons: [] });
+  assert.deepEqual(bad.cfg, good);
+  assert.match(bad.problem, /valid JSON/);
+  const gone = reloadConfig(good, null, { addons: [] });
+  assert.deepEqual(gone.cfg, good);
+  assert.equal(gone.problem, null);
+  const fixed = reloadConfig(good, '{"addons":["kit-rail"]}', { addons: [] });
+  assert.deepEqual(fixed.cfg.addons, ["kit-rail"]);
+  assert.equal(fixed.problem, null);
+});
+
+test("reloadConfig: the first read is readConfig's", () => {
+  assert.deepEqual(reloadConfig(null, null, { a: 1 }), readConfig(null, { a: 1 }));
+  assert.deepEqual(reloadConfig(null, "{", { a: 1 }), readConfig("{", { a: 1 }));
 });

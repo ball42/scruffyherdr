@@ -115,3 +115,49 @@ export function alertTheme(t, tones) {
   const tone = tones?.[isLight(t?.background) ? "light" : "dark"];
   return tone ? { ...t, blocked: tone.orange, done: tone.blue } : t;
 }
+
+const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+
+/** One colour value's problems: "#rrggbb", or {dark?, light?} of them. */
+function valueProblems(v, where) {
+  if (v === undefined) return [];
+  if (typeof v === "string") return HEX.test(v) ? [] : [`alert_colors ${where}: "${v}" is not a #rrggbb colour`];
+  if (!isObj(v)) return [`alert_colors ${where}: expected a colour or {dark, light}`];
+  const out = [];
+  for (const [k, c] of Object.entries(v)) {
+    if (!MODES.includes(k)) out.push(`alert_colors ${where}: "${k}" isn't dark or light`);
+    else if (typeof c !== "string" || !HEX.test(c)) out.push(`alert_colors ${where}.${k}: "${String(c)}" is not a #rrggbb colour`);
+  }
+  return out;
+}
+
+/** A needs/done entry's problems (the top level, or one scene's). */
+function entryProblems(e, where) {
+  const out = [];
+  for (const k of Object.keys(e)) if (!ROLES.includes(k)) out.push(`alert_colors${where ? ` ${where.slice(0, -1)}` : ""}: "${k}" isn't needs or done`);
+  for (const role of ROLES) out.push(...valueProblems(e[role], `${where}${role}`));
+  return out;
+}
+
+/**
+ * Every problem in config `alert_colors`, whichever scene is shown: bad
+ * colours in either mode, unknown keys and scenes, wrong shapes. Each is
+ * named once; resolveAlerts skips the same values.
+ */
+export function alertProblems(cfg) {
+  if (cfg === undefined || cfg === null) return [];
+  if (!isObj(cfg)) return ['alert_colors: expected an object such as {"needs": {"dark": "#ffd84d", "light": "#8a6a00"}}'];
+  const { scenes, ...top } = cfg;
+  const out = entryProblems(top, "");
+  if (scenes !== undefined) {
+    if (!isObj(scenes)) out.push("alert_colors scenes: expected {scene: {needs, done}}");
+    else {
+      for (const [k, e] of Object.entries(scenes)) {
+        if (!Object.hasOwn(SCENES, k)) out.push(`alert_colors scenes: no scene named "${k}"`);
+        else if (!isObj(e)) out.push(`alert_colors scenes.${k}: expected {needs, done}`);
+        else out.push(...entryProblems(e, `scenes.${k}.`));
+      }
+    }
+  }
+  return [...new Set(out)];
+}

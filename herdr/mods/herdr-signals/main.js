@@ -28,8 +28,8 @@ import { LAYOUT_NOTE, layoutChanged } from "./layout.js";
 import { APPLY_PROBLEM, applyOutcome, validLook } from "./dress.js";
 import { readClicks } from "./clicks.js";
 import { readSizes, replaySizes, seedAside, sizesRecord, sizesText } from "./sizes.js";
-import { configChanged, readConfig } from "./config.js";
-import { alertTheme, resolveAlerts } from "./alerts.js";
+import { configChanged, reloadConfig } from "./config.js";
+import { alertProblems, alertTheme, resolveAlerts } from "./alerts.js";
 import { hereTones } from "./colour.js";
 import { KIT_LAYOUT, SCENES, isGridTree, sceneList, sceneOfTree } from "./scenes.js";
 import { SCENES_DIALOG, buttonTexts, leftPx, leftTexts, signalsWidth, stripFit, usagePx } from "./strip-fit.js";
@@ -467,9 +467,10 @@ export default class Signals extends View {
     const text = await readTextFile(path).catch(() => null);
     if (!configChanged(this.configText, text)) return false;
     this.configText = text;
-    const { cfg, problem } = readConfig(text, DEFAULTS);
+    // A reread that can't parse keeps the last good config; a later good read clears its problem.
+    const { cfg, problem } = reloadConfig(this.cfg, text, DEFAULTS);
     this.cfg = cfg;
-    if (problem) this.problem = problem;
+    this.configProblem = problem;
     // One check of config `look`: a bad value falls back to its default and says so on the strip.
     const v = validLook(this.cfg.look);
     this.look = v.look;
@@ -477,7 +478,7 @@ export default class Signals extends View {
     const pipe = typeof this.cfg.run_log_pipe === "string" ? this.cfg.run_log_pipe.trim() : "";
     if ((shared("kit.runLogPipe") ?? "") !== pipe) setShared("kit.runLogPipe", pipe);
     // alert_colors: a bad value is skipped and named on the strip; the picker previews the resolved colours.
-    this.alertProblem = resolveAlerts(this.cfg.alert_colors, "tatooine", SCENES.tatooine).problems[0] ?? null;
+    this.alertProblem = alertProblems(this.cfg.alert_colors)[0] ?? null;
     setShared("kit.scenes", sceneList(SCENES, this.cfg.alert_colors));
     return true;
   }
@@ -1021,7 +1022,7 @@ export default class Signals extends View {
     const s = summary(this.model?.agents ?? agents());
     const parts = [];
     // A layout or scene-picker problem first; a bad config `look` stays until the config is fixed.
-    const problem = this.problem ?? this.lookProblem ?? this.alertProblem;
+    const problem = this.problem ?? this.configProblem ?? this.lookProblem ?? this.alertProblem;
     if (problem) parts.push(div().text_color(t.muted).child(problem));
     // Clicking a count does what cmd-shift-u does.
     const focus = shared("kit.focus");
