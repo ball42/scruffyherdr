@@ -77,7 +77,8 @@ export function projectOut(points, resetsSec) {
  * What the strip and the deck show, or null for no meter. `hist` is paceAdd's
  * history. Each window: `{text, over, used, reset}`; a window past its reset
  * reads "—" until a fresh reading. `out` is "⚠ out ~3:40p" (`outTime` "3:40p"),
- * `stale` a reading over 10 minutes old, `tip` the tooltip.
+ * `stale` a reading over 10 minutes old, `asOf` the reading's clock time ("2:05p"),
+ * `tip` the tooltip.
  */
 export function usageView(limits, hist, now) {
   if (!limits || (!limits.five && !limits.week)) return null;
@@ -101,6 +102,7 @@ export function usageView(limits, hist, now) {
   if (five) tips.push(five.used === null ? "5h window: reset, waiting for a fresh reading" : `5h window: ${five.used}% used, resets ${five.reset}`);
   if (week) tips.push(week.used === null ? "week: reset, waiting for a fresh reading" : `week: ${week.used}% used, resets ${week.reset}`);
   if (outTime) tips.push(`at this pace the 5h window runs out ~${outTime}`);
-  if (stale) tips.push(`as of ${clockTime(limits.at)}`);
-  return { five, week, out: outTime ? `⚠ out ~${outTime}` : null, outTime, stale, tip: tips.join("\n") };
+  const asOf = clockTime(limits.at);
+  if (stale) tips.push(`as of ${asOf}`);
+  return { five, week, out: outTime ? `⚠ out ~${outTime}` : null, outTime, stale, asOf, tip: tips.join("\n") };
 }
