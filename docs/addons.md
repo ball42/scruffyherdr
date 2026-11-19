@@ -104,7 +104,7 @@ The model, `shared("herdr-kit")`, gives each Claude in `agents[]`:
 - `session`: the Claude Code session id from the names file, or null;
 - `badge`: what the core drew from this add-on last poll.
 
-An add-on may also read `shared("kit.tones")`, which herdr-signals writes for the current theme: `{ here, hereFill }`, the bar colour and card fill the rail gives the Claude in the focused terminal. Read it; never write it.
+An add-on may also read `shared("kit.here")`, which herdr-signals writes for the current theme: `{ here, hereFill }`, the bar colour and card fill the rail gives the Claude in the focused terminal. Read it; never write it.
 
 Compute badges from the model you read now. A saved agent list can name a terminal address that now belongs to a different Claude.
 

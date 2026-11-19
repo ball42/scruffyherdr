@@ -1,5 +1,5 @@
-// The urgency rail: every Claude in every space, most urgent first, grouped
-// by space. Draws from shared("herdr-kit") (published by herdr-signals).
+// The urgency rail: every Claude in every space, grouped by space in Herdr's
+// order, so cards stay put; the focused one carries a bar (here.js). Draws from shared("herdr-kit") (published by herdr-signals).
 // Click a card to expand it in place and answer the Claude from there
 // (expand.js draws it); double-click, or ↗ open, does what a click did before:
 // open the grid on that Claude (in the grid, see cardClick). Props: compact
@@ -237,7 +237,7 @@ export default class Rail extends View {
     const glyph = a.snoozed ? snoozeGlyph(t.dim, snoozeLabel(a)) : statusGlyph(a, t);
     const m = ctxMeter(a.ctx_left);
     return div().id(`rail-${a.address}`).relative().w_full().px(10).py(3).rounded(6)
-      .bg(current ? hereFill(shared("kit.tones"), t) : t.chrome)
+      .bg(current ? hereFill(shared("kit.here"), t) : t.chrome)
       .hover((s) => s.bg(t.hover))
       .on_mouse_down("left", () => this.answer.remember())
       .on_hover((h, cx) => { if (h) this.hoverCard = a.address; else if (this.hoverCard === a.address) this.hoverCard = null; cx.notify(); })
@@ -254,7 +254,7 @@ export default class Rail extends View {
       .when(canCompact(a), (el) => el.child(h_flex().pt(3).child(this.compactPill(a, t))))
       .when(this.hoverCard === a.address, (el) => el.child(h_flex().pt(3).child(snoozeControls(t, `rail-zz-${a.address}`, a, (c) => snooze(a.address, c)))))
       .when(Boolean(m), (el) => el.child(ctxEdge(m, t)))
-      .when(current, (el) => el.pl(13).child(hereBar(shared("kit.tones"), t)))
+      .when(current, (el) => el.pl(13).child(hereBar(shared("kit.here"), t)))
       .border(1).border_color(current ? t.border : t.chrome);
   }
 
@@ -273,7 +273,7 @@ export default class Rail extends View {
     const badge = asksFor(a);
     const glyph = a.snoozed ? snoozeGlyph(t.dim, snoozeLabel(a)) : badge && a.attention.kind === "blocked" ? null : mark(a.attention.kind, a.attention.pulse) ?? statusGlyph(a, t);
     const body = v_flex().id(`rail-${a.address}`).relative().w_full().px(10).py(6).gap(2).rounded(6)
-      .bg(current ? hereFill(shared("kit.tones"), t) : t.raised)
+      .bg(current ? hereFill(shared("kit.here"), t) : t.raised)
       .hover((s) => s.bg(t.hover))
       .when(expandable, (el) => el.on_mouse_down("left", () => this.answer.remember()))
       .on_hover((h, cx) => { if (h) this.hoverCard = a.address; else if (this.hoverCard === a.address) this.hoverCard = null; cx.notify(); })
@@ -301,7 +301,7 @@ export default class Rail extends View {
       .when(Boolean(ctxMeter(a.ctx_left)), (el) => el.child(ctxEdge(ctxMeter(a.ctx_left), t)))
       .when(canCompact(a), (el) => el.child(h_flex().pt(3).child(this.compactPill(a, t))))
       .when(this.hoverCard === a.address, (el) => el.child(h_flex().pt(3).child(snoozeControls(t, `rail-zz-${a.address}`, a, (c) => snooze(a.address, c)))))
-      .when(current, (el) => el.pl(13).child(hereBar(shared("kit.tones"), t)))
+      .when(current, (el) => el.pl(13).child(hereBar(shared("kit.here"), t)))
       .child(this.flares.overlay(a.address));
     return outline(body, a.attention.kind, t);
   }
@@ -336,14 +336,14 @@ export default class Rail extends View {
     const badge = asksFor(a);
     const glyph = a.snoozed ? snoozeGlyph(t.dim) : badge && a.attention.kind === "blocked" ? null : mark(a.attention.kind, a.attention.pulse) ?? statusGlyph(a, t);
     const el = h_flex().id(`chip-${a.address}`).relative().h(24).px(8).gap(6).flex_none().items_center().rounded(6)
-      .bg(current ? hereFill(shared("kit.tones"), t) : t.raised)
+      .bg(current ? hereFill(shared("kit.here"), t) : t.raised)
       .hover((s) => s.bg(t.hover))
       .on_click(() => click(a))
       .when(Boolean(glyph), (e) => e.child(glyph))
       .when(Boolean(a.card), (e) => e.child(cardMark(a.card, a.attention.kind === "blocked" ? ORANGE : BLUE)))
       .when(Boolean(badge), (e) => e.child(badge))
       .child(div().max_w(160).truncate().text_size(12).text_color(t.foreground).child(a.name))
-      .when(current, (e) => e.pl(11).child(hereBar(shared("kit.tones"), t)))
+      .when(current, (e) => e.pl(11).child(hereBar(shared("kit.here"), t)))
       .child(this.flares.overlay(a.address));
     return outline(el, a.attention.kind, t);
   }
@@ -397,7 +397,7 @@ export default class Rail extends View {
       if (a.address === here) hereRow = rows.length;
       if (this.answer.open?.address === a.address) {
         const open = this.expanded(a, t);
-        rows.push(a.address === here ? div().relative().w_full().child(open).child(hereBar(shared("kit.tones"), t)) : open);
+        rows.push(a.address === here ? div().relative().w_full().child(open).child(hereBar(shared("kit.here"), t)) : open);
       }
       else if (this.isQuiet(a)) rows.push(this.quiet(a, t, a.address === here));
       else rows.push(this.card(a, t, a.address === here, true));

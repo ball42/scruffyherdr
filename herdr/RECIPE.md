@@ -1,6 +1,6 @@
 # scruffy
 
-Herdr's own window, dressed as a scene and focused on your Claudes. One picture fills the window behind glass panels: twin suns over a desert, a forest moon, an ice plain, and nine more. A rail on the right lists every Claude, the ones waiting on you first. A strip along the bottom counts them, and one key tiles the current space's Claudes in a grid. Unofficial fan project, not affiliated with Lucasfilm or Disney; the pictures are original art.
+Herdr's own window, dressed as a scene and focused on your Claudes. One picture fills the window behind glass panels: twin suns over a desert, a forest moon, an ice plain, and nine more. A rail on the right lists every Claude in Herdr's order, so cards stay put, and marks the one you're in. A strip along the bottom counts them, and one key tiles the current space's Claudes in a grid. Unofficial fan project, not affiliated with Lucasfilm or Disney; the pictures are original art.
 
 ![scruffy](preview.png)
 
@@ -9,7 +9,7 @@ Herdr's own window, dressed as a scene and focused on your Claudes. One picture 
 - **Sidebar** on the left, 200px (min 44, max 480; not resizable): Herdr's brand bar (46px), the spaces list, and the footer (69px). Herdr's agents list is there but hidden.
 - **Tabs** across the top, 42px (`kit-tabs`): one pill per tab, named after the Claude in it, with the needs-you glyph on a tab that waits on you.
 - **The terminal** in the middle: panes as cards, 8px apart with 10px corners, each with a 30px header (`kit-pane`). The header shows the Claude's name and folder, and on the right its state ("Needs you · 26s").
-- **The rail** on the right, 260px (drag 200 to 420) (`kit-rail`): every Claude grouped by space, the current space first. A Claude waiting on you is a card with an outline in the needs-you colour, its glyph, and how long it has waited. One that's working has a spinner; done and idle ones are plain rows.
+- **The rail** on the right, 260px (drag 200 to 420) (`kit-rail`): every Claude grouped by space, in Herdr's order; the one in the focused terminal has a bar on its left edge and a stronger fill, and the rail scrolls to it when focus moves. A Claude waiting on you is a card with an outline in the needs-you colour, its glyph, and how long it has waited. One that's working has a spinner; done and idle ones are plain rows.
 - **The strip** at the bottom right, 300px beside Herdr's status bar (`herdr-signals`): "✋ 2 NEEDS YOU", a count of open questions ("☀☀ 1 ask"), and buttons for focus mode, the scene picker (◐) and the grid.
 - **The picture**: the whole window behind the terminals, which are 45% opaque. The sidebar, tabs, rail and bars are clear glass tinted with the scene's panel colour. Night and day pictures follow macOS light and dark.
 - **The grid** (`cmd-shift-g`): the current space's Claudes as tiles: two across for up to four, three across for up to nine, and any more as chips below. Each tile has its own header, and a tile waiting on you is outlined in the needs-you colour.

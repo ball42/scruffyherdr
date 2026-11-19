@@ -1,6 +1,6 @@
 // The rail's "you are here": the bar and fill on the focused terminal's
 // card, and when to scroll that card into view. Colours come from
-// kit.tones, which herdr-signals works out per theme (colour.js).
+// kit.here, which herdr-signals works out per theme (colour.js).
 import { div } from "gpui-kit";
 
 /** The 3-px bar on the left edge of the focused Claude's card. */
@@ -15,13 +15,17 @@ export function hereFill(tones, t) {
 
 /**
  * Whether to scroll this render: only when the focused terminal changed since
- * the last render (never on the first), and only to a Claude on the rail.
- * @param prev the focused terminal last render (undefined before the first)
+ * the last scroll (never on the first render), and only to a Claude on the rail.
+ * @param prev the terminal last scrolled to or first seen (undefined before the first render)
  * @param focus the focused terminal now, or null
  * @param index that terminal's row index this render, or -1
  * @returns {{index: number|null, prev: string|null}}
  */
 export function scrollStep(prev, focus, index) {
-  const moved = prev !== undefined && focus !== prev;
-  return { index: moved && focus !== null && index >= 0 ? index : null, prev: focus };
+  if (prev === undefined || focus === null) return { index: null, prev: focus };
+  if (focus === prev) return { index: null, prev };
+  // Focus moved to a terminal with no card yet (a Claude just starting, or a
+  // shell): keep the move pending, so the card is scrolled to once it appears.
+  if (index < 0) return { index: null, prev };
+  return { index, prev: focus };
 }

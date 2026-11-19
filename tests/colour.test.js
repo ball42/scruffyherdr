@@ -49,17 +49,17 @@ const themeColors = (name) => {
 };
 
 test("hereTones: Scarif night keeps its teal accent for the bar", () => {
-  assert.equal(hereTones(themeColors("scarif-night"), SCENES.scarif.needs.dark, false).here, "#5fd4d0");
+  assert.equal(hereTones(themeColors("scarif-night"), SCENES.scarif.needs).here, "#5fd4d0");
 });
 
 test("hereTones: Tatooine night's violet is too near done-blue, so the bar is foreground", () => {
   const c = themeColors("tatooine-night");
-  assert.equal(hereTones(c, SCENES.tatooine.needs.dark, false).here, c.foreground);
+  assert.equal(hereTones(c, SCENES.tatooine.needs).here, c.foreground);
 });
 
 test("hereTones: Mustafar day's accent is too near its needs-you, so the bar is foreground", () => {
   const c = themeColors("mustafar-day");
-  assert.equal(hereTones(c, SCENES.mustafar.needs.light, true).here, c.foreground);
+  assert.equal(hereTones(c, SCENES.mustafar.needs).here, c.foreground);
 });
 
 test("hereTones: every scene theme's fill keeps foreground readable", () => {
@@ -69,21 +69,24 @@ test("hereTones: every scene theme's fill keeps foreground readable", () => {
     const scene = f.replace(/-(day|night)\.json$/, "");
     const light = f.includes("-day");
     const c = themeColors(f.replace(".json", ""));
-    const { hereFill } = hereTones(c, SCENES[scene].needs[light ? "light" : "dark"], light);
+    const { hereFill } = hereTones(c, SCENES[scene].needs);
     assert.ok(contrast(hereFill, c.foreground) >= 4.5, f);
     assert.notEqual(hereFill, c.background, `${f}: the fill should be stronger than the base`);
   }
 });
 
 test("hereTones: a theme without accent or selected falls back without throwing", () => {
-  const t = hereTones({ foreground: "#e6edf3", raised: "#161b22" }, "#ec8e2c", false);
+  const t = hereTones({ foreground: "#e6edf3", raised: "#161b22" }, { dark: "#ec8e2c", light: "#b35900" });
   assert.equal(t.here, "#e6edf3");
   assert.match(t.hereFill, /^#[0-9a-f]{6}$/);
 });
 
-test("hereTones: a light theme measures the bar against the light done-blue", () => {
-  const c = { foreground: "#1f2328", background: "#ffffff", accent: "#0a6adb" };
-  assert.equal(hereTones(c, "#b35900", true).here, c.foreground);
-  assert.ok(deltaESim("#0a6adb", DONE.dark) >= 15, "far from the dark blue, so the mode matters");
-  assert.equal(hereTones(c, "#b35900", false).here, "#0a6adb");
+test("hereTones: the mode comes from the shown theme's background, not the OS", () => {
+  const accent = "#0a6adb";
+  assert.ok(deltaESim(accent, DONE.dark) >= 15, "far from the dark blue, so the mode matters");
+  const needs = { dark: "#ec8e2c", light: "#b35900" };
+  const lightTheme = { foreground: "#1f2328", background: "#ffffff", accent };
+  assert.equal(hereTones(lightTheme, needs).here, lightTheme.foreground);
+  const darkTheme = { foreground: "#e6edf3", background: "#0d1117", accent };
+  assert.equal(hereTones(darkTheme, needs).here, accent);
 });

@@ -615,10 +615,8 @@ export default class Signals extends View {
     if ((shared("kit.view") ?? null) !== view) setShared("kit.view", view);
     // The active card's bar and fill, for this theme; checked on every apply,
     // since a light/dark switch changes the theme without changing the scene.
-    const light = realLight();
-    const needs = (SCENES[scene] ?? SCENES.tatooine).needs[light ? "light" : "dark"];
-    const tones = hereTones(theme(), needs, light);
-    if (JSON.stringify(shared("kit.tones") ?? null) !== JSON.stringify(tones)) setShared("kit.tones", tones);
+    const here = hereTones(theme(), (SCENES[scene] ?? SCENES.tatooine).needs);
+    if (JSON.stringify(shared("kit.here") ?? null) !== JSON.stringify(here)) setShared("kit.here", here);
   }
 
   /** kit.afterView ({view, address, argv?}): once `view` is shown, focus that Claude and maybe split under it. */

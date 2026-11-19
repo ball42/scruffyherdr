@@ -119,7 +119,6 @@ export function buildModel(agents, names, attention, currentSpace, snooze = {}, 
   return { v: 1, current_space: currentSpace, agents: rows.map(({ seq, ...r }) => r), tabs };
 }
 
-/** Addresses in rail order, for setAgentOrder (cmd-] / cmd-[ follow the rail). */
 /** The Claude "most urgent" goes to (cmd-shift-u, a strip count click): the
  *  first blocked one, else the first done one, skipping snoozed. Model order. */
 export function urgentHit(agents) {
@@ -127,6 +126,7 @@ export function urgentHit(agents) {
   return live.find((a) => a.attention.kind === "blocked") ?? live.find((a) => a.attention.kind === "done") ?? null;
 }
 
+/** Addresses in rail order, for setAgentOrder (cmd-] / cmd-[ follow the rail). */
 export function railOrder(model) {
   return model.agents.map((a) => a.address);
 }
