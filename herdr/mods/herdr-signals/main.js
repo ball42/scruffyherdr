@@ -23,7 +23,7 @@ import { DIGEST_MS, focusDigest, focusExpired, focusHolds, focusLabel, focusOn, 
 import { pruneSnooze, snoozeActive } from "./snooze.js";
 import { prunePins } from "./pins.js";
 import { blockedLabel, digestLine, focusButton, stripCounts, usageItem } from "./strip.js";
-import { applyReads, changedFiles, parseStamps, pruneCtxArgs, stampDiff } from "./folder.js";
+import { applyReads, changedFiles, homeBackground, parseStamps, pruneCtxArgs, stampDiff } from "./folder.js";
 import { LAYOUT_NOTE, layoutChanged } from "./layout.js";
 import { APPLY_PROBLEM, applyOutcome, validLook } from "./dress.js";
 import { readClicks } from "./clicks.js";
@@ -91,6 +91,7 @@ function rawAgents() {
     branch: pane[a.pane]?.branch ?? null,
     cwd: pane[a.pane]?.cwd ?? null,
     seq: a.seq,
+    title: typeof a.title === "string" ? a.title : "",
   }));
 }
 
@@ -744,7 +745,9 @@ export default class Signals extends View {
       const raw = rawAgents();
       const now = Date.now();
 
-      const resolved = resolveNames(this.namesMemo, { agents: raw, files: this.files, now });
+      // A background session's file goes to the terminal showing it (folder.js).
+      const files = homeBackground(raw, this.files);
+      const resolved = resolveNames(this.namesMemo, { agents: raw, files, now });
       this.namesMemo = resolved.memo;
       for (const r of resolved.renames) run("tab.rename", { id: r.tab, name: r.name });
 
@@ -752,7 +755,7 @@ export default class Signals extends View {
       this.refreshPrs(cx, prWanted);
       const addon = this.addonData();
       const names = Object.fromEntries(Object.entries(withBadges(this.withPrs(resolved.names, prWanted), addon.badges))
-        .map(([addr, n]) => [addr, { ...n, ctx_left: this.ctx[addr] ?? null, session: this.files[addr]?.session_id ?? null }])
+        .map(([addr, n]) => [addr, { ...n, ctx_left: this.ctx[addr] ?? null, session: files[addr]?.session_id ?? null }])
         .map(([addr, n]) => [addr, this.cfg.run_cards ? n : { ...n, runs: [], card: n.card === "run" ? null : n.card }]));
 
       // Pins on Claudes gone for PIN_GRACE_MS are dropped, so kit.pins doesn't grow forever.

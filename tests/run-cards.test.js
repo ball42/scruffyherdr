@@ -458,6 +458,18 @@ test("name hook: a subagent's hand-back while a menu is up keeps its Run cards",
   assert.deepEqual(read().runs.map((r) => r.label), ["list", "where"], "and stay after the answer");
 });
 
+test("name hook: a background session writes bg-<session>.json, never its stale terminal's file", () => {
+  const home = mkdtempSync(join(tmpdir(), "kit-home-"));
+  const dir = join(home, ".config", "herdr-kit", "names");
+  const run = (env, session_id) => spawnSync("node", [NAME_HOOK], { input: JSON.stringify({ hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "ls" }, session_id }), env: { ...process.env, HOME: home, HC_TERMINAL_ID: "t5q", ...env }, encoding: "utf8" });
+  assert.equal(run({ CLAUDE_CODE_SESSION_KIND: "bg" }, "8852b980-cd24").status, 0);
+  assert.deepEqual(readdirSync(dir), ["bg-8852b980-cd24.json"]);
+  run({ CLAUDE_CODE_SESSION_KIND: "bg" }, "../evil");
+  assert.deepEqual(readdirSync(dir), ["bg-8852b980-cd24.json"], "an odd session id writes nothing");
+  run({ CLAUDE_CODE_SESSION_KIND: "" }, "s2");
+  assert.deepEqual(readdirSync(dir).sort(), ["bg-8852b980-cd24.json", "t5q.json"], "a normal session keeps its terminal's file");
+});
+
 test("isHarnessPrompt: Run notes, hand-backs and task notifications, not the user", () => {
   for (const p of [`${RUN_NOTE} finished: "x" exited 0`, '<agent-message from="a1">\nhi', "  <task-notification>\n<task-id>x</task-id>"]) assert.equal(isHarnessPrompt(p), true, p);
   for (const p of ["go", "what is <task-notification>?", "", null]) assert.equal(isHarnessPrompt(p), false, String(p));

@@ -39,10 +39,25 @@ function cleanStale(dir, keep) {
   }
 }
 
+/**
+ * The names file this session writes, without ".json": its terminal, or for a
+ * Claude Code background session "bg-<session id>". A background session runs
+ * in a daemon worker that kept the HC_TERMINAL_ID of the terminal it was
+ * started from, which may be another terminal or none; herdr-signals gives its
+ * file to the terminal whose title matches (folder.js homeBackground). Null
+ * outside Herdr.
+ */
+function fileKey(env, sessionId) {
+  const terminal = env.HC_TERMINAL_ID;
+  if (!terminal || !/^[A-Za-z0-9_-]+$/.test(terminal)) return null;
+  if (env.CLAUDE_CODE_SESSION_KIND !== "bg") return terminal;
+  return typeof sessionId === "string" && /^[A-Za-z0-9-]{1,64}$/.test(sessionId) ? `bg-${sessionId}` : null;
+}
+
 function main() {
-  const terminal = process.env.HC_TERMINAL_ID;
-  if (!terminal || !/^[A-Za-z0-9_-]+$/.test(terminal)) return;
   const input = JSON.parse(readFileSync(0, "utf8"));
+  const terminal = fileKey(process.env, input?.session_id);
+  if (!terminal) return;
   const event = input.hook_event_name;
   // A background subagent's tool calls carry the parent's session_id and an
   // agent_id (set only inside a subagent). They must not touch the parent's
