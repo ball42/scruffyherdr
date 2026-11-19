@@ -378,6 +378,20 @@ export function isRunNote(text) {
   return typeof text === "string" && text.trimStart().startsWith(RUN_NOTE_PREFIX);
 }
 
+// What the harness types into the session when background work finishes: a
+// subagent's hand-back and a task's notification.
+const HARNESS_PREFIXES = [RUN_NOTE_PREFIX, "<agent-message", "<task-notification>"];
+
+/**
+ * True for a prompt the user didn't type: a ▶ Run note, a subagent's
+ * hand-back, a background task's notification. The cards stay open across it.
+ */
+export function isHarnessPrompt(text) {
+  if (typeof text !== "string") return false;
+  const t = text.trimStart();
+  return HARNESS_PREFIXES.some((p) => t.startsWith(p));
+}
+
 /**
  * Adds `fresh` cards to `kept` (by id), keeping kept's order. A reply to a
  * Run note keeps the list and only adds new cards.
@@ -483,8 +497,8 @@ export function turnText(transcript) {
     const m = rec?.message;
     const c = m?.content;
     if ((rec?.type === "user" || m?.role === "user") && !rec?.isMeta) {
-      const prompt = typeof c === "string" || (Array.isArray(c) && !c.some((b) => b?.type === "tool_result"));
-      if (prompt) out = "";
+      const said = typeof c === "string" ? c : Array.isArray(c) && !c.some((b) => b?.type === "tool_result") ? c.map((b) => b?.text ?? "").join("") : null;
+      if (said !== null && !isHarnessPrompt(said)) out = "";
       continue;
     }
     if (rec?.type !== "assistant" && m?.role !== "assistant") continue;

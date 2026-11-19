@@ -7,7 +7,7 @@ import { closeSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, re
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { gitBranch } from "./git.js";
-import { askCards, askText, cardKind, isRunNote, lastAssistantText, lastSaid, menuFromInput, mergeRuns, runCards, turnText } from "./cards.js";
+import { askCards, askText, cardKind, isHarnessPrompt, lastAssistantText, lastSaid, menuFromInput, mergeRuns, runCards, turnText } from "./cards.js";
 import { latestTitles, summarizeAsk, summarizeTool } from "./titles.js";
 
 const TAIL_BYTES = 512 * 1024;
@@ -122,8 +122,9 @@ function main() {
       next.runs = mergeRuns(next.runs, runCards(turnText(readTail(input.transcript_path))));
       next.ask_turn = true;
     }
-  } else if (event === "UserPromptSubmit" && isRunNote(input.prompt)) {
-    // The ▶ Run terminal reporting back, not the user: the cards stay.
+  } else if (event === "UserPromptSubmit" && isHarnessPrompt(input.prompt)) {
+    // The ▶ Run terminal reporting back, or a subagent or background task
+    // finishing (even while a menu is up), not the user: the cards stay.
     next.note_turn = true;
   } else if (event === "UserPromptSubmit") {
     next.card = null;

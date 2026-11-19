@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fakeCx } from "./support/gpui-stub.js";
-import { runCards, runId, mergeRuns, isRunNote, lintMessage } from "../claude/cards.js";
+import { runCards, runId, mergeRuns, isRunNote, isHarnessPrompt, lintMessage, turnText } from "../claude/cards.js";
 import { initialNamesMemo, resolveNames } from "../herdr/mods/herdr-signals/names.js";
 import { attentionStep, buildModel, readRunState } from "../herdr/mods/herdr-signals/model.js";
 
@@ -442,6 +442,30 @@ test("name hook: Run cards before a selection menu show while it's up and stay a
   assert.equal(read().card, "run");
   hook({ hook_event_name: "UserPromptSubmit", prompt: "thanks" });
   assert.deepEqual(read().runs, []);
+});
+
+test("name hook: a subagent's hand-back while a menu is up keeps its Run cards", () => {
+  const { hook, read, say } = hookRig();
+  say(user("go"), said(two), asks());
+  hook({ hook_event_name: "PreToolUse", tool_name: "AskUserQuestion", tool_input: {} });
+  // Background work finishing comes in as queued prompts the user never typed.
+  hook({ hook_event_name: "UserPromptSubmit", prompt: '<agent-message from="a2bff">\n[Subagent hand-back] done' });
+  hook({ hook_event_name: "UserPromptSubmit", prompt: "<task-notification>\n<task-id>a2bff</task-id>\n<status>completed</status>" });
+  assert.deepEqual(read().runs.map((r) => r.label), ["list", "where"], "the cards stay beside the menu");
+  assert.equal(read().card, "decide");
+  say(user("go"), said(two), asks(), answer(), said("Closing them now."));
+  hook({ hook_event_name: "Stop", last_assistant_message: "Closing them now." });
+  assert.deepEqual(read().runs.map((r) => r.label), ["list", "where"], "and stay after the answer");
+});
+
+test("isHarnessPrompt: Run notes, hand-backs and task notifications, not the user", () => {
+  for (const p of [`${RUN_NOTE} finished: "x" exited 0`, '<agent-message from="a1">\nhi', "  <task-notification>\n<task-id>x</task-id>"]) assert.equal(isHarnessPrompt(p), true, p);
+  for (const p of ["go", "what is <task-notification>?", "", null]) assert.equal(isHarnessPrompt(p), false, String(p));
+});
+
+test("turnText: a task notification between the cards and the menu isn't a new turn", () => {
+  const t = [user("go"), said(two), user("<task-notification>\n<status>completed</status>"), asks()].map((r) => JSON.stringify(r)).join("\n");
+  assert.equal(turnText(t), two);
 });
 
 test("name hook: a menu with no cards before it doesn't bring back last turn's", () => {
