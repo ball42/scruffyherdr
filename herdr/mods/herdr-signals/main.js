@@ -28,7 +28,7 @@ import { LAYOUT_NOTE, layoutChanged } from "./layout.js";
 import { APPLY_PROBLEM, applyOutcome, validLook } from "./dress.js";
 import { readClicks } from "./clicks.js";
 import { readSizes, replaySizes, seedAside, sizesRecord, sizesText } from "./sizes.js";
-import { readConfig } from "./config.js";
+import { configChanged, readConfig } from "./config.js";
 import { resolveAlerts } from "./alerts.js";
 import { hereTones } from "./colour.js";
 import { KIT_LAYOUT, SCENES, isGridTree, sceneList, sceneOfTree } from "./scenes.js";
@@ -41,6 +41,7 @@ import { ADDON_KEYS, cardName, deckBadge, pressCommand, readAddon, withBadges } 
 
 const DEFAULTS = {
   discord_webhook: "",
+  alert_colors: {},
   done_min_seconds: 180,
   away_seconds: 120,
   grace_seconds: 60,
@@ -98,6 +99,7 @@ function rawAgents() {
 }
 
 const RUNSTATE_PRUNE_MS = 3_600_000;
+const CONFIG_RELOAD_MS = 10_000;
 const LAYOUT_CHECK_MS = 3_600_000; // Herdr updates are rare; an hour late is fine
 const RUNSTATE_KEEP_MIN = 7 * 24 * 60;
 
@@ -105,8 +107,8 @@ export default class Signals extends View {
   init(_props, cx) {
     // Add-on data published before this start is a past session's (addons.js readAddon).
     this.started = Date.now();
-    // The scene picker (kit-scenes) can't import SCENES, so it reads them from here, once.
-    setShared("kit.scenes", sceneList(SCENES, this.cfg?.alert_colors));
+    // The scene picker (kit-scenes) can't import SCENES, so it reads them from here (again on each config change).
+    setShared("kit.scenes", sceneList(SCENES));
     this.cfg = null;
     this.problem = null;
     this.state = initialCardState();
@@ -171,6 +173,8 @@ export default class Signals extends View {
         await this.pruneRunState();
         await this.pruneCtx();
       }));
+      // Config edits (alert_colors among them) apply without a restart.
+      cx.timer.every(CONFIG_RELOAD_MS, (cx) => cx.spawn(async (cx) => { if (await this.loadConfig()) { this.kick(); cx.notify(); } }));
       cx.timer.every(LAYOUT_CHECK_MS, (cx) => cx.spawn(async (cx) => { await this.checkLayout(); cx.notify(); }));
       if (this.cfg.run_cards) {
         cx.spawn(async (cx) => {
@@ -457,9 +461,12 @@ export default class Signals extends View {
     this.usage = usageView(limits, this.pace, now);
   }
 
+  /** Reads config.json and applies it when its text changed; true when it did. */
   async loadConfig() {
     const path = `${home()}/.config/herdr-kit/config.json`;
     const text = await readTextFile(path).catch(() => null);
+    if (!configChanged(this.configText, text)) return false;
+    this.configText = text;
     const { cfg, problem } = readConfig(text, DEFAULTS);
     this.cfg = cfg;
     if (problem) this.problem = problem;
@@ -469,6 +476,10 @@ export default class Signals extends View {
     this.lookProblem = v.problems[0] ?? null;
     const pipe = typeof this.cfg.run_log_pipe === "string" ? this.cfg.run_log_pipe.trim() : "";
     if ((shared("kit.runLogPipe") ?? "") !== pipe) setShared("kit.runLogPipe", pipe);
+    // alert_colors: a bad value is skipped and named on the strip; the picker previews the resolved colours.
+    this.alertProblem = resolveAlerts(this.cfg.alert_colors, "tatooine", SCENES.tatooine).problems[0] ?? null;
+    setShared("kit.scenes", sceneList(SCENES, this.cfg.alert_colors));
+    return true;
   }
 
   // An apply pass soon, from a handler or a render: the request shouldn't wait for the poll.
@@ -1009,7 +1020,7 @@ export default class Signals extends View {
     const s = summary(this.model?.agents ?? agents());
     const parts = [];
     // A layout or scene-picker problem first; a bad config `look` stays until the config is fixed.
-    const problem = this.problem ?? this.lookProblem;
+    const problem = this.problem ?? this.lookProblem ?? this.alertProblem;
     if (problem) parts.push(div().text_color(t.muted).child(problem));
     // Clicking a count does what cmd-shift-u does.
     const focus = shared("kit.focus");

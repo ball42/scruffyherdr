@@ -13,3 +13,8 @@ export function readConfig(text, defaults) {
     return { cfg: { ...defaults }, problem: "herdr-signals: config.json isn't valid JSON; using the defaults" };
   }
 }
+
+/** Whether config.json's text differs from what was last applied (undefined: never read). */
+export function configChanged(prev, text) {
+  return prev === undefined || prev !== text;
+}

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readConfig } from "../herdr/mods/herdr-signals/config.js";
+import { configChanged, readConfig } from "../herdr/mods/herdr-signals/config.js";
 
 const D = { poll_ms: 1500, readme_tabs: false };
 
@@ -24,4 +24,18 @@ test("readConfig: the defaults object is never shared or changed", () => {
   const r = readConfig(null, D);
   r.cfg.poll_ms = 1;
   assert.equal(D.poll_ms, 1500);
+});
+
+test("readConfig keeps alert_colors, and its default is {}", () => {
+  const defaults = { alert_colors: {} };
+  assert.deepEqual(readConfig('{"alert_colors":{"needs":"#ffd84d"}}', defaults).cfg.alert_colors, { needs: "#ffd84d" });
+  assert.deepEqual(readConfig("{}", defaults).cfg.alert_colors, {});
+});
+
+test("configChanged is true only when the text changed", () => {
+  assert.equal(configChanged(undefined, "{}"), true);
+  assert.equal(configChanged("{}", "{}"), false);
+  assert.equal(configChanged("{}", '{"a":1}'), true);
+  assert.equal(configChanged("{}", null), true);
+  assert.equal(configChanged(null, null), false);
 });
