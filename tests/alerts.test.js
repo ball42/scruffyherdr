@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { checkAlert, deriveTones, resolveAlerts } from "../herdr/mods/herdr-signals/alerts.js";
+import { alertTheme, checkAlert, deriveTones, resolveAlerts } from "../herdr/mods/herdr-signals/alerts.js";
 import { DONE, contrast } from "../herdr/mods/herdr-signals/colour.js";
 import { SCENES } from "../herdr/mods/herdr-signals/scenes.js";
 
@@ -88,4 +88,15 @@ test("deriveTones: the count reads on its badge (4.5:1) for every scene, night a
 
 test("deriveTones: leaves sun to the scene (it isn't derived)", () => {
   assert.equal("sun" in deriveTones("#ffd84d", false, DONE.dark), false);
+});
+
+test("alertTheme: the theme's blocked and done become the resolved colours for its mode", () => {
+  const tones = resolveAlerts({ needs: { dark: "#ffd84d", light: "#8a6a00" }, done: "#00aaff" }, "hoth", SCENES.hoth).tones;
+  const dark = alertTheme({ background: "#0d1117", blocked: "#ff9e7a", done: "#58a6ff", muted: "#888888" }, tones);
+  assert.equal(dark.blocked, "#ffd84d");
+  assert.equal(dark.done, "#00aaff");
+  assert.equal(dark.muted, "#888888");
+  assert.equal(alertTheme({ background: "#ffffff", blocked: "#b4542f" }, tones).blocked, "#8a6a00");
+  const t = { background: "#0d1117", blocked: "#ff9e7a" };
+  assert.equal(alertTheme(t, null), t);
 });

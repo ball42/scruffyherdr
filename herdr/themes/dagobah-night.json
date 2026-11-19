@@ -10,7 +10,7 @@
     "#79c0ff", "#d6b8e8", "#a0d6c6", "#eef2e6"
   ],
   "colors": {
-    "blocked": "#f0b45a",
+    "blocked": "#b4cc1d",
     "done": "#58a6ff",
     "working": "#a8b8a0",
     "idle": "#6f7f72",

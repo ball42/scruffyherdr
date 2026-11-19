@@ -29,7 +29,7 @@ import { APPLY_PROBLEM, applyOutcome, validLook } from "./dress.js";
 import { readClicks } from "./clicks.js";
 import { readSizes, replaySizes, seedAside, sizesRecord, sizesText } from "./sizes.js";
 import { configChanged, readConfig } from "./config.js";
-import { resolveAlerts } from "./alerts.js";
+import { alertTheme, resolveAlerts } from "./alerts.js";
 import { hereTones } from "./colour.js";
 import { KIT_LAYOUT, SCENES, isGridTree, sceneList, sceneOfTree } from "./scenes.js";
 import { SCENES_DIALOG, buttonTexts, leftPx, leftTexts, signalsWidth, stripFit, usagePx } from "./strip-fit.js";
@@ -1015,7 +1015,8 @@ export default class Signals extends View {
         cx.timer.after(0, (cx) => { this.applyQueued = false; this.kick(cx); });
       }
     }
-    const t = theme();
+    // The strip's needs-you and done follow the scene and config alert_colors, not the theme file.
+    const t = alertTheme(theme(), shared("kit.tones"));
     // The model's rows carry snooze and wait times; raw agents() only until the first poll.
     const s = summary(this.model?.agents ?? agents());
     const parts = [];

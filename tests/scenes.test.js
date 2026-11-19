@@ -148,3 +148,13 @@ test("sceneList carries each scene's resolved needs-you colours", () => {
   assert.deepEqual(list.find((s) => s.key === "hoth").needs, { dark: "#123456", light: "#654321" });
   assert.deepEqual(scenes.sceneList().find((s) => s.key === "hoth").needs, scenes.SCENES.hoth.needs);
 });
+
+test("scenes: each theme's own blocked and done colours are its scene's defaults", () => {
+  for (const [k, s] of Object.entries(scenes.SCENES)) {
+    for (const [mode, file] of [["dark", "night"], ["light", "day"]]) {
+      const c = themeFile(`${k}-${file}`);
+      assert.equal(c.blocked.toLowerCase(), s.needs[mode], `${k}-${file} blocked`);
+      assert.equal(c.done.toLowerCase(), DONE[mode], `${k}-${file} done`);
+    }
+  }
+});

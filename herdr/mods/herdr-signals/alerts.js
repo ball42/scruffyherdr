@@ -2,6 +2,7 @@
 // the config's `alert_colors` overrides resolved over the scene defaults, and
 // the deuteranopia checks a needs-you colour must pass. Pure.
 import { DONE, contrast, deltaESim, hereTones, mix } from "./colour.js";
+import { isLight } from "./grid.js";
 import { SCENES } from "./scenes.js";
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -103,4 +104,14 @@ export function checkAlert(needs, done, colors) {
     working: HEX.test(colors.working ?? "") ? deltaESim(needs, colors.working) : Infinity,
   };
   return { ...r, ok: r.done >= 20 && r.fill >= 3 && r.bar >= 15 };
+}
+
+/**
+ * Theme `t` (from theme()) with its blocked and done colours swapped for the
+ * resolved ones (`tones`, as resolveAlerts gives them) in its mode, so
+ * herdr-signals' strip follows the scene and the config. Unchanged without tones.
+ */
+export function alertTheme(t, tones) {
+  const tone = tones?.[isLight(t?.background) ? "light" : "dark"];
+  return tone ? { ...t, blocked: tone.orange, done: tone.blue } : t;
 }
