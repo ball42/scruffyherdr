@@ -50,7 +50,9 @@ function cleanStale(dir, keep) {
 function fileKey(env, sessionId) {
   const terminal = env.HC_TERMINAL_ID;
   if (!terminal || !/^[A-Za-z0-9_-]+$/.test(terminal)) return null;
-  if (env.CLAUDE_CODE_SESSION_KIND !== "bg") return terminal;
+  // Claude Code strips CLAUDE_CODE_SESSION_KIND from the processes it starts;
+  // a background job's hooks still see CLAUDE_JOB_DIR (~/.claude/jobs/<id>).
+  if (env.CLAUDE_CODE_SESSION_KIND !== "bg" && !env.CLAUDE_JOB_DIR) return terminal;
   return typeof sessionId === "string" && /^[A-Za-z0-9-]{1,64}$/.test(sessionId) ? `bg-${sessionId}` : null;
 }
 
