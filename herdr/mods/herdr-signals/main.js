@@ -18,7 +18,7 @@ import { paceAdd, parseLimits, usageView } from "./usage.js";
 import { initialCardState, cardStep, buildCard } from "./card.js";
 import { parseHidIdleSeconds } from "./idle.js";
 import { initialNamesMemo, resolveNames } from "./names.js";
-import { attentionStep, autoSpotlight, awayStep, awayToast, buildModel, readRunState, urgencyOrder, urgentHit } from "./model.js";
+import { attentionStep, autoSpotlight, awayStep, awayToast, buildModel, readRunState, railOrder, urgentHit } from "./model.js";
 import { DIGEST_MS, focusDigest, focusExpired, focusHolds, focusLabel, focusOn, focusToggle, heldLabel } from "./focus.js";
 import { pruneSnooze, snoozeActive } from "./snooze.js";
 import { prunePins } from "./pins.js";
@@ -29,6 +29,7 @@ import { APPLY_PROBLEM, applyOutcome, validLook } from "./dress.js";
 import { readClicks } from "./clicks.js";
 import { readSizes, replaySizes, seedAside, sizesRecord, sizesText } from "./sizes.js";
 import { readConfig } from "./config.js";
+import { hereTones } from "./colour.js";
 import { KIT_LAYOUT, SCENES, isGridTree, sceneList, sceneOfTree } from "./scenes.js";
 import { SCENES_DIALOG, buttonTexts, leftPx, leftTexts, signalsWidth, stripFit, usagePx } from "./strip-fit.js";
 import { NO_KIT_PROBLEM, SWITCH_PROBLEM, afterStep, findNode, pickFollow, pinFor, pinOf, readTree, recordTheme, stepPlan, switchStep, toggleWant, wantStep } from "./view.js";
@@ -612,6 +613,10 @@ export default class Signals extends View {
   publish(scene, view) {
     if ((shared("kit.scene") ?? null) !== scene) setShared("kit.scene", scene);
     if ((shared("kit.view") ?? null) !== view) setShared("kit.view", view);
+    // The active card's bar and fill, for this theme; checked on every apply,
+    // since a light/dark switch changes the theme without changing the scene.
+    const here = hereTones(theme(), (SCENES[scene] ?? SCENES.tatooine).needs);
+    if (JSON.stringify(shared("kit.here") ?? null) !== JSON.stringify(here)) setShared("kit.here", here);
   }
 
   /** kit.afterView ({view, address, argv?}): once `view` is shown, focus that Claude and maybe split under it. */
@@ -780,7 +785,7 @@ export default class Signals extends View {
       if (json !== this.lastModel) {
         this.lastModel = json;
         setShared("herdr-kit", model);
-        setAgentOrder(urgencyOrder(model));
+        setAgentOrder(railOrder(model));
       }
       // Focus runs out on its own, so a forgotten toggle can't hide finished Claudes for good.
       if (focusExpired(shared("kit.focus"), now, this.cfg.focus_max_minutes)) { this.endFocus(now); cx.notify(); }

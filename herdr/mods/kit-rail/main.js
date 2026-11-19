@@ -1,5 +1,5 @@
-// The urgency rail: every Claude in every space, most urgent first, grouped
-// by space. Draws from shared("herdr-kit") (published by herdr-signals).
+// The urgency rail: every Claude in every space, grouped by space in Herdr's
+// order, so cards stay put; the focused one carries a bar (here.js). Draws from shared("herdr-kit") (published by herdr-signals).
 // Click a card to expand it in place and answer the Claude from there
 // (expand.js draws it); double-click, or ↗ open, does what a click did before:
 // open the grid on that Claude (in the grid, see cardClick). Props: compact
@@ -7,9 +7,10 @@
 // space's other Claudes as cards beside a spotlight. Chips and strip cards
 // don't expand: a click there still jumps.
 import { View, div, svg } from "gpui-kit";
-import { h_flex, v_flex } from "gpui-base";
+import { ScrollHandle, h_flex, v_flex } from "gpui-base";
 import { focused, nextCommand, panes, props, run, settings, setShared, shared, theme } from "herdr";
 import { OpenCard } from "./expand.js";
+import { hereBar, hereFill, scrollStep } from "./here.js";
 import { MultiReply } from "./multi-ui.js";
 import { saidGist, saidLines } from "./answer.js";
 import { BLUE, Flares, ORANGE, useTheme, RunGate, asksBadge, canCompact, cardClick, compactPill, cardMark, confirmRun, copyCommand, ctxEdge, ctxFigure, ctxMeter, dismissRun, groupRuns, mark, openItems, openRunLog, outline, pill, pressRun, ranClean, runCard, runStatus, runningText, runTick, visibleRuns, snoozeControls, snoozeGlyph, snoozeLabel, snoozeSet, waited, withCard } from "./look.js";
@@ -107,6 +108,9 @@ export default class Rail extends View {
     this.copied = null;
     this.gate = new RunGate();
     this.handle = cx.focus_handle();
+    // Scrolls the focused Claude's card into view when focus moves (here.js).
+    this.scroll = ScrollHandle.new();
+    this.lastFocus = undefined;
     this.answer = new OpenCard(this.handle, click);
     this.multi = new MultiReply();
     // "focusable": pane.go hands the rail the keyboard with "focus".
@@ -233,7 +237,7 @@ export default class Rail extends View {
     const glyph = a.snoozed ? snoozeGlyph(t.dim, snoozeLabel(a)) : statusGlyph(a, t);
     const m = ctxMeter(a.ctx_left);
     return div().id(`rail-${a.address}`).relative().w_full().px(10).py(3).rounded(6)
-      .bg(current ? t.selected : t.chrome)
+      .bg(current ? hereFill(shared("kit.here"), t) : t.chrome)
       .hover((s) => s.bg(t.hover))
       .on_mouse_down("left", () => this.answer.remember())
       .on_hover((h, cx) => { if (h) this.hoverCard = a.address; else if (this.hoverCard === a.address) this.hoverCard = null; cx.notify(); })
@@ -250,6 +254,7 @@ export default class Rail extends View {
       .when(canCompact(a), (el) => el.child(h_flex().pt(3).child(this.compactPill(a, t))))
       .when(this.hoverCard === a.address, (el) => el.child(h_flex().pt(3).child(snoozeControls(t, `rail-zz-${a.address}`, a, (c) => snooze(a.address, c)))))
       .when(Boolean(m), (el) => el.child(ctxEdge(m, t)))
+      .when(current, (el) => el.pl(13).child(hereBar(shared("kit.here"), t)))
       .border(1).border_color(current ? t.border : t.chrome);
   }
 
@@ -268,7 +273,7 @@ export default class Rail extends View {
     const badge = asksFor(a);
     const glyph = a.snoozed ? snoozeGlyph(t.dim, snoozeLabel(a)) : badge && a.attention.kind === "blocked" ? null : mark(a.attention.kind, a.attention.pulse) ?? statusGlyph(a, t);
     const body = v_flex().id(`rail-${a.address}`).relative().w_full().px(10).py(6).gap(2).rounded(6)
-      .bg(current ? t.selected : t.raised)
+      .bg(current ? hereFill(shared("kit.here"), t) : t.raised)
       .hover((s) => s.bg(t.hover))
       .when(expandable, (el) => el.on_mouse_down("left", () => this.answer.remember()))
       .on_hover((h, cx) => { if (h) this.hoverCard = a.address; else if (this.hoverCard === a.address) this.hoverCard = null; cx.notify(); })
@@ -296,6 +301,7 @@ export default class Rail extends View {
       .when(Boolean(ctxMeter(a.ctx_left)), (el) => el.child(ctxEdge(ctxMeter(a.ctx_left), t)))
       .when(canCompact(a), (el) => el.child(h_flex().pt(3).child(this.compactPill(a, t))))
       .when(this.hoverCard === a.address, (el) => el.child(h_flex().pt(3).child(snoozeControls(t, `rail-zz-${a.address}`, a, (c) => snooze(a.address, c)))))
+      .when(current, (el) => el.pl(13).child(hereBar(shared("kit.here"), t)))
       .child(this.flares.overlay(a.address));
     return outline(body, a.attention.kind, t);
   }
@@ -330,15 +336,23 @@ export default class Rail extends View {
     const badge = asksFor(a);
     const glyph = a.snoozed ? snoozeGlyph(t.dim) : badge && a.attention.kind === "blocked" ? null : mark(a.attention.kind, a.attention.pulse) ?? statusGlyph(a, t);
     const el = h_flex().id(`chip-${a.address}`).relative().h(24).px(8).gap(6).flex_none().items_center().rounded(6)
-      .bg(current ? t.selected : t.raised)
+      .bg(current ? hereFill(shared("kit.here"), t) : t.raised)
       .hover((s) => s.bg(t.hover))
       .on_click(() => click(a))
       .when(Boolean(glyph), (e) => e.child(glyph))
       .when(Boolean(a.card), (e) => e.child(cardMark(a.card, a.attention.kind === "blocked" ? ORANGE : BLUE)))
       .when(Boolean(badge), (e) => e.child(badge))
       .child(div().max_w(160).truncate().text_size(12).text_color(t.foreground).child(a.name))
+      .when(current, (e) => e.pl(11).child(hereBar(shared("kit.here"), t)))
       .child(this.flares.overlay(a.address));
     return outline(el, a.attention.kind, t);
+  }
+
+  /** Scroll row `index` into view when the focused terminal has changed (here.js). */
+  scrollTo(focus, index) {
+    const step = scrollStep(this.lastFocus, focus ?? null, index);
+    this.lastFocus = step.prev;
+    if (step.index !== null) this.scroll.scroll_to_item(step.index);
   }
 
   render(cx) {
@@ -358,8 +372,9 @@ export default class Rail extends View {
       const spot = shared("kit.grid")?.spotlight;
       const all = Boolean(shared("kit.gridAll"));
       const others = agents.filter((a) => (all || a.space === model?.current_space) && a.address !== spot);
+      this.scrollTo(here, others.findIndex((a) => a.address === here));
       return keys(h_flex().id("kit-cards")).size_full().px(8).py(6).gap(6).items_stretch().bg(t.chrome).border_t(1).border_color(t.border)
-        .overflow_x_scrollbar()
+        .overflow_x_scrollbar().track_scroll(this.scroll)
         .children(others.map((a) => div().w(220).flex_none().child(this.card(a, t, a.address === here))));
     }
 
@@ -373,12 +388,17 @@ export default class Rail extends View {
     const bar = this.multi.bar(t);
     if (bar) rows.push(bar);
     let space = null;
+    let hereRow = -1;
     for (const a of agents) {
       if (a.space !== space) {
         space = a.space;
         rows.push(this.spaceHeader(a, agents, model?.current_space, t, rows.length === 0));
       }
-      if (this.answer.open?.address === a.address) rows.push(this.expanded(a, t));
+      if (a.address === here) hereRow = rows.length;
+      if (this.answer.open?.address === a.address) {
+        const open = this.expanded(a, t);
+        rows.push(a.address === here ? div().relative().w_full().child(open).child(hereBar(shared("kit.here"), t)) : open);
+      }
       else if (this.isQuiet(a)) rows.push(this.quiet(a, t, a.address === here));
       else rows.push(this.card(a, t, a.address === here, true));
     }
@@ -388,7 +408,8 @@ export default class Rail extends View {
       rows.push(div().pt(14).pb(2).px(2).text_size(10.5).font_semibold().text_color(t.muted).child("No Claude on these"));
       for (const r of loose) rows.push(this.looseRow(r, t));
     }
+    this.scrollTo(here, hereRow);
     return keys(v_flex().id("kit-rail")).size_full().p(8).gap(5).bg(t.chrome).border_l(1).border_color(t.border)
-      .overflow_y_scrollbar().children(rows);
+      .overflow_y_scrollbar().track_scroll(this.scroll).children(rows);
   }
 }

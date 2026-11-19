@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cardStale, attentionStep, buildModel, urgencyOrder, urgentHit } from "../herdr/mods/herdr-signals/model.js";
+import { cardStale, attentionStep, buildModel, railOrder, urgentHit } from "../herdr/mods/herdr-signals/model.js";
 
 const ag = (address, status, extra = {}) => ({
   address, status, tab: `tab-${address}`, space: "s1", space_name: "code", seq: 0, focused: false, ...extra,
@@ -43,7 +43,7 @@ test("done is steady", () => {
   assert.deepEqual(m.agents[0].attention, { kind: "done", since: 100, pulse: false });
 });
 
-test("sort: current space first, blocked before done before working", () => {
+test("order: rows keep agents() order, current space not lifted", () => {
   const as = [
     ag("w", "working", { seq: 9 }),
     ag("o", "blocked", { space: "s2", space_name: "Alpha" }),
@@ -52,44 +52,19 @@ test("sort: current space first, blocked before done before working", () => {
     ag("b", "blocked"),
   ];
   const m = buildModel(as, names(as), attentionStep({}, as, 1), "s1");
-  assert.deepEqual(m.agents.map((a) => a.address), ["b", "d", "w", "i", "o"]);
-  assert.deepEqual(urgencyOrder(m), ["b", "d", "w", "i", "o"]);
+  assert.deepEqual(m.agents.map((a) => a.address), ["w", "o", "d", "i", "b"]);
+  assert.deepEqual(railOrder(m), ["w", "o", "d", "i", "b"]);
   assert.equal(m.current_space, "s1");
   assert.equal(m.v, 1);
 });
 
-test("sort: other spaces by their most urgent Claude, then by name", () => {
-  const as = [
-    ag("h", "idle"),
-    ag("a1", "idle", { space: "sa", space_name: "Alpha" }),
-    ag("z1", "working", { space: "sz", space_name: "Zulu" }),
-    ag("z2", "blocked", { space: "sz", space_name: "Zulu" }),
-    ag("m1", "done", { space: "sm", space_name: "Mike" }),
-    ag("b1", "idle", { space: "sb", space_name: "Bravo" }),
-  ];
-  const m = buildModel(as, names(as), attentionStep({}, as, 1), "s1");
-  assert.deepEqual(m.agents.map((a) => a.address), ["h", "z2", "z1", "m1", "a1", "b1"]);
-});
-
-test("sort: a snoozed Claude doesn't lift its space", () => {
-  const as = [
-    ag("z", "blocked", { space: "sa", space_name: "Alpha" }),
-    ag("m", "done", { space: "sm", space_name: "Mike" }),
-  ];
-  const m = buildModel(as, names(as), attentionStep({}, as, 1), "s1", { z: 10_000 }, 0);
-  assert.equal(m.agents.find((a) => a.address === "z").snoozed, true);
-  assert.deepEqual(m.agents.map((a) => a.address), ["m", "z"]);
-});
-
-test("sort: an open card lifts its space above a done one", () => {
-  const as = [
-    ag("d", "done", { space: "sa", space_name: "Alpha" }),
-    ag("c", "idle", { space: "sz", space_name: "Zulu" }),
-  ];
-  const n = names(as);
-  n.c.card = "run";
-  const m = buildModel(as, n, attentionStep({}, as, 1), "s1");
-  assert.deepEqual(m.agents.map((a) => a.address), ["c", "d"]);
+test("order: a status change doesn't move a row", () => {
+  const as = [ag("a", "idle"), ag("w", "working"), ag("z", "done", { space: "s2", space_name: "Zulu" })];
+  const before = buildModel(as, names(as), attentionStep({}, as, 1), "s2").agents.map((a) => a.address);
+  const bs = [ag("a", "idle"), ag("w", "blocked"), ag("z", "done", { space: "s2", space_name: "Zulu" })];
+  const after = buildModel(bs, names(bs), attentionStep({}, bs, 2), "s1").agents.map((a) => a.address);
+  assert.deepEqual(after, before);
+  assert.deepEqual(after, ["a", "w", "z"]);
 });
 
 test("tab takes most urgent agent", () => {
@@ -119,11 +94,14 @@ test("a snoozed blocked Claude never pulses; pins and snooze reach the row", () 
   assert.deepEqual([tillDone.snoozed, tillDone.snooze_until, tillDone.snooze_till_done, tillDone.attention.pulse], [true, null, true, false]);
 });
 
-test("a Claude with an open card ranks between blocked and done", () => {
-  const ag = (address, status) => ({ address, tab: address, space: "s", space_name: "S", status, seq: 0 });
+test("a Claude with an open card ranks between blocked and done (its tab's glyph)", () => {
+  const ag = (address, status, tab) => ({ address, tab, space: "s", space_name: "S", status, seq: 0 });
   const names = { b: { name: "b" }, d: { name: "d" }, q: { name: "q", card: "decide" } };
-  const m = buildModel([ag("d", "done"), ag("q", "idle"), ag("b", "blocked")], names, {}, "s");
-  assert.deepEqual(m.agents.map((a) => a.address), ["b", "q", "d"]);
+  const two = [ag("d", "done", "T"), ag("q", "idle", "T")];
+  const m = buildModel(two, names, attentionStep({}, two, 1), "s");
+  assert.equal(m.tabs.T.kind, null, "the open card beats done");
+  const three = [...two, ag("b", "blocked", "T")];
+  assert.equal(buildModel(three, names, attentionStep({}, three, 1), "s").tabs.T.kind, "blocked");
 });
 
 test("a card goes stale 30 minutes after it showed", () => {

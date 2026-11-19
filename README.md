@@ -34,7 +34,7 @@ Unofficial fan project, not affiliated with Lucasfilm or Disney. The pictures ar
 ## What you get
 
 - **A strip** along the bottom: how many Claudes need you, how many are done, and buttons for focus mode, the scene picker and the grid.
-- **An urgency rail** on the right: every Claude by name, grouped by space, the ones waiting on you first. A card shows the question or permission prompt a blocked Claude is asking, how long it has waited, and how much context it has left. Click a card to answer from the rail.
+- **An urgency rail** on the right: every Claude by name, grouped by space, in Herdr's own order so cards stay put; the one you're in is marked with a bar. A card shows the question or permission prompt a blocked Claude is asking, how long it has waited, and how much context it has left. Click a card to answer from the rail.
 - **A grid view** (`cmd-shift-g`): the current space's Claudes tiled, with a spotlight for one at a time.
 - **Twelve scenes**: Tatooine, Endor, Hoth, Dagobah, Coruscant, Bespin, Naboo, Scarif, Kamino, Mustafar, the Asteroid Belt and Small Moon. Each has a night and a day picture, a theme pair, glass panels, and its own needs-you colour and glyph. The scene follows macOS light and dark. Pick one with `cmd-shift-s`.
 - **Colour-blind safe**: needs-you is orange (or the scene's own warm hue), done is blue, never red against green, and every state also carries a glyph or a word.
