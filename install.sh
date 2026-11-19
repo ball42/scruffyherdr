@@ -484,7 +484,7 @@ fi
 chmod 600 "$KIT_HOME/config.json"
 
 # The kit is tested against one Herdr; another may have moved the mod API on.
-TESTED_HERDR="0.1.15"
+TESTED_HERDR="0.1.16"
 if command -v herdr-app >/dev/null 2>&1; then
   found_herdr="$(herdr-app --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
   if [ -n "$found_herdr" ] && [ "$found_herdr" != "$TESTED_HERDR" ]; then

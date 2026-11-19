@@ -81,10 +81,11 @@ export function envelope(items, at) {
 /**
  * kit.jira, for an add-on that owns the badge and row keys itself: the
  * tickets the Claudes are named after, each Claude's key, and what kit-jira
- * would publish.
+ * would publish. `at` is the publish; `good_at` is the last search turn Jira
+ * answered in full (null before one), so kept statuses can be told from fresh.
  */
-export function feed(tickets, keys, items, rowItems, at) {
-  return { at, tickets, keys, badges: items, rows: rowItems };
+export function feed(tickets, keys, items, rowItems, at, goodAt = null) {
+  return { at, good_at: goodAt, tickets, keys, badges: items, rows: rowItems };
 }
 
 /** The model's agents (shared("herdr-kit").agents), or [] for anything else. */

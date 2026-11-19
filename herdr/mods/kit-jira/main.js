@@ -26,6 +26,8 @@ export default class KitJira extends View {
     this.published = {}; // key -> {sig, at} of its last publish
     this.modelSig = null;
     this.failed = { search: null, mine: null };
+    this.goodAt = null; // when a search turn last had Jira answer for every key it asked about
+    this.missed = false; // the running turn had a search Jira didn't answer
     cx.spawn(async () => this.loadConfig());
     cx.timer.every(TICK_MS, (cx) => this.tick(cx));
   }
@@ -71,7 +73,7 @@ export default class KitJira extends View {
       badges: badges(list, this.tickets, site, projects),
       rows: this.cfg.jira_mine ? rows(this.mine, list, site, projects) : [],
     };
-    const out = { feed: feed(this.tickets, agentKeys(list, projects), values.badges, values.rows, now) };
+    const out = { feed: feed(this.tickets, agentKeys(list, projects), values.badges, values.rows, now, this.goodAt) };
     if (this.cfg.jira_publish) {
       out.badges = envelope(values.badges, now);
       out.rows = envelope(values.rows, now);
@@ -113,18 +115,22 @@ export default class KitJira extends View {
   // A failed batch (one unknown key fails Jira's whole `key in (...)`) falls
   // back to one search per key, so the good keys still badge. A key Jira
   // rejects by name is left out of later batches and asked about alone every
-  // BAD_MS (kit.js splitKeys). Any other failure keeps the last tickets it had.
+  // BAD_MS (kit.js splitKeys). Any other failure keeps the last tickets it had,
+  // and the feed's `good_at` stays at the last turn Jira answered in full, so a
+  // reader can tell kept statuses from fresh ones.
   refreshTickets(cx, keys) {
     const sig = keys.join(",");
     const acli = this.acli();
     const { batch, retry, bad } = splitKeys(keys, this.bad, Date.now());
     this.bad = bad;
     this.search.busy = true;
+    this.missed = false;
     cx.spawn(async () => {
       let again = false;
       try {
         const got = await this.searchBatch(acli, batch);
         if (got) await this.settle(acli, keys, got, retry);
+        if (got && !this.missed) this.goodAt = Date.now();
       } catch (e) {
         this.acliRejected("search", e, acli);
         again = acli !== this.acli();
@@ -163,6 +169,7 @@ export default class KitJira extends View {
     if (r.code === 0) { Object.assign(got, parseSearch(r.stdout)); delete this.bad[k]; return true; }
     if (rejectsKey(r.stderr, k)) { this.bad[k] = Date.now(); return true; }
     if (this.tickets[k]) got[k] = this.tickets[k];
+    this.missed = true;
     return false;
   }
 

@@ -41,7 +41,7 @@ Herdr's own window, dressed as a scene and focused on your Claudes. One picture 
 - Merge `keys.json`. Its global `cmd-shift-s` switches to `scruffy`.
 - **Without the hooks you get Herdr's names.** The rail shows Herdr's own names ("Claude Code"), with no questions, permission details or context meters. Those come from the Claude Code hooks, which only the repo's `./install.sh` adds to `~/.claude/settings.json`.
 - **Herdr updates.** This copy is one build from Herdr 0.1.15's main layout. When Herdr's main layout changes, the copy doesn't follow; `./install.sh` from the repo rebuilds it.
-- macOS only; tested with Herdr 0.1.15.
+- macOS only; tested with Herdr 0.1.16.
 - Herdr refuses a mod's command argument nested more than 16 levels deep, so the grid's tree stays shallow: the grid node takes `main`'s place.
 
 **Done when:**
