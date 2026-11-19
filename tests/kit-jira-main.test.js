@@ -413,3 +413,50 @@ test("a bad jira_url is logged and badges go out without a link", async () => {
     assert.equal(read(started).badges.t1.short, "ACME-1645 In Progress");
   });
 });
+
+const clock = (ms) => { const d = new Date(ms); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+
+test("jira_publish on: a badge whose last good search is over 10 min old says stale and its time, dimmed", async () => {
+  let fail = false;
+  const { cx, started } = await start({
+    exec: async (c, a) => (fail && a[2] === "search" ? { code: 1, stdout: "", stderr: "unauthorized" } : acliOk(c, a)),
+  });
+  await cx.advance(4000);
+  const good = last("kit.jira").good_at;
+  assert.equal(read(started).badges.t1.tone, "bright");
+  fail = true;
+  await quietly(async () => cx.advance(9 * 60_000));
+  assert.ok(!read(started).badges.t1.text.includes("stale"), "not yet: 9 minutes");
+  await quietly(async () => cx.advance(2 * 60_000));
+  const b = read(started).badges.t1;
+  assert.equal(b.text, `In Progress · #1645 ● · Retry the upload · ⟳ stale · Jira as of ${clock(good)}`);
+  assert.equal(b.tone, "dim");
+  assert.equal(b.short, "ACME-1645 In Progress", "the short form keeps its key");
+  assert.ok(!last("kit.jira").badges.t1.text.includes("stale"), "the feed's badges stay plain: a reader marks its own");
+  fail = false;
+  await cx.advance(60_000);
+  assert.equal(read(started).badges.t1.text, "In Progress · #1645 ● · Retry the upload", "a good turn clears it");
+});
+
+test("my-work rows: kit.jira carries mine_good_at, and published rows say stale once it is over 10 min old", async () => {
+  let fail = false;
+  const { cx, started } = await start({
+    cfg: { ...BASE, jira_mine: true },
+    exec: async (c, a) => (fail && a[2] === "search" && !a[4].startsWith("key in") ? { code: 1, stdout: "", stderr: "unauthorized" } : acliOk(c, a)),
+  });
+  assert.equal(last("kit.jira").mine_good_at, null, "no mine search yet");
+  await cx.advance(4000);
+  const good = last("kit.jira").mine_good_at;
+  assert.equal(typeof good, "number");
+  fail = true;
+  await quietly(async () => cx.advance(11 * 60_000));
+  const f = last("kit.jira");
+  assert.equal(f.mine_good_at, good, "failed mine searches leave it alone");
+  assert.equal(f.rows[0].text, "ACME-3 · Review", "the feed's rows stay plain");
+  assert.equal(read(started).rows[0].text, `ACME-3 · Review · ⟳ stale · Jira as of ${clock(good)}`);
+  assert.ok(!read(started).badges.t1.text.includes("stale"), "the badge searches still answer, so badges stay fresh");
+  fail = false;
+  await cx.advance(60_000);
+  assert.ok(last("kit.jira").mine_good_at > good);
+  assert.equal(read(started).rows[0].text, "ACME-3 · Review");
+});
