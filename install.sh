@@ -331,6 +331,12 @@ if (listed) console.log(acliPlaces(cfg).join("\n"));
       fi
     fi
   fi
+  # Config alert_colors overrides that fail the deuteranopia checks warn; they aren't drift.
+  if [ -f "$KIT_HOME/config.json" ]; then
+    while IFS= read -r line; do
+      if [ -n "$line" ]; then warn_line "$line"; fi
+    done < <(node "$REPO/scripts/alert-check.mjs" "$KIT_HOME/config.json" 2>/dev/null || true)
+  fi
   # The overlay's lines (docs/addons.md, Overlays), counted the same way. Its exit code
   # still decides: non-zero is drift, with or without a DRIFT line.
   if [ -f "$PRIVATE" ]; then
