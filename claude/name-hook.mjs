@@ -55,6 +55,8 @@ function fileKey(env, sessionId) {
 }
 
 function main() {
+  // Outside Herdr, leave before reading stdin: nothing may be piped in.
+  if (!fileKey(process.env, "x")) return;
   const input = JSON.parse(readFileSync(0, "utf8"));
   const terminal = fileKey(process.env, input?.session_id);
   if (!terminal) return;
