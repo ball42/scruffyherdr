@@ -1,7 +1,10 @@
 """Render an original salt-flat wallpaper: a white crust of salt polygons
 running flat to low mesas under an indigo night, broken in long wandering
-scars where red mineral shows through and glows. With --day, the same flat
-under a pale overcast, the salt grey-white and the scars a muted brick red.
+scars where red mineral shows through and glows.
+
+With --day the viewpoint changes: under a white salt cliff at midday, a
+great fortress door cut into it, red trenches running across the plain to
+it, and pale salt crystals in front.
 
 Usage: python3 scripts/crait.py [--day] OUT.jpg [WIDTH HEIGHT]
 Needs Pillow.
@@ -69,6 +72,112 @@ def smooth_noise(n, seed, octaves=4, base=4):
 def solid(c):
     return Image.new("RGB", (W, H), c)
 
+
+# ---- Day: under a salt cliff, a fortress door cut into it, red trenches
+# across the plain and salt crystals in front. Runs and exits before the
+# night code below.
+def day():
+    rng = random.Random(29)
+    HZ = H * 0.5
+
+    def poly(pts, blur=0):
+        m = Image.new("L", (W, H), 0)
+        ImageDraw.Draw(m).polygon(pts, fill=255)
+        return m.filter(ImageFilter.GaussianBlur(blur)) if blur else m
+
+    img = Image.new("RGB", (W, H))
+    d = ImageDraw.Draw(img)
+    for y in range(H):
+        d.line([(0, y), (W, y)], fill=ramp(["#7c8aa4", "#a2a8ba", "#c4c0c6"], (y / HZ) ** 1.2))
+    # Low mesas far off on the left.
+    pts = [(x, HZ - 12 * S - (36 * S if 0.08 * W < x < 0.3 * W else 0) - 6 * S * math.sin(x / (W * 0.02))) for x in range(0, int(W * 0.5), 10)]
+    img.paste(rgb("#a6a6b2"), mask=poly(pts + [(W * 0.5, HZ + 4 * S), (0, HZ + 4 * S)], 2 * S))
+    # The plain: grey-white salt, darker toward the viewer.
+    d = ImageDraw.Draw(img)
+    for y in range(int(HZ), H):
+        d.line([(0, y), (W, y)], fill=ramp(["#c8c4c8", "#b2acb2", "#968e96"], (y - HZ) / (H - HZ)))
+    salt = Image.effect_noise((W // 6, H // 6), 50).resize((W, H), Image.BICUBIC).point(lambda v: max(0, v - 128))
+    salt = ImageChops.multiply(salt, poly([(0, HZ), (W, HZ), (W, H), (0, H)]))
+    img = Image.composite(solid(rgb("#e2dee2")), img, salt)
+    # Red trenches: lines converging on a point near the door, widening
+    # toward the viewer, each with a pale salt lip.
+    vx, vy = W * 0.66, HZ + 6 * S
+    for k in range(6):
+        a = math.radians(rng.uniform(100, 165) if k % 2 else rng.uniform(15, 80))
+        L = rng.uniform(0.7, 1.5) * W
+        ph, amp = rng.uniform(0, 6), rng.uniform(140, 280) * S
+        pts_l, pts_r = [], []
+        for i in range(30):
+            t = i / 29
+            x = vx + math.cos(a) * L * t ** 1.4 + amp * t ** 1.2 * math.sin(t * 4.5 + ph)
+            y = vy + math.sin(a) * L * 0.45 * t ** 1.4
+            w = (1 + 30 * t ** 1.5) * S * (0.7 + 0.5 * abs(math.sin(t * 5 + ph)))
+            pts_l.append((x - w * math.sin(a), y + w * math.cos(a) * 0.4 - w * 0.3))
+            pts_r.append((x + w * math.sin(a), y - w * math.cos(a) * 0.4 + w * 0.3))
+        m = poly(pts_l + pts_r[::-1], 1.2 * S)
+        img = Image.composite(solid(rgb("#ece8ea")), img, m.filter(ImageFilter.GaussianBlur(6 * S)).point(lambda v: int(v * 0.6)))
+        img = Image.composite(solid(rgb("#b0322a")), img, m)
+        inner = ImageChops.multiply(m, m.filter(ImageFilter.GaussianBlur(8 * S)))
+        img = Image.composite(solid(rgb("#7a1e1a")), img, inner.point(lambda v: max(0, v - 120) * 2))
+    # The salt cliff on the right: one ridge rising to the right, its face
+    # cut by slanting gullies, each rib lit on its left and shaded on its right.
+    def ridge_y(x):
+        t = max(0.0, (x - W * 0.5) / (W * 0.5))
+        return HZ - H * (0.06 + 0.36 * t ** 0.6) - 18 * S * math.sin(x / (W * 0.035)) - 9 * S * math.sin(x / (W * 0.011) + 2)
+    top = [(W * 0.5, HZ + 4 * S)] + [(x, ridge_y(x)) for x in range(int(W * 0.5), int(W + 12 * S), int(6 * S) or 1)]
+    img.paste(rgb("#c8c2ca"), mask=poly(top + [(W, HZ + 20 * S), (W * 0.5, HZ + 20 * S)], 1 * S))
+    x = W * 0.5
+    while x < W:
+        bw = rng.uniform(40, 120) * S
+        slant = rng.uniform(30, 90) * S
+        x0, x1 = x, x + bw
+        lit = [(x0, ridge_y(x0)), (x0 + bw * 0.5, ridge_y(x0 + bw * 0.5)), (x0 + bw * 0.5 + slant, HZ + 20 * S), (x0 + slant, HZ + 20 * S)]
+        shd = [(x0 + bw * 0.5, ridge_y(x0 + bw * 0.5)), (x1, ridge_y(x1)), (x1 + slant, HZ + 20 * S), (x0 + bw * 0.5 + slant, HZ + 20 * S)]
+        face = poly(top + [(W, HZ + 20 * S), (W * 0.5, HZ + 20 * S)])
+        img = Image.composite(solid(rgb("#e4e0e4")), img, ImageChops.multiply(poly(lit, 2 * S), face))
+        img = Image.composite(solid(rgb("#a49eaa")), img, ImageChops.multiply(poly(shd, 2 * S), face))
+        x = x1
+    cliff = poly(top + [(W + 60 * S, HZ + 20 * S), (W * 0.5, HZ + 20 * S)])
+    foot = Image.linear_gradient("L").resize((W, H)).point(lambda v: int(150 * max(0.0, (v / 255 - 0.25) / 0.27)))
+    img = Image.composite(solid(rgb("#7c7686")), img, ImageChops.multiply(foot, cliff))
+    snow = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(snow).line(top[1:], fill=255, width=max(1, int(8 * S)))
+    img = Image.composite(solid(rgb("#f6f4f4")), img, ImageChops.multiply(snow.filter(ImageFilter.GaussianBlur(3 * S)), cliff))
+    # The fortress door: a great dark slab with a frame, set into the cliff.
+    dx0, dx1, dy0, dy1 = W * 0.6, W * 0.74, HZ - H * 0.16, HZ + 18 * S
+    d = ImageDraw.Draw(img)
+    d.rectangle([dx0 - 14 * S, dy0 - 14 * S, dx1 + 14 * S, dy1], fill=rgb("#8a8690"))
+    d.rectangle([dx0, dy0, dx1, dy1], fill=rgb("#4a4652"))
+    for k in range(1, 6):
+        y = dy0 + (dy1 - dy0) * k / 6
+        d.line([(dx0, y), (dx1, y)], fill=rgb("#3a3640"), width=max(1, int(3 * S)))
+    d.rectangle([dx0 + (dx1 - dx0) * 0.48, dy0, dx0 + (dx1 - dx0) * 0.52, dy1], fill=rgb("#36323c"))
+    # Crystals in the foreground: clusters of pale shards, lit on one face,
+    # their bases tinged red where the salt is broken.
+    def shard(x, y, h, w, lean):
+        nonlocal img
+        tip = (x + lean * h, y - h)
+        body = [(x - w, y), (x - w * 0.6, y - h * 0.7), tip, (x + w * 0.7, y - h * 0.6), (x + w, y)]
+        img.paste(rgb("#d4d2e0"), mask=poly(body, 0.8 * S))
+        img.paste(rgb("#f4f4fa"), mask=poly([(x - w, y), (x - w * 0.6, y - h * 0.7), tip, (x + lean * h * 0.2, y)], 0.8 * S))
+        img.paste(rgb("#a4a0bc"), mask=poly([(x + lean * h * 0.4, y), tip, (x + w * 0.7, y - h * 0.6), (x + w, y)], 0.8 * S))
+    for cx, cy, sc in [(0.06, 1.0, 2.2), (0.24, 1.03, 1.3), (0.93, 1.02, 1.9), (0.42, 0.8, 0.6)]:
+        base = Image.new("L", (W, H), 0)
+        ImageDraw.Draw(base).ellipse([W * cx - 220 * S * sc, H * cy - 40 * S * sc, W * cx + 220 * S * sc, H * cy + 30 * S * sc], fill=200)
+        img = Image.composite(solid(rgb("#a8423a")), img, base.filter(ImageFilter.GaussianBlur(30 * S * sc)))
+        for _ in range(9):
+            shard(W * cx + rng.uniform(-150, 150) * S * sc, H * cy + rng.uniform(-10, 20) * S * sc, rng.uniform(80, 260) * S * sc, rng.uniform(16, 34) * S * sc, rng.uniform(-0.35, 0.35))
+    vig = Image.new("L", (W, H), 255)
+    ImageDraw.Draw(vig).ellipse([-W * 0.12, -H * 0.2, W * 1.12, H * 1.15], fill=0)
+    img = Image.composite(solid((50, 44, 60)), img, vig.filter(ImageFilter.GaussianBlur(260 * S)).point(lambda v: int(v * 0.45)))
+    noise = Image.effect_noise((W, H), 40).convert("RGB")
+    Image.blend(img, ImageChops.overlay(img, noise), 3 / 30).save(OUT, quality=90)
+    print(OUT)
+
+
+if DAY:
+    day()
+    sys.exit(0)
 
 img = Image.new("RGB", (W, H))
 d = ImageDraw.Draw(img)
