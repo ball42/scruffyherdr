@@ -1,7 +1,8 @@
 // kit-scenes' pure logic: the picker's cursor and the tiles' inputs. No herdr
 // globals here; main.js draws and wires it.
 
-// Eighteen scenes in a 6 by 3 grid of small tiles: narrow enough for a half-screen window.
+// Eighteen scenes in a 6 by 3 grid of small tiles, 932 px wide: it fits a
+// half-screen window from about 940 px up, not half of a 1728 px screen.
 export const COLS = 6;
 
 /** The picker's starting state: the cursor on `current` (a scene key) when it is listed, else the first tile. */
