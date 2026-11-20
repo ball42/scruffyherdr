@@ -134,6 +134,15 @@ export const SCENES = {
     needs: { dark: "#ff6a55", light: "#b3261e" },
     asks: "⟋",
   },
+  yavin: {
+    label: "Yavin 4",
+    theme: { light: "yavin-day", dark: "yavin-night" },
+    walls: { dark: "backgrounds/yavin.jpg", light: "backgrounds/yavin-day.jpg" },
+    panel: { dark: "#0f1614", light: "#f3f6f1" },
+    // Gas-giant orange, warm against the blue "done" over a dark canopy; the planet behind the temple on the strip.
+    needs: { dark: "#ff8a3d", light: "#b04a00" },
+    asks: "◓",
+  },
 };
 export const DEFAULT_SCENE = "tatooine";
 

@@ -83,6 +83,11 @@ export const TONES = {
     dark: { orange: "#ff6a55", blue: "#58a6ff", sun: "#ffd0c4", salt: "#e6e2ee", count: "#ff6a55", badge: "#4d2120", ink: "#0d1117" },
     light: { orange: "#b3261e", blue: "#0969da", sun: "#d76a55", salt: "#6b6478", count: "#9d2019", badge: "#f6efef", ink: "#ffffff" },
   },
+  yavin: {
+    glyph: "temple",
+    dark: { orange: "#ff8a3d", blue: "#58a6ff", sun: "#ffc08a", stone: "#a8b0a0", count: "#ff8a3d", badge: "#5b311d", ink: "#0d1117" },
+    light: { orange: "#b04a00", blue: "#0969da", sun: "#c46a2a", stone: "#4f5a4a", count: "#9b4000", badge: "#f6f0ef", ink: "#ffffff" },
+  },
 };
 /** The tree behind Endor's fireflies, tinted with the text color. */
 export const TREE_SVG = "mods/kit-rail/tree.svg";
@@ -107,6 +112,8 @@ export const ASTEROID_SVG = "mods/kit-rail/asteroid.svg";
 export const SPIRE_SVG = "mods/kit-rail/spire.svg";
 /** Crait's scar, a wedge from the foot of the frame to the horizon, tinted with the text color. */
 export const STREAK_SVG = "mods/kit-rail/streak.svg";
+/** Yavin 4's stepped temple, tinted with the text color. */
+export const TEMPLE_SVG = "mods/kit-rail/temple.svg";
 /**
  * A scene's glyph drawn from layer files in Herdr's home, not from code:
  * `glyphs/<scene>-body.svg`, `-edge.svg`, `-light.svg` and `-mover.svg`, each a 14 by 14
@@ -438,7 +445,15 @@ export function streak(pulse) {
     .child(pulse ? scar.loop("width", { from: 3, to: 14, period: 1800 }) : scar);
 }
 
-const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, volcano, asteroids, layered, spire, streak };
+/** Yavin 4: a stepped temple with the gas giant behind it, rising while unseen. */
+export function temple(pulse) {
+  const planet = div().absolute().left(7).top(4).size(7).rounded(7).bg(ORANGE);
+  return div().relative().flex_none().w(14).h(14)
+    .child(pulse ? planet.loop("top", { from: 6, to: 0, period: 2200 }) : planet)
+    .child(svg(TEMPLE_SVG).absolute().left(0).top(0).size(14).text_color(tone.stone));
+}
+
+const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, volcano, asteroids, layered, spire, streak, temple };
 
 /**
  * The needs-you glyph in sand with the open-item count; hover lists every open
