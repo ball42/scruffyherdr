@@ -1,7 +1,10 @@
 """Render an original jungle-moon wallpaper: a banded orange gas giant rising
 over a misty canopy of rounded crowns, and a plain stepped stone temple above
-the trees with one lit opening. With --day, the same view at dawn: a pale
-gold sky, the giant faint and washed by daylight, the canopy green.
+the trees with one lit opening.
+
+With --day the viewpoint changes: up on the temple's top terrace at midday,
+looking over a river winding through the jungle valley, mist in the far
+reaches and the gas giant pale and low in the sky.
 
 Usage: python3 scripts/yavin.py [--day] OUT.jpg [WIDTH HEIGHT]
 Needs Pillow.
@@ -56,6 +59,122 @@ def jitter(c, n):
 def solid(c):
     return Image.new("RGB", (W, H), c)
 
+
+# ---- Day: from the temple's top terrace, over a jungle river valley, the
+# gas giant pale and low. Runs and exits before the night code below.
+def day():
+    rng = random.Random(14)
+    HZ = H * 0.42
+
+    def poly(pts, blur=0):
+        m = Image.new("L", (W, H), 0)
+        ImageDraw.Draw(m).polygon(pts, fill=255)
+        return m.filter(ImageFilter.GaussianBlur(blur)) if blur else m
+
+    img = Image.new("RGB", (W, H))
+    d = ImageDraw.Draw(img)
+    for y in range(H):
+        d.line([(0, y), (W, y)], fill=ramp(["#6f9cc4", "#a8c4d4", "#e4e2cc"], (y / HZ) ** 1.15))
+    # The gas giant: a pale banded disc low on the left, washed by daylight.
+    gx, gy, gr = W * 0.2, HZ - H * 0.02, H * 0.3
+    disc = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(disc).ellipse([gx - gr, gy - gr, gx + gr, gy + gr], fill=255)
+    bands = Image.new("RGB", (W, H), rgb("#ecd4b8"))
+    bd = ImageDraw.Draw(bands)
+    y, k = gy - gr, 0
+    while y < gy + gr:
+        bh = gr * rng.uniform(0.06, 0.13)
+        bd.rectangle([gx - gr, y, gx + gr, y + bh], fill=rgb(["#ecd4b8", "#dcb898", "#f2e0c8", "#d4a888"][k % 4]))
+        y += bh
+        k += 1
+    bands = bands.filter(ImageFilter.GaussianBlur(5 * S))
+    img = Image.composite(bands, img, disc.point(lambda v: int(v * 0.55)))
+    # Far ridges, blue with distance.
+    for col, base, amp, f in [("#9cb2bc", HZ - 10 * S, 40, 0.07), ("#86a49e", HZ + 6 * S, 24, 0.045)]:
+        pts = [(x, base - amp * S * (0.6 + 0.4 * math.sin(x / (W * f) + base))) for x in range(0, W + 10, 10)]
+        img.paste(rgb(col), mask=poly(pts + [(W, H), (0, H)], 2 * S))
+    # The valley floor: canopy, receding into haze.
+    d = ImageDraw.Draw(img)
+    for y in range(int(HZ + 10 * S), H):
+        t = (y - HZ) / (H - HZ)
+        d.line([(0, y), (W, y)], fill=ramp(["#8eab94", "#5f8a5e", "#3e6a3e"], t))
+    # The river: winding from the horizon toward the viewer, catching the sky.
+    left, right = [], []
+    for i in range(61):
+        t = i / 60
+        y = HZ + 12 * S + (H * 0.8 - HZ) * t ** 1.6
+        x = W * 0.55 + W * 0.22 * math.sin(t * 5.2 + 0.6) * t ** 0.7
+        w = (4 + 150 * t ** 1.6) * S
+        left.append((x - w, y))
+        right.append((x + w, y))
+    river = poly(left + right[::-1], 1.5 * S)
+    sheen = Image.new("RGB", (W, H))
+    sd = ImageDraw.Draw(sheen)
+    for y in range(H):
+        sd.line([(0, y), (W, y)], fill=ramp(["#c8dae0", "#9cbcc8", "#7aa0ac"], (y - HZ) / (H - HZ)))
+    img = Image.composite(sheen, img, river)
+    # Canopy crowns: lobed clusters, small and dense far off, larger near,
+    # leaving the river clear; each lit on its upper left.
+    crowns = []
+    for _ in range(int(2600 * S) + 600):
+        t = rng.random() ** 0.9
+        y = HZ + 14 * S + (H - HZ) * t
+        r = (5 + 70 * t ** 1.6) * S * rng.uniform(0.7, 1.3)
+        x = rng.uniform(-0.03, 1.03) * W
+        if river.getpixel((int(min(W - 1, max(0, x))), int(min(H - 1, y)))) > 0:
+            continue
+        crowns.append((y, x, r, t))
+    crowns.sort()
+    d = ImageDraw.Draw(img)
+    for y, x, r, t in crowns:
+        base = lerp(rgb("#86a68c"), rgb("#2e5a30"), t ** 0.7)
+        lit = lerp(rgb("#b4c8a8"), rgb("#86b062"), t)
+        d.ellipse([x - r, y - r * 0.8, x + r, y + r * 0.6], fill=jitter(base, 5))
+        for _ in range(4 if r > 12 * S else 1):
+            lx, ly, lr = x + rng.uniform(-0.5, 0.3) * r, y - rng.uniform(0.1, 0.6) * r, r * rng.uniform(0.3, 0.5)
+            d.ellipse([lx - lr, ly - lr, lx + lr, ly + lr], fill=jitter(lerp(base, lit, 0.6), 6))
+    # Mist lying in the valley, thickest at the far end.
+    mist = Image.linear_gradient("L").resize((W, H)).point(lambda v: int(150 * max(0.0, 1 - abs(v / 255 - 0.47) / 0.12)))
+    img = Image.composite(solid(rgb("#e6eadc")), img, mist)
+    # The terrace: the temple's stone parapet along the bottom, blocks lit on
+    # top, and one stepped corner rising on the right.
+    d = ImageDraw.Draw(img)
+    py = H * 0.86
+    d.rectangle([0, py, W, H], fill=rgb("#7a7868"))
+    d.rectangle([0, py, W, py + 14 * S], fill=rgb("#b4b09a"))
+    x = 0
+    while x < W:
+        bw = rng.uniform(160, 300) * S
+        d.line([(x, py + 14 * S), (x, H)], fill=rgb("#5a584c"), width=max(1, int(3 * S)))
+        d.line([(x, py + H * 0.07), (x + bw, py + H * 0.07)], fill=rgb("#5a584c"), width=max(1, int(3 * S)))
+        x += bw
+    for i, (w, h) in enumerate([(0.2, 0.18), (0.14, 0.26), (0.08, 0.34)]):
+        x0 = W * (1 - w)
+        y0 = H * (1 - h)
+        d.rectangle([x0, y0, W, H], fill=rgb("#6e6c5e"))
+        d.rectangle([x0, y0, W, y0 + 12 * S], fill=rgb("#aca890"))
+        d.rectangle([x0, y0, x0 + 18 * S, H], fill=rgb("#8a8874"))
+    moss = Image.new("L", (W, H), 0)
+    md = ImageDraw.Draw(moss)
+    for _ in range(140):
+        # Moss sits on a top edge: the parapet, or one of the corner's steps.
+        my, x0 = rng.choice([(py, 0.0), (H * 0.82, 0.8), (H * 0.74, 0.86), (H * 0.66, 0.92)])
+        mx = rng.uniform(x0, 1.0) * W
+        my += rng.uniform(0, 10) * S
+        mr = rng.uniform(6, 22) * S
+        md.ellipse([mx - mr, my - mr * 0.5, mx + mr, my + mr * 0.5], fill=200)
+    img = Image.composite(solid(rgb("#5e7a44")), img, moss.filter(ImageFilter.GaussianBlur(3 * S)))
+    vig = Image.new("L", (W, H), 255)
+    ImageDraw.Draw(vig).ellipse([-W * 0.12, -H * 0.2, W * 1.12, H * 1.15], fill=0)
+    img = Image.composite(solid((20, 26, 18)), img, vig.filter(ImageFilter.GaussianBlur(260 * S)).point(lambda v: int(v * 0.35)))
+    noise = Image.effect_noise((W, H), 40).convert("RGB")
+    Image.blend(img, ImageChops.overlay(img, noise), 3 / 30).save(OUT, quality=90)
+    print(OUT)
+
+
+if DAY:
+    day()
+    sys.exit(0)
 
 img = Image.new("RGB", (W, H))
 d = ImageDraw.Draw(img)
