@@ -6,6 +6,7 @@ import { div } from "gpui-kit";
 import { h_flex, v_flex, Input, InputState, Scrollbar, Textarea, TextareaState, VirtualListScrollHandle, v_virtual_list } from "gpui-base";
 import { exec, focused, run, shared } from "herdr";
 import { BLUE, INK, ORANGE, canCompact, copyCommand, outline, pill, replyBlock } from "./look.js";
+import { HERE_PAD } from "./here.js";
 import {
   blockKind, canAnswer, canAutoOpen, dropEnter, freshPicks, isRemote, kindLabel, menuSteps, nextToOpen,
   parsePermission, permissionSteps, pickOption, promptKey, replySteps, saidLines, sendAnswer, sendCompact, staleShown, tailLines,
@@ -206,7 +207,7 @@ function expandedCard(rail, a, t, x) {
     .child(pill(t, `open-${a.address}`, "↗ open", (_e, cx) => rail.jump(a, cx), t.muted))
     .child(pill(t, `fold-${a.address}`, "▴", (_e, cx) => rail.collapse(cx, true), t.muted));
 
-  const body = v_flex().id(`rail-${a.address}`).relative().w_full().px(11).py(10).gap(2).rounded(7).bg(t.selected)
+  const body = v_flex().id(`rail-${a.address}`).relative().w_full().pl(HERE_PAD.open).pr(11).py(10).gap(2).rounded(7).bg(t.selected)
     .child(head)
     .children(x.meta)
     .when(Boolean(said), (el) => el.child(said))
@@ -220,6 +221,8 @@ function expandedCard(rail, a, t, x) {
     .when(Boolean(o.error), (el) => el.child(div().mt(8).text_size(11.5).font_medium().text_color(ORANGE).child(`✗ ${o.error}`)))
     .children(x.runs)
     .when(Boolean(x.edge), (el) => el.child(x.edge))
+    // The focused card's bar, inside the outline (here.js).
+    .when(Boolean(x.here), (el) => el.child(x.here))
     .child(x.overlay);
   return outline(body, a.attention.kind, t);
 }

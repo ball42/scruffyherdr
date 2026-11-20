@@ -45,5 +45,6 @@ export const ARROW_MODES = ["scroll-switch", "scroll", "switch"];
 export function validArrowMode(v) {
   if (v === undefined || v === null) return { mode: ARROW_MODES[0], problem: null };
   if (ARROW_MODES.includes(v)) return { mode: v, problem: null };
-  return { mode: ARROW_MODES[0], problem: `alert_arrow: "${String(v)}" isn't scroll-switch, scroll or switch` };
+  const shown = Array.isArray(v) ? "a list" : typeof v === "object" ? "an object" : `"${String(v)}"`;
+  return { mode: ARROW_MODES[0], problem: `alert_arrow: ${shown} isn't scroll-switch, scroll or switch` };
 }

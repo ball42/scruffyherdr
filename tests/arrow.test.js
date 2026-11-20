@@ -99,3 +99,23 @@ test("switchVia: the grid swaps the spotlight like a card click; elsewhere focus
   assert.equal(switchVia("focus"), "focus");
   assert.equal(switchVia(undefined), "focus");
 });
+
+test("alertArrows: Claudes kept off the list still place the arrows, but are never targets", () => {
+  // The strip: the spotlight is focused but has no card in the row.
+  const row = [ag("spot", true), ag("b", true), ag("c")];
+  const pick = alertArrows(row, "spot", ["spot"]);
+  assert.equal(pick.before, null, "nothing sits before the spotlight's slot");
+  assert.equal(pick.after.address, "b", "b, right of the spotlight, is after");
+  const mid = alertArrows([ag("a", true), ag("spot", true), ag("c", true)], "c", ["spot"]);
+  assert.equal(mid.before.address, "a", "the kept-off spotlight is never a target");
+  assert.equal(mid.before.more, 0);
+});
+
+test("arrowButton: the name caps its width; the arrow is a named Tab stop with a ring", () => {
+  const b = arrowButton({ dir: "down", target: { address: "a", name: "a very long name indeed", more: 0 }, lit: false, t: T, onClick: () => {} });
+  assert.ok(calls(b).some((c) => c[0] === "max_w" && c[1] === 140));
+  assert.ok(calls(b).some((c) => c[0] === "tab_index" && c[1] === 0));
+  assert.ok(calls(b).some((c) => c[0] === "role" && c[1] === "button"));
+  assert.ok(calls(b).some((c) => c[0] === "accessibility_label" && c[1] === "Needs you: a very long name indeed"));
+  assert.ok(calls(b).some((c) => c[0] === "focus"));
+});
