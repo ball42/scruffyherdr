@@ -310,7 +310,7 @@ function nameSetup(lines = []) {
   return { run, read };
 }
 
-test("name-hook card: decide, then Stop sets the kind, a prompt clears it", () => {
+test("name-hook card: decide, then Stop sets the kind, a prompt leaves Run while a card is open", () => {
   const h = nameSetup();
   h.run("SessionStart");
   assert.equal(h.read().card, null);
@@ -325,7 +325,7 @@ test("name-hook card: decide, then Stop sets the kind, a prompt clears it", () =
   h.run("PermissionRequest", { tool_name: "AskUserQuestion", tool_input: {} });
   assert.equal(h.read().card, "decide");
   h.run("UserPromptSubmit");
-  assert.equal(h.read().card, null);
+  assert.equal(h.read().card, "run", "the Run card isn't run yet");
   h.run("Stop", { last_assistant_message: "Done. Anything else?" });
   assert.equal(h.read().card, "ask");
   h.run("Notification", {}, "s2");
