@@ -13,30 +13,30 @@ const INKS = ["#0d1117", "#ffffff"];
 /**
  * A scene's needs-you tones for one mode, from its needs-you and done colours:
  * the count, the badge behind it, and the text drawn on a needs-you fill
- * (`ink`). The badge is a faint tint of needs-you, kept faint enough (and a
- * light count dark enough) that the count reads on it at 4.5:1. The glyph's
- * second colour (`sun`) is the scene's own and isn't derived.
+ * (`ink`). The badge is a faint tint of needs-you, as strong as lets the count
+ * read on it at 4.5:1; the count moves away from it (darker by day, lighter by
+ * night) only when no tint reads. The glyph's second colour (`sun`) is the
+ * scene's own and isn't derived.
  */
 export function deriveTones(needs, light, done) {
   const n = needs.toLowerCase();
   const base = light ? "#ffffff" : "#0d1117";
-  let count = n;
-  let badge = base;
-  for (const t of [0.14, 0.1, 0.07, 0.04, 0.02, 0]) {
-    badge = mix(base, n, t);
-    if (contrast(count, badge) >= 4.5) break;
+  // By day the count always sits a step darker than the fill it labels.
+  const steps = light ? [0.25, 0.35, 0.45, 0.55, 0.65, 0.75] : [0, 0.15, 0.3, 0.45, 0.6, 0.75];
+  const toward = light ? "#000000" : "#ffffff";
+  // The count moves only as far as it must; at each step the strongest tint that reads wins.
+  let pick = null;
+  for (const s of steps) {
+    const count = s ? mix(n, toward, s) : n;
+    const t = [0.14, 0.1, 0.07, 0.04, 0.02].find((t) => contrast(count, mix(base, n, t)) >= 4.5);
+    if (t !== undefined) { pick = { count, badge: mix(base, n, t) }; break; }
   }
-  if (light) {
-    for (const t of [0.25, 0.35, 0.45, 0.55, 0.65]) {
-      count = mix(n, "#000000", t);
-      if (contrast(count, badge) >= 4.5) break;
-    }
-  }
+  pick ??= { count: mix(n, toward, steps.at(-1)), badge: base };
   return {
     orange: n,
     blue: done.toLowerCase(),
-    count,
-    badge,
+    count: pick.count,
+    badge: pick.badge,
     ink: INKS.reduce((best, c) => (contrast(c, n) > contrast(best, n) ? c : best)),
   };
 }
@@ -96,7 +96,7 @@ export function resolveAlerts(cfg, scene, defaults) {
  * @param colors a theme record (background, foreground, accent, working)
  */
 export function checkAlert(needs, done, colors) {
-  const bar = hereTones(colors, { dark: needs, light: needs }).here;
+  const bar = hereTones(colors, { dark: needs, light: needs }, { dark: done, light: done }).here;
   const r = {
     done: deltaESim(needs, done),
     fill: contrast(needs, colors.background),
@@ -109,9 +109,12 @@ export function checkAlert(needs, done, colors) {
 /**
  * Theme `t` (from theme()) with its blocked and done colours swapped for the
  * resolved ones (`tones`, as resolveAlerts gives them) in its mode, so
- * herdr-signals' strip follows the scene and the config. Unchanged without tones.
+ * herdr-signals' strip follows the scene and the config. Unchanged without
+ * tones, or with tones resolved for a scene other than `scene` (kit.tones
+ * names its scene).
  */
-export function alertTheme(t, tones) {
+export function alertTheme(t, tones, scene = null) {
+  if (scene !== null && tones?.scene !== undefined && tones.scene !== scene) return t;
   const tone = tones?.[isLight(t?.background) ? "light" : "dark"];
   return tone ? { ...t, blocked: tone.orange, done: tone.blue } : t;
 }

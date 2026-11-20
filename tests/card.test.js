@@ -115,7 +115,7 @@ test("a claude already blocked at startup is not sent", () => {
 test("card title and colors", () => {
   const blocked = buildCard([{ address: "t1", kind: "blocked", name: "web-app" }], 0);
   assert.equal(blocked.embeds[0].title, "✋ 1 needs you");
-  assert.equal(blocked.embeds[0].color, 0xec8e2c);
+  assert.equal(blocked.embeds[0].color, 0xfd9f01, "Tatooine's needs-you without tones");
   assert.match(blocked.embeds[0].description, /✋ \*\*web-app\*\*/);
   const done = buildCard([{ address: "t2", kind: "done", name: "garden-log", minutes: 6 }], 0);
   assert.equal(done.embeds[0].title, "✓ 1 done");
@@ -201,4 +201,11 @@ test("the wait time rides on blockedSince, and time passing alone never edits th
   assert.equal(post.action.items[0].since, 1000);
   const later = cardStep(post.state, [a("t1", "blocked")], 600_000, cfg);
   assert.equal(later.action, null);
+});
+
+test("buildCard: the embed takes the shown scene's resolved colours", () => {
+  const colors = { needs: "#ffd84d", done: "#3fb950" };
+  assert.equal(buildCard([{ address: "t1", kind: "blocked", name: "a" }], 0, colors).embeds[0].color, 0xffd84d);
+  assert.equal(buildCard([{ address: "t2", kind: "done", name: "b", minutes: 6 }], 0, colors).embeds[0].color, 0x3fb950);
+  assert.equal(buildCard([{ address: "t1", kind: "blocked", name: "a" }], 0, { needs: "junk" }).embeds[0].color, 0xfd9f01, "a bad colour falls back");
 });

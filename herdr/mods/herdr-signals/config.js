@@ -23,14 +23,20 @@ export function configChanged(prev, text) {
  * A config read on the 10 s reread. The first read (no `prevCfg`) is readConfig's.
  * After that, a file that's gone (mid-save) or doesn't parse keeps `prevCfg`, so
  * a half-typed save never drops the add-ons or the look; only the parse failure
- * is named, and a later good read clears it.
+ * is named, and a later good read clears it. The START_KEYS keep their first
+ * values: herdr-signals sets up their timers and folders once.
  */
 export function reloadConfig(prevCfg, text, defaults) {
   if (!prevCfg) return readConfig(text, defaults);
   if (text === null || text === undefined) return { cfg: prevCfg, problem: null };
   const r = readConfig(text, defaults);
-  return r.problem ? { cfg: prevCfg, problem: r.problem } : r;
+  if (r.problem) return { cfg: prevCfg, problem: r.problem };
+  for (const k of START_KEYS) r.cfg[k] = prevCfg[k];
+  return r;
 }
+
+/** Keys read once, when Herdr starts (README, Config). */
+export const START_KEYS = ["poll_ms", "run_cards"];
 
 /** What clicking the rail's alert arrow does; kit-rail/arrow.js keeps the same list (a test checks). */
 export const ARROW_MODES = ["scroll-switch", "scroll", "switch"];

@@ -65,3 +65,11 @@ test("validArrowMode: the default, a known mode, and a bad one named", () => {
   assert.deepEqual(validArrowMode("jump"), { mode: "scroll-switch", problem: 'alert_arrow: "jump" isn\'t scroll-switch, scroll or switch' });
   assert.equal(validArrowMode(3).mode, "scroll-switch");
 });
+
+test("reloadConfig: poll_ms and run_cards keep their start values; other keys apply", () => {
+  const first = reloadConfig(undefined, '{"poll_ms": 2000, "run_cards": false, "alert_arrow": "scroll"}', {}).cfg;
+  const next = reloadConfig(first, '{"poll_ms": 500, "run_cards": true, "alert_arrow": "switch"}', {}).cfg;
+  assert.equal(next.poll_ms, 2000);
+  assert.equal(next.run_cards, false);
+  assert.equal(next.alert_arrow, "switch");
+});

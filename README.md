@@ -113,17 +113,17 @@ Everything here is off by default. The ones marked "coming soon" aren't in this 
 
 ## Config
 
-`~/.config/herdr-kit/config.json` holds these keys. `install.sh` creates the file from `config.example.json` only when it's missing, so add a new key by hand if your file is older.
+`~/.config/herdr-kit/config.json` holds these keys. `install.sh` creates the file from `config.example.json` only when it's missing, so add a new key by hand if your file is older. Most keys apply within 10 s of a save. `poll_ms` and `run_cards` are read when Herdr starts, so restart Herdr after changing them; `addons` and the `jira_` keys need `./install.sh` rerun, as their rows say.
 
 | Key | Default | What it does |
 | --- | --- | --- |
 | `discord_webhook` | `""` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Discord webhook for the away card. Empty turns Discord off. |
-| `alert_colors` | `{}` | Your own needs-you and done colours, over each scene's. `{"needs": {"dark": "#ffd84d", "light": "#8a6a00"}}` sets needs-you everywhere (night and day themes need different colours to stay readable; one `#rrggbb` sets both); `{"done": {"dark": "#58a6ff", "light": "#0969da"}}` sets done per mode; `{"scenes": {"hoth": {"needs": "#ffe5de"}}}` sets one scene, and beats the global entry. A colour is `#rrggbb`, or `{dark, light}` for night and day themes. Edits apply within 10 s; a bad value is skipped and named on the strip, and `./install.sh --check` warns when a colour is hard to tell from done with deuteranopia. |
+| `alert_colors` | `{}` | Your own needs-you and done colours, over each scene's. `{"needs": {"dark": "#ffd84d", "light": "#8a6a00"}}` sets needs-you everywhere (night and day themes need different colours to stay readable; one `#rrggbb` sets both); `{"done": {"dark": "#58a6ff", "light": "#0969da"}}` sets done per mode; `{"scenes": {"hoth": {"needs": "#ffe5de"}}}` sets one scene, and beats the global entry. A colour is `#rrggbb`, or `{dark, light}` for night and day themes. Edits apply within 10 s; a bad value is skipped and named on the strip, and `./install.sh --check` warns when a colour is hard to tell from done with deuteranopia. The kit's own parts follow it (rail, tabs, pane headers, grid, strip and scene picker); Herdr's own needs-you label and dot keep the scene's colour, which the theme file sets. |
 | `alert_arrow` | `"scroll-switch"` | When a Claude needs you and you haven't looked, an arrow at the rail's top or bottom edge (◀ or ▶ in the chip row) points at it and flares with its card: top when the card is above the one you're in, bottom when it's below. Clicking it: `"scroll-switch"` scrolls the rail to the card and switches to that Claude, `"scroll"` only scrolls to it and flares it, `"switch"` only switches. Edits apply within 10 s; a bad value uses the default and is named on the strip. |
 | `away_seconds` | `120` | No input for this long counts as away. |
 | `grace_seconds` | `60` | A blocked Claude waits this long before it reaches Discord. |
 | `done_min_seconds` | `180` | Turns this long or longer join the card. |
-| `poll_ms` | `2000` | How often the strip re-reads Herdr. |
+| `poll_ms` | `2000` | How often the strip re-reads Herdr. Read when Herdr starts. |
 | `deck_port` | `47651` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Local port for the Stream Deck plugin. |
 | `deck` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Post to the Stream Deck plugin. |
 | `auto_spotlight` | `false` | Spotlight a Claude when it newly needs you. |
@@ -133,7 +133,7 @@ Everything here is off by default. The ones marked "coming soon" aren't in this 
 | `readme_tabs` | `false` | Keep a README tab first in every space whose repo has a README. |
 | `usage_meter` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Show the 5-hour and weekly usage meter on the strip and the deck. With it on, the kit's status line keeps the readings in `~/.cache/herdr-chat/claude-limits.json`, never lowering one within the same 5-hour or weekly window. |
 | `pr_status` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Look up each Claude's PR with `gh` and show its state in the hint line. |
-| `run_cards` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Draw the Run rows a Claude's cards leave on the rail. |
+| `run_cards` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Draw the Run rows a Claude's cards leave on the rail. Read when Herdr starts. |
 | `run_log_pipe` | `""` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). A command a finished run's record is piped through, given the log's name; it prints the path it filed the log at. Empty writes `~/.config/herdr-kit/runlogs/`. |
 | `addons` | `[]` | Add-on mods to run (folder names under Herdr's `mods/`), each in a 0-px block beside the strip. Rerun `./install.sh` after changing it. See [docs/addons.md](docs/addons.md). |
 | `jira_url` | `""` | kit-jira: your Jira site, such as `https://acme.atlassian.net`. Empty leaves the badges and rows without a link. |
@@ -142,7 +142,7 @@ Everything here is off by default. The ones marked "coming soon" aren't in this 
 | `jira_mine` | `false` | kit-jira: list your own tickets no Claude is on, under the rail's Claudes. |
 | `jira_mine_jql` | `assignee = currentUser() AND statusCategory = "In Progress" ORDER BY updated DESC` | kit-jira: which tickets count as yours for `jira_mine` (at most 20 are shown). |
 | `jira_publish` | `true` | kit-jira: write the badge and row keys. `false` leaves them to another add-on that reads kit-jira's `kit.jira` key instead (see [docs/addons.md](docs/addons.md)). |
-| `look.glass` | `0.6` | How solid the glass tint over the sidebar, tab bar and status bar is (0..1). `false` keeps them solid. Rerun `./install.sh` after changing it. |
+| `look.glass` | `0.6` | How solid the glass tint over the sidebar, tab bar and status bar is (0..1). `false` keeps them solid. Edits apply within 10 s. |
 
 ## Add-ons
 

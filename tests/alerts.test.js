@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { alertProblems, alertTheme, checkAlert, deriveTones, resolveAlerts } from "../herdr/mods/herdr-signals/alerts.js";
-import { DONE, contrast } from "../herdr/mods/herdr-signals/colour.js";
+import { DONE, contrast, deltaESim } from "../herdr/mods/herdr-signals/colour.js";
 import { SCENES } from "../herdr/mods/herdr-signals/scenes.js";
 
 const themeColors = (name) => {
@@ -130,4 +130,39 @@ test("README: the alert_colors row's first example passes in every scene, night 
       assert.ok(checkAlert(tones[mode].orange, tones[mode].blue, themeColors(`${k}-${file}`)).ok, `${k} ${file}`);
     }
   }
+});
+
+test("deriveTones: a light badge keeps a tint once the count is darkened", () => {
+  const t = deriveTones("#8b8810", true, DONE.light);
+  assert.notEqual(t.badge, "#ffffff", "Endor's day badge is tinted");
+  assert.ok(contrast(t.count, t.badge) >= 4.5);
+});
+
+test("deriveTones: a dark override too dim for its badge gets a lighter count", () => {
+  const t = deriveTones("#123456", false, DONE.dark);
+  assert.ok(contrast(t.count, t.badge) >= 4.5, `${t.count} on ${t.badge}`);
+  assert.equal(t.orange, "#123456", "the fill stays the chosen colour");
+});
+
+test("deriveTones: every scene's badge is tinted, night and day", () => {
+  for (const [k, s] of Object.entries(SCENES)) {
+    for (const mode of ["dark", "light"]) {
+      const t = deriveTones(s.needs[mode], mode === "light", DONE[mode]);
+      assert.notEqual(t.badge, mode === "light" ? "#ffffff" : "#0d1117", `${k} ${mode}`);
+    }
+  }
+});
+
+test("checkAlert: the bar is judged against the done override", () => {
+  // An accent near the done override clashes, so the bar falls to the foreground.
+  const colors = { background: "#0d1117", foreground: "#e6edf3", accent: "#3fb950" };
+  const withDone = checkAlert("#ffd84d", "#3fb950", colors);
+  assert.equal(withDone.bar, deltaESim("#ffd84d", "#e6edf3"));
+});
+
+test("alertTheme: tones resolved for another scene leave the theme as it is", () => {
+  const t = { background: "#0d1117", blocked: "#ff9e7a", done: "#58a6ff" };
+  const tones = { scene: "endor", dark: { orange: "#ffd84d", blue: "#58a6ff" } };
+  assert.equal(alertTheme(t, tones, "hoth"), t);
+  assert.equal(alertTheme(t, tones, "endor").blocked, "#ffd84d");
 });

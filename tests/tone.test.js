@@ -11,7 +11,7 @@ test("useTheme picks the light tone on a light background, dark otherwise", () =
   assert.equal(look.ORANGE, "#b35900");
   assert.equal(look.BLUE, "#0969da");
   assert.equal(look.INK, "#ffffff");
-  assert.equal(bgOf(look.asksBadge(["? which box?"])), "#fbf8f7");
+  assert.equal(bgOf(look.asksBadge(["? which box?"])), "#f6f0ef");
 
   look.useTheme({ background: "#0d1117" });
   assert.equal(look.ORANGE, "#fd9f01");
@@ -254,5 +254,13 @@ test("useTheme lays kit.tones over the scene's TONES, keeping the scene's own to
   look.useTheme({ background: "#f6f9fc" }, "hoth", { dark: { orange: "#123456" }, light: { orange: "#654321" } });
   assert.equal(look.ORANGE, "#654321");
   assert.equal(look.BLUE, look.TONES.hoth.light.blue);
+  look.useTheme({ background: "#0f1726" }, "hoth", null);
+});
+
+test("useTheme ignores kit.tones resolved for another scene", () => {
+  look.useTheme({ background: "#0f1726" }, "hoth", { scene: "endor", dark: { orange: "#123456" } });
+  assert.equal(look.ORANGE, look.TONES.hoth.dark.orange, "a stale scene's tones don't land");
+  look.useTheme({ background: "#0f1726" }, "hoth", { scene: "hoth", dark: { orange: "#123456" } });
+  assert.equal(look.ORANGE, "#123456");
   look.useTheme({ background: "#0f1726" }, "hoth", null);
 });

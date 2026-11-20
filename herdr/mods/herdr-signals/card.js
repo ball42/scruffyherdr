@@ -2,9 +2,9 @@
 // One card per stretch away from this Mac: the first item posts it (one phone
 // buzz), later changes edit it in place (Discord doesn't notify edits).
 // Pure: no herdr globals, no I/O.
+import { DONE } from "./colour.js";
+import { SCENES } from "./scenes.js";
 
-const ORANGE = 0xec8e2c;
-const BLUE = 0x58a6ff;
 const MAX_DESCRIPTION = 4000;
 const MAX_ASK = 120;
 // The input-kind glyphs the rail uses (kit-rail/look.js CARD_GLYPHS).
@@ -98,8 +98,15 @@ function clock(ms) {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-/** The webhook body: one embed, blocked lines first, orange if anything is blocked. */
-export function buildCard(items, since) {
+/** A "#rrggbb" as Discord's integer colour, or `fallback`'s. */
+const embedColour = (hex, fallback) => parseInt((/^#[0-9a-fA-F]{6}$/.test(hex ?? "") ? hex : fallback).slice(1), 16);
+
+/**
+ * The webhook body: one embed, blocked lines first, in needs-you if anything
+ * is blocked, else done. `colors` is the shown scene's {needs, done} (kit.tones
+ * dark); without it, Tatooine's.
+ */
+export function buildCard(items, since, colors = {}) {
   const blocked = items.filter((i) => i.kind === "blocked");
   const done = items.filter((i) => i.kind === "done");
   const title = [
@@ -133,7 +140,7 @@ export function buildCard(items, since) {
     embeds: [{
       title,
       description,
-      color: blocked.length ? ORANGE : BLUE,
+      color: blocked.length ? embedColour(colors.needs, SCENES.tatooine.needs.dark) : embedColour(colors.done, DONE.dark),
       footer: { text: `since ${clock(since)}` },
       timestamp: new Date(since).toISOString(),
     }],

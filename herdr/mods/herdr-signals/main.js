@@ -633,7 +633,8 @@ export default class Signals extends View {
     if ((shared("kit.view") ?? null) !== view) setShared("kit.view", view);
     // The active card's bar and fill, for this theme; checked on every apply,
     // since a light/dark switch changes the theme without changing the scene.
-    const { tones } = this.alerts(scene);
+    // kit.tones names its scene, so a render between the two writes keeps the new scene's own tones.
+    const tones = { scene: this.sceneKey(scene), ...this.alerts(scene).tones };
     if (JSON.stringify(shared("kit.tones") ?? null) !== JSON.stringify(tones)) setShared("kit.tones", tones);
     const pair = (k) => ({ dark: tones.dark[k], light: tones.light[k] });
     const here = hereTones(theme(), pair("orange"), pair("blue"));
@@ -642,8 +643,13 @@ export default class Signals extends View {
 
   /** The shown scene's alert colours: config alert_colors over the scene defaults (alerts.js). */
   alerts(scene) {
-    const key = Object.hasOwn(SCENES, scene) ? scene : "tatooine";
+    const key = this.sceneKey(scene);
     return resolveAlerts(this.cfg?.alert_colors, key, SCENES[key]);
+  }
+
+  /** A scene key as look.js reads it: Tatooine for an unknown one or null. */
+  sceneKey(scene) {
+    return Object.hasOwn(SCENES, scene) ? scene : "tatooine";
   }
 
   /** kit.afterView ({view, address, argv?}): once `view` is shown, focus that Claude and maybe split under it. */
@@ -964,7 +970,9 @@ export default class Signals extends View {
     const url = this.cfg.discord_webhook;
     const ep = this.state.episode;
     if (!url || !ep) return;
-    const body = buildCard(action.items, ep.since);
+    // An embed has one colour, not a pair: it takes the shown scene's night tones.
+    const tone = this.alerts(shared("kit.scene") ?? null).tones.dark;
+    const body = buildCard(action.items, ep.since, { needs: tone.orange, done: tone.blue });
     if (action.type === "edit" && ep.messageId) {
       const r = await this.post("discord", `${url}/messages/${ep.messageId}`, body, "PATCH");
       if (r) return;
@@ -1024,7 +1032,7 @@ export default class Signals extends View {
       }
     }
     // The strip's needs-you and done follow the scene and config alert_colors, not the theme file.
-    const t = alertTheme(theme(), shared("kit.tones"));
+    const t = alertTheme(theme(), shared("kit.tones"), this.sceneKey(shared("kit.scene") ?? null));
     // The model's rows carry snooze and wait times; raw agents() only until the first poll.
     const s = summary(this.model?.agents ?? agents());
     const parts = [];
