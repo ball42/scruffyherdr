@@ -88,6 +88,11 @@ export const TONES = {
     dark: { orange: "#ff8a3d", blue: "#58a6ff", sun: "#ffc08a", stone: "#a8b0a0", count: "#ff8a3d", badge: "#5b311d", ink: "#0d1117" },
     light: { orange: "#b04a00", blue: "#0969da", sun: "#c46a2a", stone: "#4f5a4a", count: "#9b4000", badge: "#f6f0ef", ink: "#ffffff" },
   },
+  hyperspace: {
+    glyph: "streaks",
+    dark: { orange: "#ffe9a8", blue: "#58a6ff", sun: "#dfe6ff", count: "#ffe9a8", badge: "#6a6147", ink: "#0d1117" },
+    light: { orange: "#8a6a00", blue: "#0969da", sun: "#4e5a8c", count: "#795c00", badge: "#f3f1ef", ink: "#ffffff" },
+  },
 };
 /** The tree behind Endor's fireflies, tinted with the text color. */
 export const TREE_SVG = "mods/kit-rail/tree.svg";
@@ -114,6 +119,8 @@ export const SPIRE_SVG = "mods/kit-rail/spire.svg";
 export const STREAK_SVG = "mods/kit-rail/streak.svg";
 /** Yavin 4's stepped temple, tinted with the text color. */
 export const TEMPLE_SVG = "mods/kit-rail/temple.svg";
+/** Hyperspace's starburst, six rays round a bright centre, tinted with the text color. */
+export const BURST_SVG = "mods/kit-rail/burst.svg";
 /**
  * A scene's glyph drawn from layer files in Herdr's home, not from code:
  * `glyphs/<scene>-body.svg`, `-edge.svg`, `-light.svg` and `-mover.svg`, each a 14 by 14
@@ -453,7 +460,14 @@ export function temple(pulse) {
     .child(svg(TEMPLE_SVG).absolute().left(0).top(0).size(14).text_color(tone.stone));
 }
 
-const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, volcano, asteroids, layered, spire, streak, temple };
+/** Hyperspace: a starburst whose rays stretch while unseen, as if the jump is about to drop out. */
+export function streaks(pulse) {
+  const burst = svg(BURST_SVG).absolute().left(0).top(0).size(14).text_color(ORANGE);
+  return div().relative().flex_none().w(14).h(14)
+    .child(pulse ? burst.loop("width", { from: 10, to: 14, period: 1600 }).loop("height", { from: 10, to: 14, period: 1600 }) : burst);
+}
+
+const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, volcano, asteroids, layered, spire, streak, temple, streaks };
 
 /**
  * The needs-you glyph in sand with the open-item count; hover lists every open

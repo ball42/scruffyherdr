@@ -143,6 +143,15 @@ export const SCENES = {
     needs: { dark: "#ff8a3d", light: "#b04a00" },
     asks: "◓",
   },
+  hyperspace: {
+    label: "Hyperspace",
+    theme: { light: "hyperspace-day", dark: "hyperspace-night" },
+    walls: { dark: "backgrounds/hyperspace.jpg", light: "backgrounds/hyperspace-day.jpg" },
+    panel: { dark: "#0a0c18", light: "#f4f5fb" },
+    // Star-white butter, warm against the blue "done" on near-black; a starburst on the strip.
+    needs: { dark: "#ffe9a8", light: "#8a6a00" },
+    asks: "✳",
+  },
 };
 export const DEFAULT_SCENE = "tatooine";
 
