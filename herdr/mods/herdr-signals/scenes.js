@@ -125,6 +125,15 @@ export const SCENES = {
     needs: { dark: "#ffd36b", light: "#8a6200" },
     asks: "↟",
   },
+  crait: {
+    label: "Crait",
+    theme: { light: "crait-day", dark: "crait-night" },
+    walls: { dark: "backgrounds/crait.jpg", light: "backgrounds/crait-day.jpg" },
+    panel: { dark: "#14121c", light: "#f7f4f2" },
+    // Mineral scarlet under white salt, warm against the blue "done"; a skid streak on the strip.
+    needs: { dark: "#ff6a55", light: "#b3261e" },
+    asks: "⟋",
+  },
 };
 export const DEFAULT_SCENE = "tatooine";
 

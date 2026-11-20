@@ -78,6 +78,11 @@ export const TONES = {
     dark: { orange: "#ffd36b", blue: "#58a6ff", sun: "#ffe2a0", spire: "#b8c4d8", count: "#ffd36b", badge: "#6a572f", ink: "#0d1117" },
     light: { orange: "#8a6200", blue: "#0969da", sun: "#c98a3a", spire: "#4f5a6a", count: "#795500", badge: "#f3f1ef", ink: "#ffffff" },
   },
+  crait: {
+    glyph: "streak",
+    dark: { orange: "#ff6a55", blue: "#58a6ff", sun: "#ffd0c4", salt: "#e6e2ee", count: "#ff6a55", badge: "#4d2120", ink: "#0d1117" },
+    light: { orange: "#b3261e", blue: "#0969da", sun: "#d76a55", salt: "#6b6478", count: "#9d2019", badge: "#f6efef", ink: "#ffffff" },
+  },
 };
 /** The tree behind Endor's fireflies, tinted with the text color. */
 export const TREE_SVG = "mods/kit-rail/tree.svg";
@@ -100,6 +105,8 @@ export const CONE_SVG = "mods/kit-rail/cone.svg";
 export const ASTEROID_SVG = "mods/kit-rail/asteroid.svg";
 /** Lothal's needle spire on its low base, tinted with the text color. */
 export const SPIRE_SVG = "mods/kit-rail/spire.svg";
+/** Crait's scar, a wedge from the foot of the frame to the horizon, tinted with the text color. */
+export const STREAK_SVG = "mods/kit-rail/streak.svg";
 /**
  * A scene's glyph drawn from layer files in Herdr's home, not from code:
  * `glyphs/<scene>-body.svg`, `-edge.svg`, `-light.svg` and `-mover.svg`, each a 14 by 14
@@ -422,7 +429,16 @@ export function spire(pulse) {
     .child(pulse ? tip.loop("opacity", { from: 0.2, to: 1, period: 1400 }) : tip);
 }
 
-const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, volcano, asteroids, layered, spire };
+/** Crait: a salt horizon and a red scar across it, which draws itself across the salt while unseen. */
+export function streak(pulse) {
+  const scar = div().absolute().left(0).top(0).w(14).h(14).overflow_hidden()
+    .child(svg(STREAK_SVG).absolute().left(0).top(0).size(14).text_color(ORANGE));
+  return div().relative().flex_none().w(14).h(14)
+    .child(div().absolute().left(0).top(8).w(14).h(1).bg(tone.salt))
+    .child(pulse ? scar.loop("width", { from: 3, to: 14, period: 1800 }) : scar);
+}
+
+const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, volcano, asteroids, layered, spire, streak };
 
 /**
  * The needs-you glyph in sand with the open-item count; hover lists every open
