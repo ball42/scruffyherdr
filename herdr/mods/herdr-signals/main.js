@@ -28,7 +28,7 @@ import { LAYOUT_NOTE, layoutChanged } from "./layout.js";
 import { APPLY_PROBLEM, applyOutcome, validLook } from "./dress.js";
 import { readClicks } from "./clicks.js";
 import { readSizes, replaySizes, seedAside, sizesRecord, sizesText } from "./sizes.js";
-import { configChanged, reloadConfig } from "./config.js";
+import { configChanged, reloadConfig, validArrowMode } from "./config.js";
 import { alertProblems, alertTheme, resolveAlerts } from "./alerts.js";
 import { hereTones } from "./colour.js";
 import { KIT_LAYOUT, SCENES, isGridTree, sceneList, sceneOfTree } from "./scenes.js";
@@ -42,6 +42,7 @@ import { ADDON_KEYS, cardName, deckBadge, pressCommand, readAddon, withBadges } 
 const DEFAULTS = {
   discord_webhook: "",
   alert_colors: {},
+  alert_arrow: "scroll-switch",
   done_min_seconds: 180,
   away_seconds: 120,
   grace_seconds: 60,
@@ -480,6 +481,10 @@ export default class Signals extends View {
     // alert_colors: a bad value is skipped and named on the strip; the picker previews the resolved colours.
     this.alertProblem = alertProblems(this.cfg.alert_colors)[0] ?? null;
     setShared("kit.scenes", sceneList(SCENES, this.cfg.alert_colors));
+    // alert_arrow: what clicking the rail's arrow does (kit-rail/arrow.js).
+    const arrow = validArrowMode(this.cfg.alert_arrow);
+    this.arrowProblem = arrow.problem;
+    if (shared("kit.alertArrow") !== arrow.mode) setShared("kit.alertArrow", arrow.mode);
     return true;
   }
 
@@ -1022,7 +1027,7 @@ export default class Signals extends View {
     const s = summary(this.model?.agents ?? agents());
     const parts = [];
     // A layout or scene-picker problem first; a bad config `look` stays until the config is fixed.
-    const problem = this.problem ?? this.configProblem ?? this.lookProblem ?? this.alertProblem;
+    const problem = this.problem ?? this.configProblem ?? this.lookProblem ?? this.alertProblem ?? this.arrowProblem;
     if (problem) parts.push(div().text_color(t.muted).child(problem));
     // Clicking a count does what cmd-shift-u does.
     const focus = shared("kit.focus");
