@@ -62,8 +62,8 @@ export default class KitScenes extends View {
       .child(pic)
       .child(h_flex().items_center().gap(6).h(LABEL - 6).text_size(13)
         .child(div().text_color(needs).child(glyph))
-        .child(div().flex_1().text_color(here ? t.foreground : t.muted).child(tl.label))
-        .when(shown, (el) => el.child(div().text_size(11).text_color(t.muted).child("shown"))));
+        .child(div().flex_1().min_w_0().truncate().text_color(here ? t.foreground : t.muted).child(tl.label))
+        .when(shown, (el) => el.child(div().flex_none().text_size(11).text_color(t.muted).child("shown"))));
   }
 
   mode(t, id, label, day) {

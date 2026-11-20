@@ -108,6 +108,10 @@ test("tileInputs: skips entries that aren't scenes and never throws", () => {
 
 test("dialogSize: exact content size, 16:9 tiles", () => {
   assert.equal(TILE.h, Math.round((TILE.w * 9) / 16));
-  assert.equal(gridHeight(), 401);
-  assert.deepEqual(dialogSize(), { width: 932, height: 477 });
+  assert.equal(gridHeight(), 360);
+  assert.deepEqual(dialogSize(), { width: 834, height: 436 });
+});
+
+test("dialogSize: fits a half-screen window on a 1728 px wide screen", () => {
+  assert.ok(dialogSize().width <= 1728 / 2 - 16, `${dialogSize().width} px is wider than half of 1728 less a margin`);
 });
