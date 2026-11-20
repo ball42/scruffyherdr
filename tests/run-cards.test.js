@@ -11,7 +11,7 @@ import { initialNamesMemo, resolveNames } from "../herdr/mods/herdr-signals/name
 import { attentionStep, buildModel, readRunState } from "../herdr/mods/herdr-signals/model.js";
 
 const look = await import("../herdr/mods/kit-rail/look.js");
-const { elapsed, runningText, RUN_NOTE, runArgv, runSlug, runCard, openRunLog, shellQuote, copyCommand, runKey, visibleRuns, dismissRun, runStatus, groupRuns, firstOpenRun, isQuietCommand } =
+const { elapsed, runningText, RUN_NOTE, runArgv, runSlug, runCard, openRunLog, shellQuote, copyCommand, runKey, visibleRuns, dismissRun, runStatus, groupRuns, firstOpenRun, isQuietCommand, commandPreview } =
   await import("../herdr/mods/kit-rail/look.js");
 const F = "```";
 const AI = "## Your action items";
@@ -699,4 +699,23 @@ test("every runCard/openRunLog call in the kit mods passes setShared", async () 
     }
   }
   assert.equal(seen, 5);
+});
+
+test("commandPreview: the first line that does something, past cd and comments", () => {
+  // A card keeps lines to 60 characters, so it often opens with `cd` alone.
+  assert.equal(commandPreview("cd ~/notes/runbook\nopen 2026-11-20-deploy.md"), "open 2026-11-20-deploy.md …");
+  assert.equal(commandPreview("# merge it\ngh pr merge 88 --squash"), "gh pr merge 88 --squash …");
+  assert.equal(commandPreview("cd ~/a\n\n# then\nnpm test\nnpm run build"), "npm test …");
+  assert.equal(commandPreview("gh pr merge 88"), "gh pr merge 88");
+  assert.equal(commandPreview("npm test\nnpm run build"), "npm test …");
+  // A line that changes folder and does more on it is the work itself.
+  assert.equal(commandPreview("cd web && npm test"), "cd web && npm test");
+  // Nothing but cd and comments: show the first line, as before.
+  assert.equal(commandPreview("cd ~/a\n# just go there"), "cd ~/a …");
+  assert.equal(commandPreview("cd ~/a"), "cd ~/a");
+});
+
+test("a Run card's command line shows commandPreview, the full block on hover", () => {
+  const src = readFileSync(new URL("../herdr/mods/kit-rail/main.js", import.meta.url), "utf8");
+  assert.match(src, /const first = commandPreview\(r\.command\)/);
 });

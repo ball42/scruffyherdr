@@ -14,7 +14,7 @@ import { alertArrows, arrowAction, arrowButton, switchVia } from "./arrow.js";
 import { hereBar, hereFill, scrollStep } from "./here.js";
 import { MultiReply } from "./multi-ui.js";
 import { saidGist, saidLines } from "./answer.js";
-import { BLUE, Flares, ORANGE, useTheme, RunGate, asksBadge, canCompact, cardClick, compactPill, cardMark, confirmRun, copyCommand, ctxEdge, ctxFigure, ctxMeter, dismissRun, groupRuns, mark, openItems, openRunLog, outline, pill, pressRun, ranClean, runCard, runStatus, runningText, runTick, visibleRuns, snoozeControls, snoozeGlyph, snoozeLabel, snoozeSet, waited, withCard } from "./look.js";
+import { BLUE, Flares, ORANGE, useTheme, RunGate, asksBadge, canCompact, cardClick, commandPreview, compactPill, cardMark, confirmRun, copyCommand, ctxEdge, ctxFigure, ctxMeter, dismissRun, groupRuns, mark, openItems, openRunLog, outline, pill, pressRun, ranClean, runCard, runStatus, runningText, runTick, visibleRuns, snoozeControls, snoozeGlyph, snoozeLabel, snoozeSet, waited, withCard } from "./look.js";
 
 const SPINNER = "mods/workspace-chrome/spinner.svg";
 
@@ -164,13 +164,13 @@ export default class Rail extends View {
 
   /**
    * One Run card. Line one is the label (full width, so it isn't cut for the
-   * buttons) and its last result; line two is the command's first line with
+   * buttons) and its last result; line two is the command's first working line (commandPreview) with
    * ▶ Run, Copy and ✕. A card that ran clean folds to one quiet line:
    * ✓, the label, log, ▶ Again and ✕. Hover the label or command for the full text.
    */
   runRow(a, r, i, t) {
     const key = `${a.address}-${r.id ?? i}`;
-    const first = r.command.split("\n")[0] + (r.command.includes("\n") ? " …" : "");
+    const first = commandPreview(r.command);
     const st = runStatus(r.state);
     const going = st?.tone === "run";
     const tone = { run: t.foreground, ok: BLUE, bad: ORANGE, dim: t.dim };
