@@ -164,13 +164,27 @@ test("deckBadge: a 5,000-character badge text still leaves the deck's report und
   assert.equal([...sent.badge.text].length, 200);
 });
 
-test("deckBadge: a url over 2,048 characters goes to the deck as null, one at 2,048 goes whole", () => {
+test("deckBadge: a url over 2,048 characters goes to the deck as null, an ASCII one at 2,048 goes whole", () => {
   const base = "https://example.com/";
   const at = base + "a".repeat(MAX_DECK_URL - base.length);
   assert.equal(at.length, 2048);
   assert.equal(deckBadge({ text: "t", url: at }).url, at);
   assert.equal(deckBadge({ text: "t", url: `${at}a` }).url, null);
   assert.equal(deckBadge({ text: "t", url: `${at}a` }).text, "t", "the badge itself still goes");
+});
+
+test("deckBadge: the url cap counts UTF-8 bytes, so a non-ASCII url can't double past it", () => {
+  const base = "https://example.com/";
+  const wide = base + "é".repeat(1100);
+  assert.ok(wide.length <= MAX_DECK_URL && Buffer.byteLength(wide) > MAX_DECK_URL);
+  assert.equal(deckBadge({ text: "t", url: wide }).url, null);
+  const fits = base + "é".repeat((MAX_DECK_URL - base.length) / 2);
+  assert.equal(Buffer.byteLength(fits), MAX_DECK_URL);
+  assert.equal(deckBadge({ text: "t", url: fits }).url, fits);
+  const emoji = base + "😀".repeat(507);
+  assert.equal(Buffer.byteLength(emoji), 2048);
+  assert.equal(deckBadge({ text: "t", url: emoji }).url, emoji);
+  assert.equal(deckBadge({ text: "t", url: `${emoji}a` }).url, null);
 });
 
 test("deckBadge: a 5,000-character badge url still leaves the deck's report under 4096 bytes", () => {

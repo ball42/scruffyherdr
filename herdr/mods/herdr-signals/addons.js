@@ -185,15 +185,26 @@ function clip(s, max) {
 }
 
 /**
- * Longest badge url the deck gets, in characters. A link can't be clipped like
- * the text, so a longer one goes as null: the badge still shows, without a link,
- * and the report stays under the deck's 4096 bytes.
+ * Longest badge url the deck gets, in UTF-8 bytes (what the deck's 4096-byte
+ * limit counts). A link can't be clipped like the text, so a longer one goes as
+ * null: the badge still shows, without a link.
  */
 export const MAX_DECK_URL = 2048;
+
+/** Whether `s` is over `max` UTF-8 bytes, counted without encoding it. */
+function utf8Over(s, max) {
+  let n = 0;
+  for (const ch of s) {
+    const cp = ch.codePointAt(0);
+    n += cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;
+    if (n > max) return true;
+  }
+  return false;
+}
 
 /** The focused Claude's badge as the Stream Deck gets it: {text, url, short}, nulls for the missing parts. */
 export function deckBadge(b) {
   if (!b) return null;
-  const url = typeof b.url === "string" && b.url.length <= MAX_DECK_URL ? b.url : null;
+  const url = typeof b.url === "string" && !utf8Over(b.url, MAX_DECK_URL) ? b.url : null;
   return { text: clip(b.text, MAX_DECK_TEXT), url, short: b.short ?? null };
 }
