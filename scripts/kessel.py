@@ -46,6 +46,120 @@ def at(angle, radius):
     return CX + x * math.cos(ROT) - y * math.sin(ROT), CY + x * math.sin(ROT) + y * math.cos(ROT)
 
 
+# ---- Day: jagged ridges under a hazy sky, the maelstrom wide overhead, a
+# spice refinery venting plumes. Runs and exits before the night code below.
+def day():
+    rng = random.Random(8)
+
+    def lerp(a, b, t):
+        t = max(0.0, min(1.0, t))
+        return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+    def ramp(stops, t):
+        t = max(0.0, min(1.0, t)) * (len(stops) - 1)
+        i = min(int(t), len(stops) - 2)
+        return lerp(rgb(stops[i]), rgb(stops[i + 1]), t - i)
+
+    def poly(pts, blur=0):
+        m = Image.new("L", (W, H), 0)
+        ImageDraw.Draw(m).polygon(pts, fill=255)
+        return m.filter(ImageFilter.GaussianBlur(blur)) if blur else m
+
+    def ridge(base, rough, n=9):
+        """A jagged ridge line by midpoint displacement."""
+        pts = [(-20 * S, base + rng.uniform(-1, 1) * rough), (W + 20 * S, base + rng.uniform(-1, 1) * rough)]
+        r = rough
+        for _ in range(n):
+            out = []
+            for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+                out += [(x0, y0), ((x0 + x1) / 2, (y0 + y1) / 2 + rng.uniform(-r, r))]
+            pts = out + [pts[-1]]
+            r *= 0.6
+        return pts
+
+    img = Image.new("RGB", (W, H))
+    d = ImageDraw.Draw(img)
+    for y in range(H):
+        d.line([(0, y), (W, y)], fill=ramp(["#8a8ab0", "#b4a8bc", "#dcc2a8"], (y / (H * 0.62)) ** 1.1))
+    # The maelstrom across the upper sky: soft violet and teal arms round a
+    # dark eye with a thin gold rim.
+    sx, sy = W * 0.66, H * 0.2
+    for k, col in enumerate(["#7462a0", "#5a8a8a"]):
+        arms = Image.new("L", (W, H), 0)
+        ad = ImageDraw.Draw(arms)
+        for arm in range(3):
+            if arm % 2 != k and arm != 2:
+                continue
+            for _ in range(4200):
+                t = rng.random() ** 0.85 * 3.2 * math.pi
+                a = t + arm * 2 * math.pi / 3 + rng.gauss(0, 0.09)
+                r = 40 * S * math.exp(0.98 * t / math.pi)
+                x, y = sx + math.cos(a) * r, sy + math.sin(a) * r * 0.42
+                s = (8 + r * 0.09) * rng.uniform(0.6, 1.4)
+                ad.ellipse([x - s, y - s * 0.45, x + s, y + s * 0.45], fill=rng.randint(14, 34))
+        img = Image.composite(solid(rgb(col)), img, arms.filter(ImageFilter.GaussianBlur(16 * S)).point(lambda v: min(190, int(v * 2.2))))
+    eye = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(eye).ellipse([sx - 50 * S, sy - 21 * S, sx + 50 * S, sy + 21 * S], fill=255)
+    img = Image.composite(solid(rgb("#e6c070")), img, eye.filter(ImageFilter.GaussianBlur(14 * S)).point(lambda v: int(v * 0.6)))
+    img = Image.composite(solid(rgb("#2e2840")), img, eye.filter(ImageFilter.GaussianBlur(3 * S)).point(lambda v: int(v * 0.9)))
+
+    # Ridges, far and hazed to near and dark, each lit along its crest.
+    layers = [(0.6, 90, "#b29a9e"), (0.67, 120, "#987876"), (0.78, 150, "#7a5650"), (0.92, 170, "#5a3a32")]
+    for i, (base, rough, col) in enumerate(layers):
+        pts = ridge(H * base, rough * S)
+        img.paste(rgb(col), mask=poly(pts + [(W + 20 * S, H), (-20 * S, H)], 1 * S))
+        crest = Image.new("L", (W, H), 0)
+        ImageDraw.Draw(crest).line(pts, fill=255, width=max(1, int((3 + 3 * i) * S)))
+        crest = ImageChops.multiply(crest.filter(ImageFilter.GaussianBlur((3 + 2 * i) * S)), poly(pts + [(W + 20 * S, H), (-20 * S, H)]))
+        img = Image.composite(solid(lerp(rgb(col), rgb("#f0d0a8"), 0.55)), img, crest)
+        if i == 1:
+            # The refinery on the mid ridge: blocks, stacks, plumes, gold lamps.
+            near = [y for x, y in pts if W * 0.22 < x < W * 0.42]
+            rx, ry = W * 0.3, max(near) + 6 * S
+            dd = ImageDraw.Draw(img)
+            dark = rgb("#5a4648")
+            for bx, bw, bh in [(-0.06, 0.05, 0.05), (-0.01, 0.07, 0.08), (0.06, 0.04, 0.045), (0.1, 0.06, 0.06)]:
+                dd.rectangle([rx + bx * W, ry - bh * H, rx + (bx + bw) * W, ry + 90 * S], fill=dark)
+                dd.rectangle([rx + bx * W, ry - bh * H, rx + (bx + bw * 0.3) * W, ry + 90 * S], fill=rgb("#8a6e68"))
+                dd.rectangle([rx + bx * W, ry - bh * H, rx + (bx + bw) * W, ry - bh * H + 4 * S], fill=rgb("#b8968a"))
+            plumes = Image.new("L", (W, H), 0)
+            pd = ImageDraw.Draw(plumes)
+            for kx, kh in [(0.0, 0.17), (0.025, 0.21), (0.085, 0.15)]:
+                x0 = rx + kx * W
+                top = ry - kh * H
+                dd.rectangle([x0, top, x0 + 14 * S, ry], fill=rgb("#4a3a3e"))
+                for j in range(22):
+                    f = j / 21
+                    px, py = x0 + 7 * S + (f ** 1.6) * W * 0.07 + rng.uniform(-12, 12) * S * (1 + 4 * f), top - f * H * 0.2
+                    pr = (12 + 75 * f) * S * rng.uniform(0.8, 1.2)
+                    pd.ellipse([px - pr, py - pr * 0.7, px + pr, py + pr * 0.7], fill=int(120 * (1 - f) + 30))
+            img = Image.composite(solid(rgb("#e8dcd0")), img, plumes.filter(ImageFilter.GaussianBlur(14 * S)).point(lambda v: int(v * 0.7)))
+            dd = ImageDraw.Draw(img)
+            for _ in range(26):
+                lx, ly = rx + rng.uniform(-0.06, 0.16) * W, ry - rng.uniform(0.0, 0.07) * H
+                dd.rectangle([lx, ly, lx + 4 * S, ly + 3 * S], fill=rgb("#ffcf5c"))
+        if i < len(layers) - 1:
+            haze = Image.linear_gradient("L").resize((W, H)).point(lambda v: int(70 * max(0.0, 1 - abs(v / 255 - base - 0.04) / 0.08)))
+            img = Image.composite(solid(rgb("#d8c4b8")), img, haze)
+    # Foreground boulders on the near slope, lit on top.
+    dd = ImageDraw.Draw(img)
+    for _ in range(9):
+        bx, by = rng.uniform(0, 1) * W, H * rng.uniform(0.93, 1.02)
+        br = rng.uniform(30, 90) * S
+        dd.ellipse([bx - br, by - br * 0.6, bx + br, by + br * 0.5], fill=rgb("#4a2e28"))
+        dd.ellipse([bx - br * 0.8, by - br * 0.6, bx + br * 0.4, by - br * 0.2], fill=rgb("#7a5248"))
+    vig = Image.new("L", (W, H), 255)
+    ImageDraw.Draw(vig).ellipse([-W * 0.12, -H * 0.2, W * 1.12, H * 1.15], fill=0)
+    img = Image.composite(solid((50, 32, 28)), img, vig.filter(ImageFilter.GaussianBlur(260 * S)).point(lambda v: int(v * 0.3)))
+    noise = Image.effect_noise((W, H), 40).convert("RGB")
+    Image.blend(img, ImageChops.overlay(img, noise), 3 / 30).save(OUT, quality=90)
+    print(OUT)
+
+
+if DAY:
+    day()
+    sys.exit(0)
+
 # ---- Ground: dark at the edges, a little lighter round the spiral.
 reach = math.hypot(W, H) * 0.6
 g = Image.radial_gradient("L").resize((int(reach * 2), int(reach * 2)))
