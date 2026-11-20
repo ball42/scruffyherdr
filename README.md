@@ -25,9 +25,21 @@
 <td><picture><source media="(prefers-color-scheme: light)" srcset="docs/shots/mustafar-day.jpg"><img src="docs/shots/mustafar-night.jpg" alt="Mustafar"></picture></td>
 <td><picture><source media="(prefers-color-scheme: light)" srcset="docs/shots/asteroid-belt-day.jpg"><img src="docs/shots/asteroid-belt-night.jpg" alt="Asteroid Belt"></picture></td>
 </tr>
+<tr>
+<td><picture><source media="(prefers-color-scheme: light)" srcset="docs/shots/lothal-day.jpg"><img src="docs/shots/lothal-night.jpg" alt="Lothal"></picture></td>
+<td><picture><source media="(prefers-color-scheme: light)" srcset="docs/shots/crait-day.jpg"><img src="docs/shots/crait-night.jpg" alt="Crait"></picture></td>
+</tr>
+<tr>
+<td><picture><source media="(prefers-color-scheme: light)" srcset="docs/shots/yavin-day.jpg"><img src="docs/shots/yavin-night.jpg" alt="Yavin 4"></picture></td>
+<td><picture><source media="(prefers-color-scheme: light)" srcset="docs/shots/hyperspace-day.jpg"><img src="docs/shots/hyperspace-night.jpg" alt="Hyperspace"></picture></td>
+</tr>
+<tr>
+<td><picture><source media="(prefers-color-scheme: light)" srcset="docs/shots/kessel-day.jpg"><img src="docs/shots/kessel-night.jpg" alt="Kessel"></picture></td>
+<td><picture><source media="(prefers-color-scheme: light)" srcset="docs/shots/utapau-day.jpg"><img src="docs/shots/utapau-night.jpg" alt="Utapau"></picture></td>
+</tr>
 </table>
 
-A layout for [Herdr](https://herdr.dev) that makes "this Claude needs you" hard to miss, dressed in twelve Star Wars scenes that follow your Mac from night to day.
+A layout for [Herdr](https://herdr.dev) that makes "this Claude needs you" hard to miss, dressed in eighteen Star Wars scenes that follow your Mac from night to day.
 
 Unofficial fan project, not affiliated with Lucasfilm or Disney. The pictures are original art.
 
@@ -36,13 +48,13 @@ Unofficial fan project, not affiliated with Lucasfilm or Disney. The pictures ar
 - **A strip** along the bottom: how many Claudes need you, how many are done, and buttons for focus mode, the scene picker and the grid.
 - **An urgency rail** on the right: every Claude by name, grouped by space, in Herdr's own order so cards stay put; the one you're in is marked with a bar. A card shows the question or permission prompt a blocked Claude is asking, how long it has waited, and how much context it has left. Click a card to answer from the rail.
 - **A grid view** (`cmd-shift-g`): the current space's Claudes tiled, with a spotlight for one at a time.
-- **Twelve scenes**: Tatooine, Endor, Hoth, Dagobah, Coruscant, Bespin, Naboo, Scarif, Kamino, Mustafar, the Asteroid Belt and Small Moon. Each has a night and a day picture, a theme pair, glass panels, and its own needs-you colour and glyph. The scene follows macOS light and dark. Pick one with `cmd-shift-s`.
+- **Eighteen scenes**: Tatooine, Endor, Hoth, Dagobah, Coruscant, Bespin, Naboo, Scarif, Kamino, Mustafar, the Asteroid Belt, Small Moon, Lothal, Crait, Yavin 4, Hyperspace, Kessel and Utapau. Each has a night and a day picture, a theme pair, glass panels, and its own needs-you colour and glyph. The scene follows macOS light and dark. Pick one with `cmd-shift-s`.
 - **Colour-blind safe**: needs-you is orange (or the scene's own warm hue), done is blue, never red against green, and every state also carries a glyph or a word.
 
 <table>
 <tr>
 <td><img src="docs/shots/grid.jpg" alt="The grid view: two Claudes tiled, the one waiting on a permission prompt outlined in the scene's needs-you colour"></td>
-<td><img src="docs/shots/picker.jpg" alt="The scene picker: twelve scenes, each with its picture and glyph"></td>
+<td><img src="docs/shots/picker.jpg" alt="The scene picker: eighteen scenes, each with its picture and glyph"></td>
 </tr>
 <tr><td>The grid (<code>cmd-shift-g</code>)</td><td>The scene picker (<code>cmd-shift-s</code>)</td></tr>
 </table>

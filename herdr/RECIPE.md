@@ -23,7 +23,7 @@ Herdr's own window, dressed as a scene and focused on your Claudes. One picture 
 - Red is never set against green, and every state also carries a glyph or a word.
 - **Keys:** `cmd-shift-g` switches focus and grid. In the grid, `cmd-alt-]` and `cmd-alt-[` spotlight the next or previous Claude, and `cmd-shift-a` shows every space's Claudes. `cmd-shift-s` opens the scene picker, or switches to this layout from another one. `cmd-shift-u` goes to the most urgent Claude, and `cmd-shift-f` toggles focus mode.
 - **Clicks:** a rail card focuses its Claude, and in the grid spotlights it. The strip's buttons do what their keys do.
-- **Scene picker:** twelve thumbnails in three rows of four. Arrows move, enter picks, esc closes, and night or day can be pinned.
+- **Scene picker:** eighteen thumbnails in three rows of six. Arrows move, enter picks, esc closes, and night or day can be pinned.
 
 **Built from:**
 
