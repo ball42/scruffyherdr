@@ -66,6 +66,15 @@ if grep -q keep-me "$CFG"; then pass "keeps existing config"; else fail "keeps e
 # --check passes on a clean install
 if "$REPO/install.sh" --check --verbose >/dev/null 2>&1; then pass "check clean"; else fail "check clean"; fi
 
+# --check warns, without drift, about an alert colour that fails the deuteranopia checks
+cp "$CFG" "$CFG.keep"
+echo '{"alert_colors":{"needs":"#58a6ff","scenes":{"hoth":{"needs":"#ffe5de"}}}}' > "$CFG"
+OUT="$("$REPO/install.sh" --check 2>&1)"; RC=$?
+if [ $RC -eq 0 ] && echo "$OUT" | grep -q "warn  alert_colors: tatooine night needs-you #58a6ff is within" \
+  && ! echo "$OUT" | grep -q "alert_colors: hoth night"; then pass "check warns on an unsafe alert colour"; else fail "check warns on an unsafe alert colour"; echo "$OUT" | tail -5; fi
+mv "$CFG.keep" "$CFG"
+if ! "$REPO/install.sh" --check 2>&1 | grep -q "alert_colors"; then pass "check is quiet with no alert colours"; else fail "check is quiet with no alert colours"; fi
+
 # the gallery's files (herdr/keys.json, RECIPE.md, preview.png, layouts/scruffy.json) are never linked
 if [ ! -L "$HERDR_APP_HOME/keys.json" ] && [ ! -e "$HERDR_APP_HOME/RECIPE.md" ] && [ ! -e "$HERDR_APP_HOME/preview.png" ] \
   && [ ! -L "$HERDR_APP_HOME/layouts/scruffy.json" ] && ! "$REPO/install.sh" --check --verbose 2>&1 | grep -qE "RECIPE|preview.png"; then

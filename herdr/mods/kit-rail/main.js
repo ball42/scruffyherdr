@@ -359,7 +359,7 @@ export default class Rail extends View {
     // "waiting 4m" and "done 12m ago" are relative to now and the model doesn't change as time passes: redraw every 30 s.
     if (!this.clock) this.clock = cx.timer.every(30_000, (acx) => acx.notify());
     const t = theme();
-    useTheme(t, shared("kit.scene"));
+    useTheme(t, shared("kit.scene"), shared("kit.tones"));
     const model = shared("herdr-kit");
     const agents = model?.agents ?? [];
     runTick(this, agents.some((a) => (a.runs ?? []).some((r) => r.state?.state === "running")), cx);

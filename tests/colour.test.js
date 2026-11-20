@@ -90,3 +90,10 @@ test("hereTones: the mode comes from the shown theme's background, not the OS", 
   const darkTheme = { foreground: "#e6edf3", background: "#0d1117", accent };
   assert.equal(hereTones(darkTheme, needs).here, accent);
 });
+
+test("hereTones: a done override is what the accent is measured against", () => {
+  const c = { foreground: "#e6edf3", background: "#0d1117", accent: "#5fd4d0" };
+  const needs = { dark: "#ffd84d", light: "#8a6a00" };
+  assert.equal(hereTones(c, needs).here, "#5fd4d0");
+  assert.equal(hereTones(c, needs, { dark: "#5fd4d0", light: "#0969da" }).here, c.foreground);
+});

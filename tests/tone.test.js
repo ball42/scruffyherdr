@@ -11,32 +11,32 @@ test("useTheme picks the light tone on a light background, dark otherwise", () =
   assert.equal(look.ORANGE, "#b35900");
   assert.equal(look.BLUE, "#0969da");
   assert.equal(look.INK, "#ffffff");
-  assert.equal(bgOf(look.asksBadge(["? which box?"])), "#fff1e5");
+  assert.equal(bgOf(look.asksBadge(["? which box?"])), "#fbf8f7");
 
   look.useTheme({ background: "#0d1117" });
-  assert.equal(look.ORANGE, "#ec8e2c");
+  assert.equal(look.ORANGE, "#fd9f01");
   assert.equal(look.BLUE, "#58a6ff");
   assert.equal(look.INK, "#0d1117");
-  assert.equal(bgOf(look.asksBadge(["? which box?"])), "#3a2a14");
+  assert.equal(bgOf(look.asksBadge(["? which box?"])), "#5a3815");
 });
 
 test("useTheme falls back to dark without a background", () => {
   look.useTheme({ background: "#ffffff" });
   look.useTheme(undefined);
-  assert.equal(look.ORANGE, "#ec8e2c");
+  assert.equal(look.ORANGE, "#fd9f01");
 });
 
-test("useTheme in the Endor scene swaps orange for firefly gold, keeps blue", () => {
+test("useTheme in the Endor scene swaps orange for moss lemon, keeps blue", () => {
   look.useTheme({ background: "#0c1a18" }, "endor");
-  assert.equal(look.ORANGE, "#f2c14e");
+  assert.equal(look.ORANGE, "#c9c510");
   assert.equal(look.BLUE, "#58a6ff");
   look.useTheme({ background: "#f4f8f4" }, "endor");
-  assert.equal(look.ORANGE, "#8a6400");
+  assert.equal(look.ORANGE, "#8b8810");
   assert.equal(look.BLUE, "#0969da");
   look.useTheme({ background: "#0c1a18" }, "main");
-  assert.equal(look.ORANGE, "#ec8e2c", "an unknown scene key gets Tatooine's");
+  assert.equal(look.ORANGE, "#fd9f01", "an unknown scene key gets Tatooine's");
   look.useTheme({ background: "#0c1a18" }, null);
-  assert.equal(look.ORANGE, "#ec8e2c", "no scene gets Tatooine's");
+  assert.equal(look.ORANGE, "#fd9f01", "no scene gets Tatooine's");
 });
 
 test("the needs-you glyph is twin suns on Tatooine, a fir with fireflies on Endor", () => {
@@ -49,84 +49,84 @@ test("the needs-you glyph is twin suns on Tatooine, a fir with fireflies on Endo
   const flies = kids.slice(1);
   assert.equal(flies.length, 3);
   assert.ok(flies.every((f) => f.calls.some((c) => c[0] === "loop")), "the fireflies breathe while unseen");
-  assert.equal(bgOf(flies[0]), "#f2c14e");
+  assert.equal(bgOf(flies[0]), "#c9c510");
   const still = look.mark("blocked", false).calls.filter((c) => c[0] === "child").slice(1);
   assert.ok(still.every(([, f]) => !f.calls.some((c) => c[0] === "loop")));
 });
 
-test("Hoth: signal coral and a snowflake whose beacon pulses while unseen", () => {
+test("Hoth: tauntaun salmon and a snowflake whose beacon pulses while unseen", () => {
   look.useTheme({ background: "#0f1726" }, "hoth");
-  assert.equal(look.ORANGE, "#ff9e7a");
+  assert.equal(look.ORANGE, "#ffe5de");
   assert.equal(look.BLUE, "#58a6ff");
   const kids = look.mark("blocked", true).calls.filter((c) => c[0] === "child").map((c) => c[1]);
   assert.equal(kids[0].calls[0][1], look.FLAKE_SVG);
   assert.ok(kids[2].calls.some((c) => c[0] === "loop"), "the beacon pulses");
   look.useTheme({ background: "#f6f9fc" }, "hoth");
-  assert.equal(look.ORANGE, "#b4542f");
+  assert.equal(look.ORANGE, "#d76549");
 });
 
-test("Dagobah: a lifted rock in lantern amber over a cairn, rising while unseen", () => {
+test("Dagobah: a lifted rock in swamp chartreuse over a cairn, rising while unseen", () => {
   look.useTheme({ background: "#0d1512" }, "dagobah");
-  assert.equal(look.ORANGE, "#f0b45a");
+  assert.equal(look.ORANGE, "#b4cc1d");
   const kids = look.mark("blocked", true).calls.filter((c) => c[0] === "child").map((c) => c[1]);
   assert.equal(kids[0].calls[0][1], look.CAIRN_SVG);
   assert.equal(kids[1].calls[0][1], look.ROCK_SVG);
-  assert.ok(kids[1].calls.some((c) => c[0] === "text_color" && c[1] === "#f0b45a"), "the lifted rock is the needs-you colour");
+  assert.ok(kids[1].calls.some((c) => c[0] === "text_color" && c[1] === "#b4cc1d"), "the lifted rock is the needs-you colour");
   assert.ok(kids[1].calls.some((c) => c[0] === "loop"), "the rock rises while unseen");
   const still = look.mark("blocked", false).calls.filter((c) => c[0] === "child").map((c) => c[1]);
   assert.ok(!still[1].calls.some((c) => c[0] === "loop"), "seen: the rock holds still");
   look.useTheme({ background: "#f3f4ec" }, "dagobah");
-  assert.equal(look.ORANGE, "#9a5a00");
+  assert.equal(look.ORANGE, "#63710b");
 });
 
-test("Coruscant: sodium amber and a skyline whose warning light blinks and speeder crosses while unseen", () => {
+test("Coruscant: holo pink and a skyline whose warning light blinks and speeder crosses while unseen", () => {
   look.useTheme({ background: "#120f22" }, "coruscant");
-  assert.equal(look.ORANGE, "#ffb347");
+  assert.equal(look.ORANGE, "#f775ad");
   const kids = look.mark("blocked", true).calls.filter((c) => c[0] === "child").map((c) => c[1]);
   assert.equal(kids[0].calls[0][1], look.TOWERS_SVG);
   assert.ok(kids.slice(1).every((k) => k.calls.some((c) => c[0] === "loop")));
   look.useTheme({ background: "#f8f6fb" }, "coruscant");
-  assert.equal(look.ORANGE, "#a85a00");
+  assert.equal(look.ORANGE, "#c64882");
 });
 
-test("Bespin: landing-light gold and the floating city, its light pulsing and a cloud drifting while unseen", () => {
+test("Bespin: sunset rose and the floating city, its light pulsing and a cloud drifting while unseen", () => {
   look.useTheme({ background: "#161226" }, "bespin");
-  assert.equal(look.ORANGE, "#ffcf5c");
+  assert.equal(look.ORANGE, "#fd8a8f");
   const kids = look.mark("blocked", true).calls.filter((c) => c[0] === "child").map((c) => c[1]);
   assert.equal(kids[0].calls[0][1], look.CLOUD_CITY_SVG);
   assert.ok(kids.slice(1).every((k) => k.calls.some((c) => c[0] === "loop")));
   look.useTheme({ background: "#fbf6f6" }, "bespin");
-  assert.equal(look.ORANGE, "#946200");
+  assert.equal(look.ORANGE, "#aa4049");
 });
 
-test("Naboo: palace bronze and the domed palace, its window glowing and water falling while unseen", () => {
+test("Naboo: palace honey and the domed palace, its window glowing and water falling while unseen", () => {
   look.useTheme({ background: "#0e1628" }, "naboo");
-  assert.equal(look.ORANGE, "#ffab66");
+  assert.equal(look.ORANGE, "#cc930d");
   const kids = look.mark("blocked", true).calls.filter((c) => c[0] === "child").map((c) => c[1]);
   assert.equal(kids[0].calls[0][1], look.PALACE_SVG);
   assert.ok(kids.slice(2).every((k) => k.calls.some((c) => c[0] === "loop")));
   look.useTheme({ background: "#f5f8f4" }, "naboo");
-  assert.equal(look.ORANGE, "#a3520c");
+  assert.equal(look.ORANGE, "#ae7c04");
 });
 
-test("Scarif: beacon orange and a palm by the citadel tower, its beacon pulsing and surf rolling in while unseen", () => {
+test("Scarif: lagoon lemon and a palm by the citadel tower, its beacon pulsing and surf rolling in while unseen", () => {
   look.useTheme({ background: "#0a1626" }, "scarif");
-  assert.equal(look.ORANGE, "#ff9a3c");
+  assert.equal(look.ORANGE, "#aba700");
   const kids = look.mark("blocked", true).calls.filter((c) => c[0] === "child").map((c) => c[1]);
   assert.equal(kids[0].calls[0][1], look.PALM_SVG);
   assert.ok(kids.slice(2).every((k) => k.calls.some((c) => c[0] === "loop")));
   look.useTheme({ background: "#f3f9f8" }, "scarif");
-  assert.equal(look.ORANGE, "#a14a00");
+  assert.equal(look.ORANGE, "#8b8810");
 });
 
-test("Kamino: storm amber and a pod on its piers, its windows glowing and rain falling while unseen", () => {
+test("Kamino: storm-lamp cream and a pod on its piers, its windows glowing and rain falling while unseen", () => {
   look.useTheme({ background: "#0b141c" }, "kamino");
-  assert.equal(look.ORANGE, "#ffb84a");
+  assert.equal(look.ORANGE, "#d1bc8a");
   const kids = look.mark("blocked", true).calls.filter((c) => c[0] === "child").map((c) => c[1]);
   assert.equal(kids[0].calls[0][1], look.POD_SVG);
   assert.ok(kids.slice(1).every((k) => k.calls.some((c) => c[0] === "loop")));
   look.useTheme({ background: "#f2f5f7" }, "kamino");
-  assert.equal(look.ORANGE, "#9a5800");
+  assert.equal(look.ORANGE, "#958151");
 });
 
 test("Mustafar: white-hot yellow and a cone, its crater glowing and an ember rising while unseen", () => {
@@ -143,16 +143,16 @@ test("Mustafar: white-hot yellow and a cone, its crater glowing and an ember ris
   assert.equal(look.ORANGE, "#8a6a00");
 });
 
-test("Asteroid Belt: comet orange and a cratered rock, the comet pulsing and a pebble drifting while unseen", () => {
+test("Asteroid Belt: thruster amber and a cratered rock, the comet pulsing and a pebble drifting while unseen", () => {
   look.useTheme({ background: "#0f1318" }, "asteroid-belt");
-  assert.equal(look.ORANGE, "#ff9a3c");
+  assert.equal(look.ORANGE, "#fd9f01");
   let kids = look.mark("blocked", true).calls.filter((c) => c[0] === "child").map((c) => c[1]);
   assert.equal(kids[0].calls[0][1], look.ASTEROID_SVG);
   assert.ok(kids.slice(1).every((k) => k.calls.some((c) => c[0] === "loop")));
   kids = look.mark("blocked", false).calls.filter((c) => c[0] === "child").map((c) => c[1]);
   assert.ok(kids[2].calls.some((c) => c[0] === "opacity" && c[1] === 0), "the pebble hides once seen");
   look.useTheme({ background: "#f6f5f2" }, "asteroid-belt");
-  assert.equal(look.ORANGE, "#a14a00");
+  assert.equal(look.ORANGE, "#a76700");
 });
 
 test("each glyph SVG look.js names exists, with a frame and no colour of its own", () => {
@@ -176,9 +176,9 @@ test("glyphLayers names a scene's layer files under Herdr's glyphs/, and nothing
   });
 });
 
-test("Small moon: reactor orange, drawn from its layer files: the light pulses and the mover crosses, only while unseen", () => {
+test("Small moon: console white, drawn from its layer files: the light pulses and the mover crosses, only while unseen", () => {
   look.useTheme({ background: "#0a0c14" }, "small-moon");
-  assert.equal(look.ORANGE, "#ff8a3d");
+  assert.equal(look.ORANGE, "#c8be9a");
   const files = look.glyphLayers("small-moon");
   const childrenOf = (el) => el.calls.filter((c) => c[0] === "child").map((c) => c[1]);
   let kids = childrenOf(look.mark("blocked", true));
@@ -196,10 +196,10 @@ test("Small moon: reactor orange, drawn from its layer files: the light pulses a
   assert.ok(kids.every((k) => loopsOn(k).length === 0), "nothing moves once seen");
   assert.ok(kids[2].calls.some((c) => c[0] === "opacity" && c[1] === 0), "the mover hides once seen");
   look.useTheme({ background: "#f4f5f7" }, "small-moon");
-  assert.equal(look.ORANGE, "#a24800");
+  assert.equal(look.ORANGE, "#89805e");
   kids = childrenOf(look.mark("blocked", true));
   assert.equal(colorOf(kids[0]), "#5a6474");
-  assert.equal(colorOf(childrenOf(kids[1])[1]), "#a24800");
+  assert.equal(colorOf(childrenOf(kids[1])[1]), "#89805e");
 });
 
 test("each layer file look.js names is in herdr/glyphs/, a one-colour SVG Herdr can tint", () => {
@@ -238,4 +238,21 @@ test("the kit's Small Moon glyph is its own art: no layer copies the overlay's",
     const kit = readFileSync(new URL(`../herdr/glyphs/${name}`, import.meta.url), "utf8");
     assert.notEqual(kit, readFileSync(new URL(name, priv), "utf8"), `herdr/glyphs/${name} is the overlay's art`);
   }
+});
+
+test("useTheme without kit.tones falls back to TONES", () => {
+  look.useTheme({ background: "#0f1726" }, "hoth", null);
+  assert.equal(look.ORANGE, look.TONES.hoth.dark.orange);
+  assert.equal(look.BLUE, look.TONES.hoth.dark.blue);
+});
+
+test("useTheme lays kit.tones over the scene's TONES, keeping the scene's own tones", () => {
+  look.useTheme({ background: "#0f1726" }, "hoth", { dark: { orange: "#123456", blue: "#00aaff", ink: "#ffffff" }, light: { orange: "#654321" } });
+  assert.equal(look.ORANGE, "#123456");
+  assert.equal(look.BLUE, "#00aaff");
+  assert.equal(look.INK, "#ffffff");
+  look.useTheme({ background: "#f6f9fc" }, "hoth", { dark: { orange: "#123456" }, light: { orange: "#654321" } });
+  assert.equal(look.ORANGE, "#654321");
+  assert.equal(look.BLUE, look.TONES.hoth.light.blue);
+  look.useTheme({ background: "#0f1726" }, "hoth", null);
 });

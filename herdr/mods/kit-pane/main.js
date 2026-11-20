@@ -54,7 +54,7 @@ export default class KitPane extends View {
     // "waiting 4m" is relative to now and the model doesn't change as time passes: redraw every 30 s.
     if (!this.clock) this.clock = cx.timer.every(30_000, (acx) => acx.notify());
     const t = theme();
-    useTheme(t, shared("kit.scene"));
+    useTheme(t, shared("kit.scene"), shared("kit.tones"));
     const p = this.me();
     if (!p) return div();
     const tile = Boolean(tileTerminal(props())) && shared("kit.view") === "grid";

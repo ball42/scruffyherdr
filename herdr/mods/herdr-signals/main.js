@@ -28,7 +28,8 @@ import { LAYOUT_NOTE, layoutChanged } from "./layout.js";
 import { APPLY_PROBLEM, applyOutcome, validLook } from "./dress.js";
 import { readClicks } from "./clicks.js";
 import { readSizes, replaySizes, seedAside, sizesRecord, sizesText } from "./sizes.js";
-import { readConfig } from "./config.js";
+import { configChanged, reloadConfig } from "./config.js";
+import { alertProblems, alertTheme, resolveAlerts } from "./alerts.js";
 import { hereTones } from "./colour.js";
 import { KIT_LAYOUT, SCENES, isGridTree, sceneList, sceneOfTree } from "./scenes.js";
 import { SCENES_DIALOG, buttonTexts, leftPx, leftTexts, signalsWidth, stripFit, usagePx } from "./strip-fit.js";
@@ -40,6 +41,7 @@ import { ADDON_KEYS, cardName, deckBadge, pressCommand, readAddon, withBadges } 
 
 const DEFAULTS = {
   discord_webhook: "",
+  alert_colors: {},
   done_min_seconds: 180,
   away_seconds: 120,
   grace_seconds: 60,
@@ -97,6 +99,7 @@ function rawAgents() {
 }
 
 const RUNSTATE_PRUNE_MS = 3_600_000;
+const CONFIG_RELOAD_MS = 10_000;
 const LAYOUT_CHECK_MS = 3_600_000; // Herdr updates are rare; an hour late is fine
 const RUNSTATE_KEEP_MIN = 7 * 24 * 60;
 
@@ -104,7 +107,7 @@ export default class Signals extends View {
   init(_props, cx) {
     // Add-on data published before this start is a past session's (addons.js readAddon).
     this.started = Date.now();
-    // The scene picker (kit-scenes) can't import SCENES, so it reads them from here, once.
+    // The scene picker (kit-scenes) can't import SCENES, so it reads them from here (again on each config change).
     setShared("kit.scenes", sceneList(SCENES));
     this.cfg = null;
     this.problem = null;
@@ -170,6 +173,8 @@ export default class Signals extends View {
         await this.pruneRunState();
         await this.pruneCtx();
       }));
+      // Config edits (alert_colors among them) apply without a restart.
+      cx.timer.every(CONFIG_RELOAD_MS, (cx) => cx.spawn(async (cx) => { if (await this.loadConfig()) { this.kick(); cx.notify(); } }));
       cx.timer.every(LAYOUT_CHECK_MS, (cx) => cx.spawn(async (cx) => { await this.checkLayout(); cx.notify(); }));
       if (this.cfg.run_cards) {
         cx.spawn(async (cx) => {
@@ -456,18 +461,26 @@ export default class Signals extends View {
     this.usage = usageView(limits, this.pace, now);
   }
 
+  /** Reads config.json and applies it when its text changed; true when it did. */
   async loadConfig() {
     const path = `${home()}/.config/herdr-kit/config.json`;
     const text = await readTextFile(path).catch(() => null);
-    const { cfg, problem } = readConfig(text, DEFAULTS);
+    if (!configChanged(this.configText, text)) return false;
+    this.configText = text;
+    // A reread that can't parse keeps the last good config; a later good read clears its problem.
+    const { cfg, problem } = reloadConfig(this.cfg, text, DEFAULTS);
     this.cfg = cfg;
-    if (problem) this.problem = problem;
+    this.configProblem = problem;
     // One check of config `look`: a bad value falls back to its default and says so on the strip.
     const v = validLook(this.cfg.look);
     this.look = v.look;
     this.lookProblem = v.problems[0] ?? null;
     const pipe = typeof this.cfg.run_log_pipe === "string" ? this.cfg.run_log_pipe.trim() : "";
     if ((shared("kit.runLogPipe") ?? "") !== pipe) setShared("kit.runLogPipe", pipe);
+    // alert_colors: a bad value is skipped and named on the strip; the picker previews the resolved colours.
+    this.alertProblem = alertProblems(this.cfg.alert_colors)[0] ?? null;
+    setShared("kit.scenes", sceneList(SCENES, this.cfg.alert_colors));
+    return true;
   }
 
   // An apply pass soon, from a handler or a render: the request shouldn't wait for the poll.
@@ -615,8 +628,17 @@ export default class Signals extends View {
     if ((shared("kit.view") ?? null) !== view) setShared("kit.view", view);
     // The active card's bar and fill, for this theme; checked on every apply,
     // since a light/dark switch changes the theme without changing the scene.
-    const here = hereTones(theme(), (SCENES[scene] ?? SCENES.tatooine).needs);
+    const { tones } = this.alerts(scene);
+    if (JSON.stringify(shared("kit.tones") ?? null) !== JSON.stringify(tones)) setShared("kit.tones", tones);
+    const pair = (k) => ({ dark: tones.dark[k], light: tones.light[k] });
+    const here = hereTones(theme(), pair("orange"), pair("blue"));
     if (JSON.stringify(shared("kit.here") ?? null) !== JSON.stringify(here)) setShared("kit.here", here);
+  }
+
+  /** The shown scene's alert colours: config alert_colors over the scene defaults (alerts.js). */
+  alerts(scene) {
+    const key = Object.hasOwn(SCENES, scene) ? scene : "tatooine";
+    return resolveAlerts(this.cfg?.alert_colors, key, SCENES[key]);
   }
 
   /** kit.afterView ({view, address, argv?}): once `view` is shown, focus that Claude and maybe split under it. */
@@ -689,6 +711,9 @@ export default class Signals extends View {
     // Tile borders take the scene's light or dark tone; a theme or scene switch re-lays the grid.
     spec.light = light;
     spec.scene = scene;
+    const { tones } = this.alerts(scene);
+    spec.needs = tones[light ? "light" : "dark"].orange;
+    spec.done = tones[light ? "light" : "dark"].blue;
     return { spec, sig: gridSignature(spec), land, req };
   }
 
@@ -991,12 +1016,13 @@ export default class Signals extends View {
         cx.timer.after(0, (cx) => { this.applyQueued = false; this.kick(cx); });
       }
     }
-    const t = theme();
+    // The strip's needs-you and done follow the scene and config alert_colors, not the theme file.
+    const t = alertTheme(theme(), shared("kit.tones"));
     // The model's rows carry snooze and wait times; raw agents() only until the first poll.
     const s = summary(this.model?.agents ?? agents());
     const parts = [];
     // A layout or scene-picker problem first; a bad config `look` stays until the config is fixed.
-    const problem = this.problem ?? this.lookProblem;
+    const problem = this.problem ?? this.configProblem ?? this.lookProblem ?? this.alertProblem;
     if (problem) parts.push(div().text_color(t.muted).child(problem));
     // Clicking a count does what cmd-shift-u does.
     const focus = shared("kit.focus");

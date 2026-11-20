@@ -10,9 +10,9 @@
     "#79c0ff", "#d8c8f0", "#bcc6d4", "#f2f4f8"
   ],
   "colors": {
-    "blocked": "#ff8a3d",
+    "blocked": "#c8be9a",
     "done": "#58a6ff",
-    "working": "#d8cc96",
+    "working": "#8b8a85",
     "idle": "#6c7280",
     "accent": "#9aa8bc"
   }
