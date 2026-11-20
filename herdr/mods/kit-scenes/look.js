@@ -554,6 +554,23 @@ export function isQuietCommand(command) {
   return parts.length > 0 && parts.every((p) => QUIET.some((re) => re.test(`${p} `)) && !/[|>]/.test(p));
 }
 
+/**
+ * A Run card's one-line preview: the block's first line that does something,
+ * past blank lines, `#` comments and bare `cd` lines (cards keep lines to 60
+ * characters, so `cd` often comes first on its own line), with " …" when the
+ * block has more. A block of only `cd` and comments shows its first line.
+ */
+export function commandPreview(command) {
+  const lines = String(command ?? "").split("\n");
+  const work = lines.find((l) => {
+    const s = l.trim();
+    return s && !s.startsWith("#") && !/^cd(\s+[^;&|]*)?$/.test(s);
+  });
+  const shown = work ?? lines.find((l) => l.trim()) ?? "";
+  const more = lines.filter((l) => l.trim()).length > 1;
+  return shown.trim() + (more ? " …" : "");
+}
+
 /** What the Run terminal types into its Claude when it ends. */
 export const RUN_NOTE = "[herdr-kit] ▶ Run";
 
