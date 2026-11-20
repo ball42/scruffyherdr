@@ -13,7 +13,7 @@ import {
   agents, appHome, exec, focused, home, layout, layouts, nextCommand, closeOverlay, notify, openOverlay, panes, readTextFile, run, setAgentOrder, settings, setShared, shared, spaces, theme, watchFolder, writeTextFile,
 } from "herdr";
 import { deckApprove } from "./approve.js";
-import { deckAsks, deckUsage, summary } from "./policy.js";
+import { deckAsks, deckUsage, fitDeck, summary } from "./policy.js";
 import { paceAdd, parseLimits, usageView } from "./usage.js";
 import { initialCardState, cardStep, buildCard } from "./card.js";
 import { parseHidIdleSeconds } from "./idle.js";
@@ -979,7 +979,9 @@ export default class Signals extends View {
     }
   }
 
-  async sendDeck(s) {
+  async sendDeck(report) {
+    // Fit the whole report under the deck's 4096-byte limit: one long field must not freeze every key.
+    const s = fitDeck(report);
     const body = JSON.stringify(s);
     const now = Date.now();
     if (body === this.lastDeck.body && now - this.lastDeck.at < DECK_HEARTBEAT_MS) return;
