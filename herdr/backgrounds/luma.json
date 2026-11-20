@@ -1,38 +1,146 @@
 {
-  "asteroid-belt-day.jpg": 152.8,
-  "asteroid-belt.jpg": 41.3,
-  "bespin-day.jpg": 166.2,
-  "bespin.jpg": 55.9,
-  "coruscant-day.jpg": 168.5,
-  "coruscant.jpg": 37.7,
-  "crait-day.jpg": 164.8,
-  "crait.jpg": 85.8,
-  "dagobah-day.jpg": 152.7,
-  "dagobah.jpg": 41.9,
-  "forest-moon-day.jpg": 169.2,
-  "forest-moon.jpg": 64.6,
-  "hoth-day.jpg": 162.2,
-  "hoth.jpg": 47.2,
-  "hyperspace-day.jpg": 140.6,
-  "hyperspace.jpg": 48.9,
-  "kamino-day.jpg": 150.5,
-  "kamino.jpg": 44.2,
-  "kessel-day.jpg": 148.2,
-  "kessel.jpg": 52.7,
-  "lothal-day.jpg": 165.1,
-  "lothal.jpg": 47.1,
-  "mustafar-day.jpg": 130.1,
-  "mustafar.jpg": 28.1,
-  "naboo-day.jpg": 165.7,
-  "naboo.jpg": 55.2,
-  "scarif-day.jpg": 140.6,
-  "scarif.jpg": 48.9,
-  "small-moon-day.jpg": 170.4,
-  "small-moon.jpg": 19.4,
-  "twin-suns-day.jpg": 148.1,
-  "twin-suns.jpg": 46.2,
-  "utapau-day.jpg": 168.2,
-  "utapau.jpg": 40.3,
-  "yavin-day.jpg": 156.8,
-  "yavin.jpg": 50.3
+  "asteroid-belt-day.jpg": {
+    "luma": 152.8,
+    "sha256": "893c5d439fe320f68b9d678ebf321aa18e435a1fb90e70b2c410b9224480ecc9"
+  },
+  "asteroid-belt.jpg": {
+    "luma": 41.3,
+    "sha256": "41379c2158311712ad640dca23d6e0371096747fb19d16ce6b3db4e2a659dc77"
+  },
+  "bespin-day.jpg": {
+    "luma": 166.2,
+    "sha256": "dcc82ebe79e1d42745775afe9e38860c049f38ce72cc0e5ecf7c5ad0c388aead"
+  },
+  "bespin.jpg": {
+    "luma": 55.9,
+    "sha256": "5b8f9d6fc9274923b6fe9b72acaa6ac6dfdabbef2fe8bc9b200fd9f7535dd3c8"
+  },
+  "coruscant-day.jpg": {
+    "luma": 168.5,
+    "sha256": "a4bea819f93bfccc255d44be6ad3a05a124500f74b51ad27d8009ac384f9b588"
+  },
+  "coruscant.jpg": {
+    "luma": 37.7,
+    "sha256": "9b39f9474d806fd86133307bb1681f85a0cb990d358a8287be5e283e1efe12ba"
+  },
+  "crait-day.jpg": {
+    "luma": 167.8,
+    "sha256": "87fb603192896d3b518db76bfd58648104c11220b143b21e11bcfeee7a0fb614"
+  },
+  "crait.jpg": {
+    "luma": 85.8,
+    "sha256": "f59a80095f1fe447896224754f58415014f5a5e5c04acf2ccd6e8162d2b5739e"
+  },
+  "dagobah-day.jpg": {
+    "luma": 152.7,
+    "sha256": "0b9b3546389f99f6bf6b91d9dae7bf6dd5e718f5003d7f51ff49591cb6b89682"
+  },
+  "dagobah.jpg": {
+    "luma": 41.9,
+    "sha256": "f49d4d5009ba452e6b1104826022d9fd50dc72e6bea4247c1516ed9cef672f9e"
+  },
+  "forest-moon-day.jpg": {
+    "luma": 169.2,
+    "sha256": "6a57999dc4ae411497b7109655a3d6364b3599ad1fd3be9f59b10212badfdb5c"
+  },
+  "forest-moon.jpg": {
+    "luma": 64.6,
+    "sha256": "b5638044c33655c5fe908b525c3be01b1ddc4287264cfdbfae837c2a2e88f501"
+  },
+  "hoth-day.jpg": {
+    "luma": 162.2,
+    "sha256": "3a17bfa459fd5fe2a9f2ced89d3fe76c97c6710a008686a0a736d8cd9b99464a"
+  },
+  "hoth.jpg": {
+    "luma": 47.2,
+    "sha256": "81b782c07f8f61fc5e3efb906d7af7029241a220755364dc70464be92c22b352"
+  },
+  "hyperspace-day.jpg": {
+    "luma": 140.6,
+    "sha256": "561920bd437934e00d44a03f92cf471056a46189f6fd21f2301c02c551242f67"
+  },
+  "hyperspace.jpg": {
+    "luma": 48.9,
+    "sha256": "487791e1cd190f4d45e2938c68ae994d47dad296964261112683f6bf5654d4c2"
+  },
+  "kamino-day.jpg": {
+    "luma": 150.5,
+    "sha256": "d73637895cfeb0c1a07529fd6c6482f5a7882dd3641584f48ac0e19a414c2683"
+  },
+  "kamino.jpg": {
+    "luma": 44.2,
+    "sha256": "4903132162017d19704e2b37ab56d813aa58dc7fc79336fb54ff731d7ca8efe2"
+  },
+  "kessel-day.jpg": {
+    "luma": 148.2,
+    "sha256": "0795eb93b3da0022e37405ddb4275510647bb3c86f1196286dc584823cb5dd6d"
+  },
+  "kessel.jpg": {
+    "luma": 52.7,
+    "sha256": "fb21593e322ed76bf44cb0fee4d3cb816adae016745ca7e2577ef6dc60e6526c"
+  },
+  "lothal-day.jpg": {
+    "luma": 165.1,
+    "sha256": "8cd77a96feabf0017785b326c8e342eef2e9185489e84ab68fc315d9135371f9"
+  },
+  "lothal.jpg": {
+    "luma": 47.1,
+    "sha256": "f091bb4bc5470ba3058b047fb4e1a228dddd7a589de74f837d07ca74a47640d9"
+  },
+  "mustafar-day.jpg": {
+    "luma": 130.1,
+    "sha256": "ab1c2721630a588716a82c80136bd191a5a464cd9265c98cd37e846b00c79f81"
+  },
+  "mustafar.jpg": {
+    "luma": 28.1,
+    "sha256": "eab26c2dad3c86030e48e46e05c7df85140a36cbf4f1b24d5bfa4c831df0608f"
+  },
+  "naboo-day.jpg": {
+    "luma": 165.7,
+    "sha256": "fefdd31ab4cdb806ae20e34ea7f85406a0e798bff8751bc1b0bf6103319ff2de"
+  },
+  "naboo.jpg": {
+    "luma": 55.2,
+    "sha256": "d18721e4490bbae2804ca205501fe9f865acfa85e6f257fe2b65c0da18cb9fcb"
+  },
+  "scarif-day.jpg": {
+    "luma": 140.6,
+    "sha256": "6dbd4bd7613c0bbaca9cc0ca88238b78511abea0066610712d08da8b111e588d"
+  },
+  "scarif.jpg": {
+    "luma": 48.9,
+    "sha256": "ba992f394e560059ef47bc233284d7f989d7ae2e0a172d05c2cb96ce80b3407a"
+  },
+  "small-moon-day.jpg": {
+    "luma": 170.4,
+    "sha256": "dec6687495e0287f246ffd907a73e950c5ab13e97dad5e77210e06996013c652"
+  },
+  "small-moon.jpg": {
+    "luma": 19.4,
+    "sha256": "2359c82a59db452788e2730627da694438124997884879800c2a8bb1be496784"
+  },
+  "twin-suns-day.jpg": {
+    "luma": 148.1,
+    "sha256": "368f5cc1b75a91d58240d812e0d514a7e356535969dea2f534e41f5e3c984de5"
+  },
+  "twin-suns.jpg": {
+    "luma": 46.2,
+    "sha256": "61693c0853ca69da455dbc97c481abe8a8c0113b70a204e1795d1c13fd24a6ae"
+  },
+  "utapau-day.jpg": {
+    "luma": 168.2,
+    "sha256": "11517df8f8581d81ea69dae5d45e8cbce1bea48e788796f707c611b856e42dc6"
+  },
+  "utapau.jpg": {
+    "luma": 40.3,
+    "sha256": "91ce34da3b5316e4b8a5c70c359521762b7c7dfc1ac1326b64f22992352441fd"
+  },
+  "yavin-day.jpg": {
+    "luma": 156.8,
+    "sha256": "63c0d603d244a2cf4c974331b1f0e024faef4e0dda4a5271e402d425f525c89e"
+  },
+  "yavin.jpg": {
+    "luma": 50.3,
+    "sha256": "f59875f93b5edb473cc9642adad68e841a6fe93098064169032628aa84780af6"
+  }
 }
