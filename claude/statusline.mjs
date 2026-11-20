@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Claude Code status line installed by scruffyherdr's install.sh. It feeds the
-// rail's context meter (writeCtx, as ctx-tap.mjs does), then runs the status
+// rail's context meter (writeCtx, as ctx-tap.mjs does) and, with config
+// usage_meter on, the usage limits (writeLimits), then runs the status
 // line you had before, saved in ~/.config/herdr-kit/statusline-prev.json, with
 // the same stdin, and passes its stdout through unchanged. With no old status
 // line it prints nothing. An old command still running after 5 s is stopped
@@ -10,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { writeCtx } from "./ctx.js";
+import { writeLimits } from "./limits.js";
 
 const TIMEOUT_MS = Number(process.env.HERDR_KIT_STATUSLINE_TIMEOUT_MS) || 5000;
 
@@ -19,10 +21,18 @@ try {
 } catch {
   // no stdin
 }
+let parsed = null;
 try {
-  writeCtx(JSON.parse(input.toString("utf8")));
+  parsed = JSON.parse(input.toString("utf8"));
 } catch {
-  // junk input or a write error: the old status line still runs
+  // junk input: the old status line still runs
+}
+for (const write of [writeCtx, writeLimits]) {
+  try {
+    if (parsed) write(parsed);
+  } catch {
+    // a write error: the old status line still runs
+  }
 }
 
 let command = null;

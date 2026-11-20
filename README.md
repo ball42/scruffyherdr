@@ -130,7 +130,7 @@ Everything here is off by default. The ones marked "coming soon" aren't in this 
 | `gh` | `/opt/homebrew/bin/gh` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). GitHub CLI for PR state (`pr_status`). |
 | `focus_max_minutes` | `120` | Minutes after which focus mode turns itself off. |
 | `readme_tabs` | `false` | Keep a README tab first in every space whose repo has a README. |
-| `usage_meter` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Show the 5-hour and weekly usage meter on the strip and the deck. |
+| `usage_meter` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Show the 5-hour and weekly usage meter on the strip and the deck. With it on, the kit's status line keeps the readings in `~/.cache/herdr-chat/claude-limits.json`, never lowering one within the same 5-hour or weekly window. |
 | `pr_status` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Look up each Claude's PR with `gh` and show its state in the hint line. |
 | `run_cards` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Draw the Run rows a Claude's cards leave on the rail. |
 | `run_log_pipe` | `""` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). A command a finished run's record is piped through, given the log's name; it prints the path it filed the log at. Empty writes `~/.config/herdr-kit/runlogs/`. |
