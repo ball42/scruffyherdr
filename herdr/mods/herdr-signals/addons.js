@@ -171,7 +171,20 @@ export function cardName(n) {
   return short ? `${n.name} (${short})` : n?.name;
 }
 
+/**
+ * Longest badge text the deck gets, in code points. The deck plugin refuses a
+ * text over this, and refuses a whole report over 4096 bytes, which freezes
+ * every key, so a longer text is clipped here, never sent whole.
+ */
+export const MAX_DECK_TEXT = 200;
+
+/** `s` cut to `max` code points, its last one "…" when it was cut. */
+function clip(s, max) {
+  const cps = [...s];
+  return cps.length > max ? `${cps.slice(0, max - 1).join("")}…` : s;
+}
+
 /** The focused Claude's badge as the Stream Deck gets it: {text, url, short}, nulls for the missing parts. */
 export function deckBadge(b) {
-  return b ? { text: b.text, url: b.url ?? null, short: b.short ?? null } : null;
+  return b ? { text: clip(b.text, MAX_DECK_TEXT), url: b.url ?? null, short: b.short ?? null } : null;
 }
