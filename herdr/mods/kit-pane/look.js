@@ -98,6 +98,11 @@ export const TONES = {
     dark: { orange: "#ffcf5c", blue: "#58a6ff", sun: "#7fd4c8", count: "#ffcf5c", badge: "#6a5629", ink: "#0d1117" },
     light: { orange: "#8a6100", blue: "#0969da", sun: "#2a7a72", count: "#795400", badge: "#f3f1ef", ink: "#ffffff" },
   },
+  utapau: {
+    glyph: "sinkhole",
+    dark: { orange: "#ffb347", blue: "#58a6ff", sun: "#ffd9a0", rock: "#a9b4c2", count: "#ffb347", badge: "#6a4a22", ink: "#0d1117" },
+    light: { orange: "#9a5a00", blue: "#0969da", sun: "#c98a3a", rock: "#5d6878", count: "#874e00", badge: "#f4f0ef", ink: "#ffffff" },
+  },
 };
 /** The tree behind Endor's fireflies, tinted with the text color. */
 export const TREE_SVG = "mods/kit-rail/tree.svg";
@@ -128,6 +133,8 @@ export const TEMPLE_SVG = "mods/kit-rail/temple.svg";
 export const BURST_SVG = "mods/kit-rail/burst.svg";
 /** Kessel's open spiral, tinted with the text color. */
 export const SPIRAL_SVG = "mods/kit-rail/spiral.svg";
+/** Utapau's sinkhole rim and its stepped ledges, tinted with the text color. */
+export const RIM_SVG = "mods/kit-rail/rim.svg";
 /**
  * A scene's glyph drawn from layer files in Herdr's home, not from code:
  * `glyphs/<scene>-body.svg`, `-edge.svg`, `-light.svg` and `-mover.svg`, each a 14 by 14
@@ -481,7 +488,15 @@ export function maelstrom(pulse) {
     .child(pulse ? spiral.spin(2400).loop("opacity", { from: 0.5, to: 1, period: 1800 }) : spiral);
 }
 
-const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, volcano, asteroids, layered, spire, streak, temple, streaks, maelstrom };
+/** Utapau: the sinkhole rim, a lantern sinking down into it while unseen. */
+export function sinkhole(pulse) {
+  const lantern = div().absolute().left(5.5).top(5).size(3).rounded(3).bg(ORANGE);
+  return div().relative().flex_none().w(14).h(14)
+    .child(svg(RIM_SVG).absolute().left(0).top(0).size(14).text_color(tone.rock))
+    .child(pulse ? lantern.loop("top", { from: 5, to: 10, period: 2000 }) : lantern);
+}
+
+const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, volcano, asteroids, layered, spire, streak, temple, streaks, maelstrom, sinkhole };
 
 /**
  * The needs-you glyph in sand with the open-item count; hover lists every open

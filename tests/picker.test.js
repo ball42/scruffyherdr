@@ -7,7 +7,7 @@ const keys = Object.keys(SCENES);
 const at = (index, extra = {}) => ({ index, day: false, count: 18, cols: 6, ...extra });
 
 test("picker: eighteen scenes in a 6 by 3 grid", () => {
-  assert.ok(keys.length <= 18);
+  assert.equal(keys.length, 18);
   assert.equal(COLS, 6);
   assert.equal(ROWS, 3);
   assert.equal(pickerStart(sceneList(SCENES), "hoth").cols, 6);
@@ -79,8 +79,8 @@ test("picker: starts on the shown scene, in the shown appearance", () => {
 });
 
 test("picker: opens on the last tile, and right and down stay there", () => {
-  const list = Array.from({ length: 18 }, (_, i) => ({ key: `s${i}` }));
-  const start = pickerStart(list, "s17");
+  const list = sceneList(SCENES);
+  const start = pickerStart(list, "utapau");
   assert.equal(start.index, 17);
   const ks = list.map((s) => s.key);
   assert.equal(pickerStep(start, "right", ks).state.index, 17);

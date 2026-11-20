@@ -161,6 +161,15 @@ export const SCENES = {
     needs: { dark: "#ffcf5c", light: "#8a6100" },
     asks: "◎",
   },
+  utapau: {
+    label: "Utapau",
+    theme: { light: "utapau-day", dark: "utapau-night" },
+    walls: { dark: "backgrounds/utapau.jpg", light: "backgrounds/utapau-day.jpg" },
+    panel: { dark: "#121418", light: "#f5f3ef" },
+    // Lantern amber, warm against the blue "done" in a grey sinkhole; the rim and its light on the strip.
+    needs: { dark: "#ffb347", light: "#9a5a00" },
+    asks: "◍",
+  },
 };
 export const DEFAULT_SCENE = "tatooine";
 
