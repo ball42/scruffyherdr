@@ -13,7 +13,7 @@ Anything the user can answer by picking is a decision, and every decision goes t
 
 ## Everything else: action items
 
-A message that needs anything else from the user (a command to run, a page to check, an open-ended question) ends with a \`## Your action items\` section. No text comes after it; when there are decisions too, call AskUserQuestion right after writing it. Every item in it is a card, most urgent first. Repeat items still open from earlier messages as cards, don't refer back. When nothing is needed, don't add the section.
+A message that needs anything else from the user (a command to run, a page to check, an open-ended question) ends with a \`## Your action items\` section. No text comes after it; when there are decisions too, call AskUserQuestion right after writing it. Every item in it is a card, most urgent first. Repeat items still open from earlier messages as cards, don't refer back; a Run card posted again replaces its old copy on the rail. When nothing is needed, don't add the section.
 
 ## Run card: something the user must do
 
@@ -42,7 +42,7 @@ When a run ends, its terminal closes and types one message into your session. Th
 
 - \`[herdr-kit] ▶ Run finished: "<label>" exited <code>. Output: <log>\`, or for Run all \`[herdr-kit] ▶ Run all finished: 1/3 "<label>" exit 0; 2/3 "<label>" exit 1; 3/3 "<label>" skipped. Output: <log>\`.
 - The log holds the run's stdout and stderr, kept in a log folder you choose (config \`run_log_pipe\`; \`~/.config/herdr-kit/runlogs/\` by default). Read it (the terminal is gone), say in a few lines whether it worked, and go on with whatever it unblocked. Exit 130 means the user pressed Ctrl-C.
-- The rail keeps your other Run cards and shows each one's result, so don't list the cards again. Add an action items section only for a new step.
+- The rail keeps every Run card from this session, with its last result, until it ran with exit 0 and the user writes again, or the session ends. In your reply to a Run note, repeat only the cards still open and add any new step.
 
 ## Ask card: a free-form question
 
@@ -392,13 +392,33 @@ export function isHarnessPrompt(text) {
   return HARNESS_PREFIXES.some((p) => t.startsWith(p));
 }
 
+/** What a Run card says (step, label, command), whatever message it came from. */
+const runText = (r) => `${r.step ?? ""}/${r.of ?? ""}\u0000${r.label}\u0000${r.command}`;
+
+/**
+ * The Run cards a new turn's reply leaves: `kept` from earlier turns, then the
+ * reply's `fresh` ones. A card posted again (same step, label and command)
+ * replaces its old copy, so it shows again under its new id with no old result.
+ * Keeps the newest MAX_RUNS.
+ */
+export function carryRuns(kept, fresh) {
+  const now = mergeRuns([], fresh);
+  const texts = new Set(now.map(runText));
+  return [...(kept ?? []).filter((r) => !texts.has(runText(r))), ...now].slice(-MAX_RUNS);
+}
+
+/** `runs` minus the ones whose id is in `ranClean`, the ids whose run ended with exit 0. */
+export function dropRan(runs, ranClean) {
+  return (runs ?? []).filter((r) => !(r.id && ranClean?.has(r.id)));
+}
+
 /**
  * Adds `fresh` cards to `kept` (by id), keeping kept's order. A reply to a
  * Run note keeps the list and only adds new cards.
  */
 export function mergeRuns(kept, fresh) {
   const out = [...(kept ?? [])];
-  const seen = (r) => `${r.step ?? ""}/${r.of ?? ""}\u0000${r.label}\u0000${r.command}`;
+  const seen = runText;
   const ids = new Set(out.map((r) => r.id));
   const texts = new Set(out.map(seen));
   for (const r of fresh ?? []) {

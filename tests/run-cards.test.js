@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fakeCx } from "./support/gpui-stub.js";
-import { runCards, runId, mergeRuns, isRunNote, isHarnessPrompt, lintMessage, turnText } from "../claude/cards.js";
+import { runCards, runId, mergeRuns, carryRuns, dropRan, isRunNote, isHarnessPrompt, lintMessage, turnText } from "../claude/cards.js";
 import { initialNamesMemo, resolveNames } from "../herdr/mods/herdr-signals/names.js";
 import { attentionStep, buildModel, readRunState } from "../herdr/mods/herdr-signals/model.js";
 
@@ -390,7 +390,13 @@ function hookRig() {
   const file = join(home, ".config", "herdr-kit", "names", "term1.json");
   const hook = (input) => spawnSync("node", [NAME_HOOK], { input: JSON.stringify({ session_id: "s", transcript_path: transcript, ...input }), env: { ...process.env, HOME: home, HC_TERMINAL_ID: "term1", CLAUDE_JOB_DIR: "", CLAUDE_CODE_SESSION_KIND: "" }, encoding: "utf8" });
   const say = (...recs) => writeFileSync(transcript, recs.map((r) => JSON.stringify(r)).join("\n") + "\n");
-  return { hook, read: () => JSON.parse(readFileSync(file, "utf8")), say };
+  return { hook, read: () => JSON.parse(readFileSync(file, "utf8")), say, home };
+}
+/** What the ▶ Run script leaves when a run ends: runstate/<terminal>-<id>.json. */
+function ranState(home, terminal, id, exit) {
+  const dir = join(home, ".config", "herdr-kit", "runstate");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${terminal}-${id}.json`), JSON.stringify({ state: "done", exit, at: 1 }));
 }
 const user = (text) => ({ type: "user", message: { role: "user", content: text } });
 const said = (text) => ({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text }] } });
@@ -398,7 +404,7 @@ const asks = () => ({ type: "assistant", message: { role: "assistant", content: 
 const answer = () => ({ type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "x", content: "picked" }] } });
 const two = `${AI}\n\n**▶ Run:** list\n\n${F}sh\nls\n${F}\n\n**▶ Run:** where\n\n${F}sh\npwd\n${F}`;
 
-test("name hook: Stop writes runs, a real prompt clears them", () => {
+test("name hook: Stop writes runs, and a real prompt keeps the open ones", () => {
   const { hook, read } = hookRig();
   assert.equal(hook({ hook_event_name: "Stop", last_assistant_message: two }).status, 0);
   const a = read();
@@ -407,12 +413,12 @@ test("name hook: Stop writes runs, a real prompt clears them", () => {
   hook({ hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "x" } });
   assert.deepEqual(read().runs, a.runs);
   hook({ hook_event_name: "UserPromptSubmit", prompt: "what about the other thing?" });
-  assert.deepEqual(read().runs, []);
-  assert.equal(read().card, null);
+  assert.deepEqual(read().runs, a.runs);
+  assert.equal(read().card, "run");
 });
 
 test("name hook: a Run note keeps the cards; the reply adds new ones and drops none", () => {
-  const { hook, read } = hookRig();
+  const { hook, read, home } = hookRig();
   hook({ hook_event_name: "Stop", last_assistant_message: two });
   const before = read().runs;
   hook({ hook_event_name: "UserPromptSubmit", prompt: `${RUN_NOTE} finished: "list" exited 0. Output: ~/.config/herdr-kit/runlogs/2026-11-08-run-list.log` });
@@ -424,10 +430,14 @@ test("name hook: a Run note keeps the cards; the reply adds new ones and drops n
   hook({ hook_event_name: "UserPromptSubmit", prompt: `${RUN_NOTE} finished: "where" exited 0 in terminal t6.` });
   hook({ hook_event_name: "Stop", last_assistant_message: `Good.\n\n${AI}\n\n**▶ Run:** next\n\n${F}sh\necho next\n${F}` });
   assert.deepEqual(read().runs.map((r) => r.label), ["list", "where", "next"]);
-  // After the reply, a real prompt and Stop replace the list again.
+  // A real prompt drops the two that ran clean; the one not run yet stays.
+  const runs = read().runs;
+  ranState(home, "term1", runs[0].id, 0);
+  ranState(home, "term1", runs[1].id, 0);
   hook({ hook_event_name: "UserPromptSubmit", prompt: "ok, now something else" });
   hook({ hook_event_name: "Stop", last_assistant_message: "Done, nothing for you." });
-  assert.deepEqual(read().runs, []);
+  assert.deepEqual(read().runs.map((r) => r.label), ["next"]);
+  assert.equal(read().card, "run");
 });
 
 test("name hook: Run cards before a selection menu show while it's up and stay after the answer", () => {
@@ -441,7 +451,7 @@ test("name hook: Run cards before a selection menu show while it's up and stay a
   assert.deepEqual(read().runs.map((r) => r.label), ["list", "where"], "the answer doesn't drop them");
   assert.equal(read().card, "run");
   hook({ hook_event_name: "UserPromptSubmit", prompt: "thanks" });
-  assert.deepEqual(read().runs, []);
+  assert.deepEqual(read().runs.map((r) => r.label), ["list", "where"], "not run yet, so they stay");
 });
 
 test("name hook: a subagent's hand-back while a menu is up keeps its Run cards", () => {
@@ -496,14 +506,69 @@ test("turnText: a task notification between the cards and the menu isn't a new t
   assert.equal(turnText(t), two);
 });
 
-test("name hook: a menu with no cards before it doesn't bring back last turn's", () => {
+test("name hook: a menu with no cards before it doesn't read last turn's cards again", () => {
   const { hook, read, say } = hookRig();
   hook({ hook_event_name: "Stop", last_assistant_message: two });
+  const before = read().runs;
   hook({ hook_event_name: "UserPromptSubmit", prompt: "next thing" });
   say(user("old"), said(two), user("next thing"), asks());
   hook({ hook_event_name: "PreToolUse", tool_name: "AskUserQuestion", tool_input: {} });
-  assert.deepEqual(read().runs, []);
+  assert.deepEqual(read().runs, before, "the open cards, once each");
   assert.equal(read().card, "decide");
+});
+
+test("name hook: a second turn's message without action items leaves the first turn's cards", () => {
+  const { hook, read } = hookRig();
+  hook({ hook_event_name: "Stop", last_assistant_message: two });
+  const first = read().runs;
+  hook({ hook_event_name: "UserPromptSubmit", prompt: "and the docs?" });
+  hook({ hook_event_name: "Stop", last_assistant_message: "The docs are updated too." });
+  assert.deepEqual(read().runs, first);
+  assert.equal(read().card, "run");
+  // The next turn's new card joins them; a card posted again replaces its old copy.
+  hook({ hook_event_name: "UserPromptSubmit", prompt: "ship it" });
+  hook({ hook_event_name: "Stop", last_assistant_message: `${AI}\n\n**▶ Run:** list\n\n${F}sh\nls\n${F}\n\n**▶ Run:** ship\n\n${F}sh\nmake ship\n${F}` });
+  const third = read().runs;
+  assert.deepEqual(third.map((r) => r.label), ["where", "list", "ship"]);
+  assert.notEqual(third[1].id, first[0].id, "the re-posted card is a new card");
+});
+
+test("name hook: a failed run stays open; a new session starts with none", () => {
+  const { hook, read, home } = hookRig();
+  hook({ hook_event_name: "Stop", last_assistant_message: two });
+  const [list, where] = read().runs;
+  ranState(home, "t7", list.id, 1);
+  ranState(home, "t7", where.id, 0);
+  hook({ hook_event_name: "UserPromptSubmit", prompt: "it failed" });
+  assert.deepEqual(read().runs, [list]);
+  hook({ hook_event_name: "UserPromptSubmit", prompt: "hello", session_id: "s-new" });
+  assert.deepEqual(read().runs, []);
+  assert.equal(read().card, null);
+});
+
+test("name hook: a background session keeps its Run cards across turns", () => {
+  const home = mkdtempSync(join(tmpdir(), "kit-home-"));
+  const transcript = join(home, "t.jsonl");
+  writeFileSync(transcript, "");
+  const file = join(home, ".config", "herdr-kit", "names", "bg-8852b980-cd24.json");
+  const hook = (input) => spawnSync("node", [NAME_HOOK], { input: JSON.stringify({ session_id: "8852b980-cd24", transcript_path: transcript, ...input }), env: { ...process.env, HOME: home, HC_TERMINAL_ID: "t5q", CLAUDE_JOB_DIR: "/home/x/.claude/jobs/8852b980", CLAUDE_CODE_SESSION_KIND: "" }, encoding: "utf8" });
+  hook({ hook_event_name: "Stop", last_assistant_message: two });
+  hook({ hook_event_name: "UserPromptSubmit", prompt: "what's next?" });
+  hook({ hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "ls" } });
+  hook({ hook_event_name: "Stop", last_assistant_message: "Still working through the round." });
+  const rec = JSON.parse(readFileSync(file, "utf8"));
+  assert.deepEqual(rec.runs.map((r) => r.label), ["list", "where"]);
+  assert.equal(rec.card, "run");
+});
+
+test("carryRuns keeps the newest 8, and dropRan drops the ids that ran clean", () => {
+  const r = (i) => ({ id: `k${i}`, label: `c${i}`, command: `echo ${i}` });
+  const kept = [1, 2, 3, 4, 5, 6].map(r);
+  assert.deepEqual(carryRuns(kept, [7, 8, 9].map(r)).map((x) => x.id), ["k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9"]);
+  assert.deepEqual(carryRuns(kept, []), kept);
+  assert.deepEqual(carryRuns(undefined, [r(1)]), [r(1)]);
+  assert.deepEqual(dropRan(kept, new Set(["k1", "k3"])).map((x) => x.id), ["k2", "k4", "k5", "k6"]);
+  assert.deepEqual(dropRan([{ label: "x", command: "y" }], new Set(["undefined"])), [{ label: "x", command: "y" }]);
 });
 
 // --- quiet runs close themselves ---

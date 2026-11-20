@@ -7,7 +7,7 @@ import { closeSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, re
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { gitBranch } from "./git.js";
-import { askCards, askText, cardKind, isHarnessPrompt, lastAssistantText, lastSaid, menuFromInput, mergeRuns, runCards, turnText } from "./cards.js";
+import { askCards, askText, cardKind, carryRuns, dropRan, isHarnessPrompt, lastAssistantText, lastSaid, menuFromInput, mergeRuns, runCards, turnText } from "./cards.js";
 import { latestTitles, summarizeAsk, summarizeTool } from "./titles.js";
 
 const TAIL_BYTES = 512 * 1024;
@@ -54,6 +54,35 @@ function fileKey(env, sessionId) {
   // a background job's hooks still see CLAUDE_JOB_DIR (~/.claude/jobs/<id>).
   if (env.CLAUDE_CODE_SESSION_KIND !== "bg" && !env.CLAUDE_JOB_DIR) return terminal;
   return typeof sessionId === "string" && /^[A-Za-z0-9-]{1,64}$/.test(sessionId) ? `bg-${sessionId}` : null;
+}
+
+/**
+ * The ids among `runs` whose run ended with exit 0. The ▶ Run script writes
+ * runstate/<terminal>-<run id>.json; a background session's terminal is the
+ * one herdr-signals gave its file to, so match on the id alone.
+ */
+function ranClean(runs) {
+  const ids = new Set((runs ?? []).map((r) => r?.id).filter((id) => typeof id === "string"));
+  const out = new Set();
+  if (!ids.size) return out;
+  const dir = join(homedir(), ".config", "herdr-kit", "runstate");
+  let files = [];
+  try {
+    files = readdirSync(dir);
+  } catch {
+    return out;
+  }
+  for (const f of files) {
+    const m = f.match(/^[A-Za-z0-9_-]+-([a-z0-9]{1,16})\.json$/);
+    if (!m || !ids.has(m[1])) continue;
+    try {
+      const st = JSON.parse(readFileSync(join(dir, f), "utf8"));
+      if (st?.state === "done" && st.exit === 0) out.add(m[1]);
+    } catch {
+      // half-written: it counts at the next prompt
+    }
+  }
+  return out;
 }
 
 function main() {
@@ -131,7 +160,8 @@ function main() {
   }
 
   // Which card the session is on: Decide while AskUserQuestion is up, then
-  // whatever the last message ended with; a new prompt clears it.
+  // whatever the last message ended with, or Run while an earlier Run card is
+  // open; a new prompt clears all but that.
   if ((event === "PreToolUse" || event === "PermissionRequest") && input.tool_name === "AskUserQuestion") {
     next.card = "decide";
     next.menu = menuFromInput(input.tool_input);
@@ -146,8 +176,10 @@ function main() {
     // finishing (even while a menu is up), not the user: the cards stay.
     next.note_turn = true;
   } else if (event === "UserPromptSubmit") {
-    next.card = null;
-    next.runs = [];
+    // Run cards stay until they run or the session ends; one that ran clean
+    // goes now, its ✓ seen. The rest of the turn's state clears.
+    next.runs = dropRan(next.runs, ranClean(next.runs));
+    next.card = next.runs.length ? "run" : null;
     next.asks = [];
     next.note_turn = false;
     next.ask_turn = false;
@@ -165,8 +197,10 @@ function main() {
       next.card = cardKind(text) ?? (next.runs.length ? "run" : next.card);
       next.asks = askCards(text).length ? askCards(text) : next.asks;
     } else {
-      next.card = cardKind(text);
-      next.runs = fresh;
+      // A new turn: the open cards from earlier turns stay, and a card posted
+      // again replaces its old copy.
+      next.runs = carryRuns(next.runs, fresh);
+      next.card = cardKind(text) ?? (next.runs.length ? "run" : null);
       next.asks = askCards(text);
     }
     next.note_turn = false;
