@@ -1,7 +1,10 @@
 """Render an original grass-sea wallpaper: a moonlit plain of wind-bent grass
 rolling in swells to the horizon, a cloud field receding over it and a lone
-needle spire on a far rise, its tip lit. With --day, the same view at late
-afternoon: gold grass, a cumulus field and the spire hazed by distance.
+needle spire on a far rise, its tip lit.
+
+With --day the viewpoint changes: down in the grass at midday, a dirt track
+running up to a farmstead of domed huts on a rise, tall banded stone pillars
+behind it and cumulus overhead.
 
 Usage: python3 scripts/lothal.py [--day] OUT.jpg [WIDTH HEIGHT]
 Needs Pillow.
@@ -79,6 +82,151 @@ def smooth_noise(n, seed, octaves=4, base=4):
 def solid(c):
     return Image.new("RGB", (W, H), c)
 
+
+# ---- Day: a farmstead on a rise at eye level, stone pillars behind it, a
+# dirt track through the grass. Runs and exits before the night code below.
+def day():
+    rng = random.Random(17)
+    HZ = H * 0.56
+
+    def poly(pts, blur=0):
+        m = Image.new("L", (W, H), 0)
+        ImageDraw.Draw(m).polygon(pts, fill=255)
+        return m.filter(ImageFilter.GaussianBlur(blur)) if blur else m
+
+    img = Image.new("RGB", (W, H))
+    d = ImageDraw.Draw(img)
+    for y in range(H):
+        d.line([(0, y), (W, y)], fill=ramp(["#5a8cbc", "#97b6cf", "#e2d8bc"], (y / HZ) ** 1.25))
+
+    # Cumulus: a shaded body of blobs, a lit cap shifted up and right, flat bases.
+    def cloud(cx, cy, size):
+        nonlocal img
+        body = Image.new("L", (W, H), 0)
+        bd = ImageDraw.Draw(body)
+        lit = Image.new("L", (W, H), 0)
+        ld = ImageDraw.Draw(lit)
+        for _ in range(int(9 + size / (20 * S))):
+            bx = cx + rng.uniform(-1, 1) * size
+            r = size * rng.uniform(0.25, 0.55) * (1 - abs(bx - cx) / (size * 1.6))
+            by = cy - r * rng.uniform(0.2, 0.9)
+            bd.ellipse([bx - r, by - r, bx + r, min(cy, by + r)], fill=255)
+            ld.ellipse([bx - r * 0.8 + r * 0.15, by - r * 0.95, bx + r * 0.8 + r * 0.15, by + r * 0.35], fill=255)
+        img = Image.composite(solid(rgb("#b4bcc6")), img, body.filter(ImageFilter.GaussianBlur(size * 0.025)))
+        img = Image.composite(solid(rgb("#fbf4e4")), img, ImageChops.multiply(lit, body).filter(ImageFilter.GaussianBlur(size * 0.03)))
+
+    for cx, cy, sz in [(0.2, 0.16, 300), (0.55, 0.1, 230), (0.86, 0.22, 320), (0.4, 0.33, 150), (0.68, 0.38, 110), (0.06, 0.42, 100), (0.95, 0.44, 80)]:
+        cloud(W * cx, H * cy, sz * S)
+
+    # Far hills.
+    d = ImageDraw.Draw(img)
+    pts = [(x, HZ - 26 * S - 22 * S * math.sin(x / (W * 0.11) + 1.3) - 10 * S * math.sin(x / (W * 0.03))) for x in range(0, W + 12, 12)]
+    img.paste(rgb("#a8ae9c"), mask=poly(pts + [(W, HZ + 10 * S), (0, HZ + 10 * S)], 2 * S))
+
+    # Stone pillars: tall, slightly curved, banded, lit on the right, hazed.
+    def pillar(x, base, h, w, lean):
+        nonlocal img
+        left, right = [], []
+        for i in range(25):
+            t = i / 24
+            cx = x + lean * h * t * t
+            ww = w * (1.25 - 0.45 * t) * (1 + 0.1 * math.sin(t * 9 + x) + 0.06 * math.sin(t * 31 + x * 2))
+            left.append((cx - ww * (1 + rng.uniform(-0.03, 0.03)), base - h * t))
+            right.append((cx + ww * (1 + rng.uniform(-0.03, 0.03)), base - h * t))
+        # A rounded, weathered top.
+        tcx, tcy, tr = (left[-1][0] + right[-1][0]) / 2, left[-1][1], (right[-1][0] - left[-1][0]) / 2
+        cap = [(tcx + tr * math.cos(a), tcy - tr * 0.7 * math.sin(a) + rng.uniform(-2, 2) * S) for a in [k * math.pi / 12 for k in range(13)]]
+        img.paste(rgb("#9a9488"), mask=poly(left + cap + right[::-1], 1 * S))
+        litp = [((l[0] + r[0]) / 2 + (r[0] - l[0]) * 0.1, l[1]) for l, r in zip(left, right)]
+        img.paste(rgb("#d8cdb4"), mask=poly(litp + cap[:1] + right[::-1], 1 * S))
+        bands = Image.new("L", (W, H), 0)
+        bdd = ImageDraw.Draw(bands)
+        i = 2
+        while i < 24:
+            bdd.line([left[i], right[i]], fill=rng.randint(60, 120), width=max(1, int(rng.uniform(2, 7) * S)))
+            i += rng.randint(2, 5)
+        img = Image.composite(solid(rgb("#7c766a")), img, ImageChops.multiply(bands.filter(ImageFilter.GaussianBlur(2 * S)), poly(left + right[::-1])))
+
+    for x, b, h, w, lean in [(0.12, 0.55, 0.36, 0.035, 0.05), (0.21, 0.55, 0.24, 0.026, -0.08), (0.78, 0.55, 0.3, 0.032, -0.04), (0.88, 0.55, 0.42, 0.04, 0.06)]:
+        pillar(W * x, H * b + 4 * S, H * h, W * w, lean)
+    haze = Image.linear_gradient("L").resize((W, H)).point(lambda v: int(110 * max(0.0, 1 - abs(v / 255 - 0.52) / 0.12)))
+    img = Image.composite(solid(rgb("#e0d8c0")), img, haze)
+
+    # The plain: gold grass to the horizon.
+    d = ImageDraw.Draw(img)
+    for y in range(int(HZ - 40 * S), H):
+        d.line([(0, y), (W, y)], fill=ramp(["#c8ae6a", "#b89652", "#9a7638"], (y - HZ) / (H - HZ)))
+
+    # The farmstead: three domes and a vane tower on the rise.
+    d = ImageDraw.Draw(img)
+    fx, fy = W * 0.58, HZ - 30 * S
+    for dx, r in [(-0.045, 0.028), (0.0, 0.04), (0.05, 0.024)]:
+        x, rr = fx + dx * W, r * W
+        d.chord([x - rr, fy - rr * 0.9, x + rr, fy + rr * 0.9], 180, 360, fill=rgb("#d6cbb2"))
+        d.chord([x - rr * 0.2, fy - rr * 0.9, x + rr, fy + rr * 0.9], 270, 360, fill=rgb("#ece4d0"))
+        d.rectangle([x - rr * 1.02, fy - 4 * S, x + rr * 1.02, fy + 2 * S], fill=rgb("#8a7a5c"))
+        d.rectangle([x - rr * 0.16, fy - rr * 0.38, x + rr * 0.16, fy], fill=rgb("#4a3e2c"))
+    tx = fx + 0.085 * W
+    d.rectangle([tx - 5 * S, fy - 150 * S, tx + 5 * S, fy], fill=rgb("#6e6658"))
+    for k in range(4):
+        a = k * math.pi / 2 + 0.4
+        d.line([(tx, fy - 150 * S), (tx + math.cos(a) * 46 * S, fy - 150 * S + math.sin(a) * 46 * S)], fill=rgb("#5a5448"), width=max(1, int(6 * S)))
+
+    # The dirt track: from the bottom left, curving up to the farmstead.
+    path_l, path_r = [], []
+    for i in range(41):
+        t = i / 40
+        x = W * (0.05 + 0.53 * t) + W * 0.12 * math.sin(t * math.pi) * (1 - t)
+        y = H + 20 * S - (H + 20 * S - fy - 6 * S) * (t ** 0.8)
+        w = (220 * (1 - t) ** 1.6 + 6) * S
+        path_l.append((x - w, y))
+        path_r.append((x + w, y))
+    img.paste(rgb("#c8a878"), mask=poly(path_l + path_r[::-1], 2 * S))
+    ruts = Image.new("L", (W, H), 0)
+    rd = ImageDraw.Draw(ruts)
+    rd.line([((l[0] * 0.7 + r[0] * 0.3), l[1]) for l, r in zip(path_l, path_r)], fill=140, width=max(1, int(5 * S)))
+    rd.line([((l[0] * 0.3 + r[0] * 0.7), l[1]) for l, r in zip(path_l, path_r)], fill=140, width=max(1, int(5 * S)))
+    img = Image.composite(solid(rgb("#9a7c52")), img, ruts.filter(ImageFilter.GaussianBlur(3 * S)))
+
+    # Grass: strokes over the plain, longer toward the viewer, the track left bare.
+    track = poly(path_l + path_r[::-1])
+    blades = Image.new("L", (W, H), 0)
+    lit = Image.new("L", (W, H), 0)
+    bdd, ldd = ImageDraw.Draw(blades), ImageDraw.Draw(lit)
+    for _ in range(int(26000 * S) + 4000):
+        y = HZ - 30 * S + (rng.random() ** 0.7) * (H - HZ + 50 * S)
+        t = max(0.0, (y - HZ) / (H - HZ))
+        x = rng.random() * W
+        if track.getpixel((min(W - 1, int(x)), min(H - 1, int(y)))) > 0 and rng.random() < 0.85:
+            continue
+        h = (4 + 70 * t ** 1.5) * S * rng.uniform(0.6, 1.4)
+        lean = rng.uniform(-0.2, 0.5) * h
+        target = ldd if rng.random() < 0.45 else bdd
+        target.line([(x, y), (x + lean * 0.5, y - h * 0.6), (x + lean, y - h)], fill=rng.randint(120, 255), width=max(1, int((1 + 2.4 * t) * S)))
+    img = Image.composite(solid(rgb("#7a5a24")), img, blades)
+    img = Image.composite(solid(rgb("#ecd48c")), img, lit)
+    # Foreground seed heads, big and soft at the bottom corners.
+    fg = Image.new("L", (W, H), 0)
+    fd = ImageDraw.Draw(fg)
+    for _ in range(70):
+        x = rng.choice([rng.uniform(-0.05, 0.25), rng.uniform(0.75, 1.05)]) * W
+        y0 = H + 20 * S
+        h = rng.uniform(0.16, 0.4) * H
+        lean = rng.uniform(-0.05, 0.12) * W
+        fd.line([(x, y0), (x + lean * 0.5, y0 - h * 0.6), (x + lean, y0 - h)], fill=255, width=max(1, int(5 * S)))
+        fd.ellipse([x + lean - 8 * S, y0 - h - 40 * S, x + lean + 8 * S, y0 - h + 4 * S], fill=255)
+    img = Image.composite(solid(rgb("#8a6a30")), img, fg.filter(ImageFilter.GaussianBlur(5 * S)))
+    vig = Image.new("L", (W, H), 255)
+    ImageDraw.Draw(vig).ellipse([-W * 0.12, -H * 0.2, W * 1.12, H * 1.15], fill=0)
+    img = Image.composite(solid((60, 42, 18)), img, vig.filter(ImageFilter.GaussianBlur(260 * S)).point(lambda v: int(v * 0.3)))
+    noise = Image.effect_noise((W, H), 40).convert("RGB")
+    Image.blend(img, ImageChops.overlay(img, noise), 4 / 30).save(OUT, quality=90)
+    print(OUT)
+
+
+if DAY:
+    day()
+    sys.exit(0)
 
 img = Image.new("RGB", (W, H))
 d = ImageDraw.Draw(img)
