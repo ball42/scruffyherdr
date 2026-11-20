@@ -4,12 +4,13 @@ import { SCENES, sceneList } from "../herdr/mods/herdr-signals/scenes.js";
 import { COLS, ROWS, pickerStart, pickerStep, tileInputs, dialogSize, gridHeight, TILE } from "../herdr/mods/kit-scenes/picker.js";
 
 const keys = Object.keys(SCENES);
-const at = (index, extra = {}) => ({ index, day: false, count: 12, cols: 4, ...extra });
+const at = (index, extra = {}) => ({ index, day: false, count: 18, cols: 6, ...extra });
 
-test("picker: twelve scenes in a 4 by 3 grid", () => {
-  assert.equal(keys.length, 12);
-  assert.equal(COLS, 4);
-  assert.equal(pickerStart(sceneList(SCENES), "hoth").cols, 4);
+test("picker: eighteen scenes in a 6 by 3 grid", () => {
+  assert.ok(keys.length <= 18);
+  assert.equal(COLS, 6);
+  assert.equal(ROWS, 3);
+  assert.equal(pickerStart(sceneList(SCENES), "hoth").cols, 6);
 });
 
 test("picker: the dialog holds every scene, so no tile is clipped", () => {
@@ -17,24 +18,24 @@ test("picker: the dialog holds every scene, so no tile is clipped", () => {
 });
 
 test("picker: right from the end of a row stays put", () => {
-  assert.equal(pickerStep(at(3), "right", keys).state.index, 3);
+  assert.equal(pickerStep(at(5), "right", keys).state.index, 5);
   assert.equal(pickerStep(at(0), "left", keys).state.index, 0);
-  assert.equal(pickerStep(at(4), "left", keys).state.index, 4);
-  assert.equal(pickerStep(at(11), "right", keys).state.index, 11);
+  assert.equal(pickerStep(at(6), "left", keys).state.index, 6);
+  assert.equal(pickerStep(at(17), "right", keys).state.index, 17);
   assert.equal(pickerStep(at(2), "right", keys).state.index, 3);
 });
 
 test("picker: down and up move a row, and stop at the edges", () => {
-  assert.equal(pickerStep(at(2), "down", keys).state.index, 6);
-  assert.equal(pickerStep(at(6), "down", keys).state.index, 10);
-  assert.equal(pickerStep(at(10), "up", keys).state.index, 6);
-  assert.equal(pickerStep(at(10), "down", keys).state.index, 10);
+  assert.equal(pickerStep(at(2), "down", keys).state.index, 8);
+  assert.equal(pickerStep(at(8), "down", keys).state.index, 14);
+  assert.equal(pickerStep(at(14), "up", keys).state.index, 8);
+  assert.equal(pickerStep(at(14), "down", keys).state.index, 14);
   assert.equal(pickerStep(at(2), "up", keys).state.index, 2);
 });
 
 test("picker: a short last row doesn't reach a missing tile", () => {
-  assert.equal(pickerStep(at(7, { count: 10 }), "down", keys).state.index, 7);
-  assert.equal(pickerStep(at(9, { count: 10 }), "right", keys).state.index, 9);
+  assert.equal(pickerStep(at(9, { count: 14 }), "down", keys).state.index, 9);
+  assert.equal(pickerStep(at(13, { count: 14 }), "right", keys).state.index, 13);
 });
 
 test("picker: enter picks the tile under the cursor, in the look it shows", () => {
@@ -65,8 +66,8 @@ test("picker: the input state is not mutated", () => {
 });
 
 test("picker: an empty list never throws", () => {
-  assert.equal(pickerStep({ index: 0, day: false, count: 0, cols: 4 }, "enter", []).pick, null);
-  assert.equal(pickerStep({ index: 0, day: false, count: 0, cols: 4 }, "escape", []).close, true);
+  assert.equal(pickerStep({ index: 0, day: false, count: 0, cols: 6 }, "enter", []).pick, null);
+  assert.equal(pickerStep({ index: 0, day: false, count: 0, cols: 6 }, "escape", []).close, true);
 });
 
 test("picker: starts on the shown scene, in the shown appearance", () => {
@@ -77,10 +78,19 @@ test("picker: starts on the shown scene, in the shown appearance", () => {
   assert.equal(pickerStart(null, "hoth").count, 0);
 });
 
+test("picker: opens on the last tile, and right and down stay there", () => {
+  const list = Array.from({ length: 18 }, (_, i) => ({ key: `s${i}` }));
+  const start = pickerStart(list, "s17");
+  assert.equal(start.index, 17);
+  const ks = list.map((s) => s.key);
+  assert.equal(pickerStep(start, "right", ks).state.index, 17);
+  assert.equal(pickerStep(start, "down", ks).state.index, 17);
+});
+
 test("sceneList: every scene's thumbnails exist on disk and carry its needs colours", async () => {
   const { existsSync } = await import("node:fs");
   const list = sceneList(SCENES);
-  assert.equal(list.length, 12);
+  assert.equal(list.length, keys.length);
   for (const s of list) {
     for (const t of [s.thumbs.dark, s.thumbs.light]) {
       assert.match(t, /^backgrounds\/thumbs\/[\w-]+\.jpg$/);
@@ -93,11 +103,11 @@ test("sceneList: every scene's thumbnails exist on disk and carry its needs colo
 test("tileInputs: skips entries that aren't scenes and never throws", () => {
   assert.deepEqual(tileInputs(null), []);
   assert.deepEqual(tileInputs([null, {}, { key: "x" }]), []);
-  assert.equal(tileInputs(sceneList(SCENES)).length, 12);
+  assert.equal(tileInputs(sceneList(SCENES)).length, keys.length);
 });
 
 test("dialogSize: exact content size, 16:9 tiles", () => {
   assert.equal(TILE.h, Math.round((TILE.w * 9) / 16));
-  assert.equal(gridHeight(), 482);
-  assert.deepEqual(dialogSize(), { width: 828, height: 558 });
+  assert.equal(gridHeight(), 401);
+  assert.deepEqual(dialogSize(), { width: 932, height: 477 });
 });
