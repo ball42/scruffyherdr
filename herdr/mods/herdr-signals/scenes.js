@@ -152,6 +152,15 @@ export const SCENES = {
     needs: { dark: "#ffe9a8", light: "#8a6a00" },
     asks: "✳",
   },
+  kessel: {
+    label: "Kessel",
+    theme: { light: "kessel-day", dark: "kessel-night" },
+    walls: { dark: "backgrounds/kessel.jpg", light: "backgrounds/kessel-day.jpg" },
+    panel: { dark: "#130d1c", light: "#f8f4fa" },
+    // Spice gold (spice pink sat too near the blue "done" for deuteranopia); a spiral on the strip.
+    needs: { dark: "#ffcf5c", light: "#8a6100" },
+    asks: "◎",
+  },
 };
 export const DEFAULT_SCENE = "tatooine";
 

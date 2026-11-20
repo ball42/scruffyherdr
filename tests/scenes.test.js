@@ -84,7 +84,7 @@ test("sceneOfTree reads the scene from the theme pair", () => {
 });
 
 test("sceneOfTheme maps the new scenes' themes", () => {
-  for (const k of ["lothal", "crait", "yavin", "hyperspace"]) {
+  for (const k of ["lothal", "crait", "yavin", "hyperspace", "kessel"]) {
     assert.equal(sceneOfTheme(`${k}-night`), k);
     assert.equal(sceneOfTheme(`${k}-day`), k);
   }
@@ -119,6 +119,7 @@ const PICKS = {
   mustafar: ["#ffd84d", "#8a6a00"], "asteroid-belt": ["#fd9f01", "#a76700"], "small-moon": ["#c8be9a", "#89805e"],
   lothal: ["#ffd36b", "#8a6200"], crait: ["#ff6a55", "#b3261e"],
   yavin: ["#ff8a3d", "#b04a00"], hyperspace: ["#ffe9a8", "#8a6a00"],
+  kessel: ["#ffcf5c", "#8a6100"],
 };
 const themeFile = (name) => {
   const f = JSON.parse(readFileSync(new URL(`../herdr/themes/${name}.json`, import.meta.url), "utf8"));
