@@ -20,12 +20,12 @@ S = W / 3024
 rng = random.Random(21)
 
 P = dict(
-    ground=("#b9b0a2", "#8a8070") if DAY else ("#120c1e", "#05030a"),
-    gas=["#7d6a98", "#5f8a86", "#a48a5a"] if DAY else ["#4e3290", "#17716c", "#7a3c9c"],
-    dust="#6e5214" if DAY else "#ffcf5c",
-    well="#2e261e" if DAY else "#000000",
-    ring="#8a6a20" if DAY else "#ffd27a",
-    grain=3 if DAY else 5,
+    ground=("#120c1e", "#05030a"),
+    gas=["#4e3290", "#17716c", "#7a3c9c"],
+    dust="#ffcf5c",
+    well="#000000",
+    ring="#ffd27a",
+    grain=5,
 )
 CX, CY = W * 0.56, H * 0.47
 TILT = 0.58           # the disc seen at a slant
@@ -167,11 +167,10 @@ fall = Image.new("L", (W, H), 255)
 fall.paste(g.point(lambda v: min(255, int(v * 1.5))), (int(CX - reach), int(CY - reach)))
 img = Image.composite(solid(rgb(P["ground"][1])), solid(rgb(P["ground"][0])), fall)
 d = ImageDraw.Draw(img)
-if not DAY:
-    for _ in range(int(1000 * S * S) + 300):
-        x, y = rng.random() * W, rng.random() * H
-        v = rng.randint(80, 220)
-        d.ellipse([x, y, x + 2 * S, y + 2 * S], fill=(v, v - 10, min(255, v + 25)))
+for _ in range(int(1000 * S * S) + 300):
+    x, y = rng.random() * W, rng.random() * H
+    v = rng.randint(80, 220)
+    d.ellipse([x, y, x + 2 * S, y + 2 * S], fill=(v, v - 10, min(255, v + 25)))
 
 # ---- Gas: soft blobs along three log-spiral arms, one mask per colour,
 # blurred at two scales so the arms have both body and wisps.
@@ -205,8 +204,7 @@ for _ in range(int(16000 * S) + 3000):
     s = rng.uniform(0.8, 2.6) * S
     dd.ellipse([x - s, y - s, x + s, y + s], fill=rng.randint(120, 255))
 img = Image.composite(solid(rgb(P["dust"])), img, dust.filter(ImageFilter.GaussianBlur(0.7 * S)))
-if not DAY:
-    img = Image.composite(solid(rgb(P["dust"])), img, dust.filter(ImageFilter.GaussianBlur(6 * S)).point(lambda v: int(v * 0.5)))
+img = Image.composite(solid(rgb(P["dust"])), img, dust.filter(ImageFilter.GaussianBlur(6 * S)).point(lambda v: int(v * 0.5)))
 
 # ---- The well: a dark lens with a thin gold ring at its lip.
 wr = 70 * S
@@ -222,7 +220,7 @@ img = Image.composite(solid(rgb(P["ring"])), img, ring.filter(ImageFilter.Gaussi
 vig = Image.new("L", (W, H), 255)
 ImageDraw.Draw(vig).ellipse([-W * 0.1, -H * 0.15, W * 1.1, H * 1.15], fill=0)
 vig = vig.filter(ImageFilter.GaussianBlur(260 * S))
-img = Image.composite(solid((60, 50, 40) if DAY else (0, 0, 0)), img, vig.point(lambda v: int(v * (0.4 if DAY else 0.6))))
+img = Image.composite(solid((0, 0, 0)), img, vig.point(lambda v: int(v * (0.6))))
 noise = Image.effect_noise((W, H), 40).convert("RGB")
 img = Image.blend(img, ImageChops.overlay(img, noise), P["grain"] / 30)
 

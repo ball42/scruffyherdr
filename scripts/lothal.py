@@ -23,22 +23,22 @@ S = W / 3024
 rng = random.Random(7)
 
 P = dict(
-    sky=["#4b7ba6", "#7fa3bf", "#cdbf9f"] if DAY else ["#060a18", "#10203d", "#283a5a"],
-    cloud_lit="#f7ecd6" if DAY else "#52648a",
-    cloud_mid="#d9d4c8" if DAY else "#34446a",
-    cloud_shade="#98a0aa" if DAY else "#1a2442",
-    hills=["#9ea6a2", "#8f927e", "#82805e"] if DAY else ["#1e2c47", "#1b263a", "#192232"],
-    haze="#cfc4a8" if DAY else "#24344f",
-    crest="#e8cc84" if DAY else "#7d91b4",
-    grass_far="#b89c5c" if DAY else "#2b3550",
-    grass_near="#6e5020" if DAY else "#111827",
-    blade_lo="#62451a" if DAY else "#0d1420",
-    blade_hi="#e6c77e" if DAY else "#93a7c8",
-    spire="#77736a" if DAY else "#0b101b",
-    rock=("#8a8476", "#5a554a", "#34302a") if DAY else ("#3c4a64", "#232d40", "#0c111a"),
-    shadow=(60, 40, 15) if DAY else (5, 8, 15),
-    light=(255, 228, 175) if DAY else (140, 165, 210),
-    grain=4 if DAY else 5,
+    sky=["#060a18", "#10203d", "#283a5a"],
+    cloud_lit="#52648a",
+    cloud_mid="#34446a",
+    cloud_shade="#1a2442",
+    hills=["#1e2c47", "#1b263a", "#192232"],
+    haze="#24344f",
+    crest="#7d91b4",
+    grass_far="#2b3550",
+    grass_near="#111827",
+    blade_lo="#0d1420",
+    blade_hi="#93a7c8",
+    spire="#0b101b",
+    rock=("#3c4a64", "#232d40", "#0c111a"),
+    shadow=(5, 8, 15),
+    light=(140, 165, 210),
+    grain=5,
 )
 HORIZON = 0.55
 
@@ -236,21 +236,20 @@ hy = int(H * HORIZON)
 for y in range(hy + 60):
     d.line([(0, y), (W, y)], fill=ramp(P["sky"], (y / (hy + 60)) ** 1.3))
 
-if not DAY:
-    for _ in range(int(900 * S * S) + 400):
-        x, y = rng.random() * W, (rng.random() ** 1.6) * hy * 0.9
-        v = rng.randint(90, 230)
-        s = 1 if rng.random() < 0.93 else 2
-        d.ellipse([x, y, x + s * S * 2, y + s * S * 2], fill=(v, v, min(255, v + 15)))
-    mx, my, mr = W * 0.8, H * 0.12, 44 * S
-    glow = Image.new("L", (W, H), 0)
-    ImageDraw.Draw(glow).ellipse([mx - mr * 7, my - mr * 7, mx + mr * 7, my + mr * 7], fill=75)
-    img = Image.composite(solid((150, 175, 215)), img, glow.filter(ImageFilter.GaussianBlur(mr * 3)))
-    d = ImageDraw.Draw(img)
-    d.ellipse([mx - mr, my - mr, mx + mr, my + mr], fill=(232, 238, 246))
-    for _ in range(9):
-        cx, cy, cr = mx + rng.uniform(-.6, .6) * mr, my + rng.uniform(-.6, .6) * mr, rng.uniform(.08, .22) * mr
-        d.ellipse([cx - cr, cy - cr, cx + cr, cy + cr], fill=(212, 220, 232))
+for _ in range(int(900 * S * S) + 400):
+    x, y = rng.random() * W, (rng.random() ** 1.6) * hy * 0.9
+    v = rng.randint(90, 230)
+    s = 1 if rng.random() < 0.93 else 2
+    d.ellipse([x, y, x + s * S * 2, y + s * S * 2], fill=(v, v, min(255, v + 15)))
+mx, my, mr = W * 0.8, H * 0.12, 44 * S
+glow = Image.new("L", (W, H), 0)
+ImageDraw.Draw(glow).ellipse([mx - mr * 7, my - mr * 7, mx + mr * 7, my + mr * 7], fill=75)
+img = Image.composite(solid((150, 175, 215)), img, glow.filter(ImageFilter.GaussianBlur(mr * 3)))
+d = ImageDraw.Draw(img)
+d.ellipse([mx - mr, my - mr, mx + mr, my + mr], fill=(232, 238, 246))
+for _ in range(9):
+    cx, cy, cr = mx + rng.uniform(-.6, .6) * mr, my + rng.uniform(-.6, .6) * mr, rng.uniform(.08, .22) * mr
+    d.ellipse([cx - cr, cy - cr, cx + cr, cy + cr], fill=(212, 220, 232))
 
 # ---- Cloud field in perspective: big near the top, small and flat toward the
 # horizon. Three masks per cloud: body, a lit cap (toward the light) and a belly.
@@ -258,14 +257,14 @@ body = Image.new("L", (W, H), 0)
 cap = Image.new("L", (W, H), 0)
 belly = Image.new("L", (W, H), 0)
 bd, cd, ld = ImageDraw.Draw(body), ImageDraw.Draw(cap), ImageDraw.Draw(belly)
-n_clouds = 34 if DAY else 20
+n_clouds = 20
 for _ in range(n_clouds):
     depth = rng.random() ** 0.8           # 0 near (high in the sky), 1 at the horizon
     cy = H * 0.1 + (hy - H * 0.13 - H * 0.1) * depth
     size = W * (0.12 - 0.095 * depth) * rng.uniform(0.6, 1.2)
     squash = 1 - 0.55 * depth
     cx = rng.uniform(-0.05, 1.05) * W
-    if not DAY and abs(cx - W * 0.8) < size * 1.6 + 80 * S and abs(cy - H * 0.12) < size * 0.6 + 80 * S:
+    if abs(cx - W * 0.8) < size * 1.6 + 80 * S and abs(cy - H * 0.12) < size * 0.6 + 80 * S:
         continue
     for _ in range(int(26 + 30 * (1 - depth))):
         px = cx + rng.gauss(0, size * 0.45)
@@ -348,12 +347,11 @@ for k, (t, ridge) in enumerate(swells):
         img = Image.composite(solid(lerp(near, (0, 0, 0), 0.5)), img, trough.point(lambda v: int(v * 0.5)))
     d = ImageDraw.Draw(img)
     if k == 1:  # the spire, hazed, on this crest
-        sp = lerp(rgb(P["spire"]), rgb(P["haze"]), 0.4 if DAY else 0.1)
+        sp = lerp(rgb(P["spire"]), rgb(P["haze"]), 0.1)
         d.polygon([(sx - 10 * S, sb), (sx - 2.5 * S, sb - 330 * S), (sx, sb - 380 * S), (sx + 2.5 * S, sb - 330 * S), (sx + 10 * S, sb)], fill=sp)
         for bx, bw, bh in [(-64, 36, 18), (-28, 22, 32), (14, 42, 22), (54, 26, 14), (-96, 22, 10)]:
             d.rectangle([sx + bx * S, sb - bh * S, sx + (bx + bw) * S, sb + 6 * S], fill=sp)
-        if not DAY:
-            d.ellipse([sx - 3.5 * S, sb - 386 * S, sx + 3.5 * S, sb - 379 * S], fill=(255, 211, 107))
+        d.ellipse([sx - 3.5 * S, sb - 386 * S, sx + 3.5 * S, sb - 379 * S], fill=(255, 211, 107))
     # Blades on this swell, between its ridge and the next.
     n = int((20000 + 30000 * t) * S * S)
     for _ in range(n):
@@ -369,7 +367,7 @@ for k, (t, ridge) in enumerate(swells):
         sway = lean + 0.25 * math.sin(x / (W * 0.07) + y / 90) + rng.uniform(-.15, .15)
         tip = (x + sway * length, y - length)
         mid = (x + sway * length * 0.35, y - length * 0.55)
-        shade = rng.random() ** (1.3 if DAY else 2.2) * (1 - 0.5 * u)
+        shade = rng.random() ** (2.2) * (1 - 0.5 * u)
         c = jitter(lerp(lo, hi, shade * (0.6 + 0.4 * (1 - tt))), 10)
         c = lerp(c, rgb(P["haze"]), 0.5 * (1 - tt) ** 4)
         d.line([(x, y), mid, tip], fill=c, width=width)
@@ -426,12 +424,12 @@ for rx, ry, rs in [(0.13, 0.86, 260), (0.25, 0.92, 140), (0.82, 0.89, 210)]:
 
 # ---- Light wash from the upper right; vignette; grain.
 light = Image.new("L", (W, H), 0)
-ImageDraw.Draw(light).ellipse([W * 0.45, -H * 0.4, W * 1.4, H * 0.9], fill=60 if DAY else 35)
+ImageDraw.Draw(light).ellipse([W * 0.45, -H * 0.4, W * 1.4, H * 0.9], fill=35)
 img = Image.composite(solid(P["light"]), img, light.filter(ImageFilter.GaussianBlur(220 * S)))
 vig = Image.new("L", (W, H), 255)
 ImageDraw.Draw(vig).ellipse([-W * 0.15, -H * 0.25, W * 1.15, H * 1.2], fill=0)
 vig = vig.filter(ImageFilter.GaussianBlur(260 * S))
-img = Image.composite(solid((0, 0, 0)), img, vig.point(lambda v: int(v * (0.35 if DAY else 0.55))))
+img = Image.composite(solid((0, 0, 0)), img, vig.point(lambda v: int(v * (0.55))))
 noise = Image.effect_noise((W, H), 40).convert("RGB")
 img = Image.blend(img, ImageChops.overlay(img, noise), P["grain"] / 30)
 

@@ -23,16 +23,16 @@ S = W / 3024
 rng = random.Random(17)
 
 P = dict(
-    sky=["#768aa6", "#a3adbf", "#c0bfc8"] if DAY else ["#07061a", "#1c1838", "#3a3152"],
-    mesa=["#8d8a9c", "#a19eae"] if DAY else ["#1d1930", "#2a2540"],
-    haze="#c7c4cc" if DAY else "#3e3656",
-    salt_far="#bcb8c2" if DAY else "#7d7896",
-    salt_near="#a09aa7" if DAY else "#a29dba",
-    crack="#8f8898" if DAY else "#6e6990",
-    red="#a8392c" if DAY else "#d22a1c",
-    glow="#c4523f" if DAY else "#ff4a2e",
-    light=(255, 246, 236) if DAY else (150, 140, 210),
-    grain=3 if DAY else 5,
+    sky=["#07061a", "#1c1838", "#3a3152"],
+    mesa=["#1d1930", "#2a2540"],
+    haze="#3e3656",
+    salt_far="#7d7896",
+    salt_near="#a29dba",
+    crack="#6e6990",
+    red="#d22a1c",
+    glow="#ff4a2e",
+    light=(150, 140, 210),
+    grain=5,
 )
 HORIZON = 0.5
 
@@ -186,14 +186,13 @@ hy = int(H * HORIZON)
 # ---- Sky, stars by night, and a low glow over the horizon.
 for y in range(hy + 40):
     d.line([(0, y), (W, y)], fill=ramp(P["sky"], (y / (hy + 40)) ** 1.2))
-if not DAY:
-    for _ in range(int(1100 * S * S) + 400):
-        x, y = rng.random() * W, (rng.random() ** 1.5) * hy * 0.92
-        v = rng.randint(90, 235)
-        s = 1 if rng.random() < 0.92 else 2
-        d.ellipse([x, y, x + s * S * 2, y + s * S * 2], fill=(v, v - 6, min(255, v + 20)))
+for _ in range(int(1100 * S * S) + 400):
+    x, y = rng.random() * W, (rng.random() ** 1.5) * hy * 0.92
+    v = rng.randint(90, 235)
+    s = 1 if rng.random() < 0.92 else 2
+    d.ellipse([x, y, x + s * S * 2, y + s * S * 2], fill=(v, v - 6, min(255, v + 20)))
 band = Image.new("L", (W, H), 0)
-ImageDraw.Draw(band).ellipse([-W * 0.2, hy - H * 0.16, W * 1.2, hy + H * 0.08], fill=90 if DAY else 70)
+ImageDraw.Draw(band).ellipse([-W * 0.2, hy - H * 0.16, W * 1.2, hy + H * 0.08], fill=70)
 img = Image.composite(solid(rgb(P["haze"])), img, band.filter(ImageFilter.GaussianBlur(120 * S)))
 d = ImageDraw.Draw(img)
 
@@ -247,7 +246,7 @@ for (i, j), (u, z) in grid.items():
         x0, y0 = proj(u, z)
         x1, y1 = proj(*n)
         rd.line([(x0, y0 + 3 * S / z), (x1, y1 + 3 * S / z)], fill=150, width=max(1, int(3 * S / z ** 0.5)))
-img = Image.composite(solid((250, 248, 252) if DAY else (205, 200, 230)), img, rims.filter(ImageFilter.GaussianBlur(1.5 * S)))
+img = Image.composite(solid((205, 200, 230)), img, rims.filter(ImageFilter.GaussianBlur(1.5 * S)))
 d = ImageDraw.Draw(img)
 
 # ---- Scars: wandering breaks in the crust, narrow far off and wide near,
@@ -287,9 +286,8 @@ for k in range(11):
             bx, by = proj(ub + math.sin(bh) * 1.2, max(1.05, zb - math.cos(bh) * 0.8))
             sd.line([(x1, y1), (bx, by)], fill=190, width=max(1, int(w * 0.4)))
 scar = scar.filter(ImageFilter.GaussianBlur(1.2 * S))
-if not DAY:
-    glow = scar.filter(ImageFilter.GaussianBlur(26 * S)).point(lambda v: min(255, v * 2))
-    img = Image.composite(solid(rgb(P["glow"])), img, glow.point(lambda v: int(v * 0.45)))
+glow = scar.filter(ImageFilter.GaussianBlur(26 * S)).point(lambda v: min(255, v * 2))
+img = Image.composite(solid(rgb(P["glow"])), img, glow.point(lambda v: int(v * 0.45)))
 img = Image.composite(solid(rgb(P["red"])), img, scar)
 # Salt dust over the scars: speckle so the red reads as under the crust.
 dust = Image.effect_noise((W, H), 120).point(lambda v: 255 if v > 200 else 0)
@@ -298,12 +296,12 @@ img = Image.composite(solid(rgb(P["salt_near"])), img, dust.point(lambda v: int(
 
 # ---- Light, vignette (strong by day: a white plain must stay mid-tone), grain.
 light = Image.new("L", (W, H), 0)
-ImageDraw.Draw(light).ellipse([W * 0.2, -H * 0.3, W * 0.9, H * 0.7], fill=40 if DAY else 30)
+ImageDraw.Draw(light).ellipse([W * 0.2, -H * 0.3, W * 0.9, H * 0.7], fill=30)
 img = Image.composite(solid(P["light"]), img, light.filter(ImageFilter.GaussianBlur(240 * S)))
 vig = Image.new("L", (W, H), 255)
 ImageDraw.Draw(vig).ellipse([-W * 0.1, -H * 0.2, W * 1.1, H * 1.15], fill=0)
 vig = vig.filter(ImageFilter.GaussianBlur(280 * S))
-img = Image.composite(solid((40, 34, 50) if DAY else (0, 0, 0)), img, vig.point(lambda v: int(v * (0.5 if DAY else 0.55))))
+img = Image.composite(solid((0, 0, 0)), img, vig.point(lambda v: int(v * (0.55))))
 noise = Image.effect_noise((W, H), 40).convert("RGB")
 img = Image.blend(img, ImageChops.overlay(img, noise), P["grain"] / 30)
 
