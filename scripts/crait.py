@@ -2,9 +2,9 @@
 running flat to low mesas under an indigo night, broken in long wandering
 scars where red mineral shows through and glows.
 
-With --day the viewpoint changes: under a white salt cliff at midday, a
-great fortress door cut into it, red trenches running across the plain to
-it, and pale salt crystals in front.
+With --day the viewpoint changes: beside a white salt cliff at midday,
+red trenches running off across the open plain to the horizon, and pale
+salt crystals in front.
 
 Usage: python3 scripts/crait.py [--day] OUT.jpg [WIDTH HEIGHT]
 Needs Pillow.
@@ -73,8 +73,8 @@ def solid(c):
     return Image.new("RGB", (W, H), c)
 
 
-# ---- Day: under a salt cliff, a fortress door cut into it, red trenches
-# across the plain and salt crystals in front. Runs and exits before the
+# ---- Day: beside a salt cliff, red trenches running off across the open
+# plain and salt crystals in front. Runs and exits before the
 # night code below.
 def day():
     rng = random.Random(29)
@@ -99,9 +99,9 @@ def day():
     salt = Image.effect_noise((W // 6, H // 6), 50).resize((W, H), Image.BICUBIC).point(lambda v: max(0, v - 128))
     salt = ImageChops.multiply(salt, poly([(0, HZ), (W, HZ), (W, H), (0, H)]))
     img = Image.composite(solid(rgb("#e2dee2")), img, salt)
-    # Red trenches: lines converging on a point near the door, widening
-    # toward the viewer, each with a pale salt lip.
-    vx, vy = W * 0.66, HZ + 6 * S
+    # Red trenches: lines converging on a point far out on the open plain,
+    # widening toward the viewer, each with a pale salt lip.
+    vx, vy = W * 0.34, HZ + 3 * S
     for k in range(6):
         a = math.radians(rng.uniform(100, 165) if k % 2 else rng.uniform(15, 80))
         L = rng.uniform(0.7, 1.5) * W
@@ -143,15 +143,6 @@ def day():
     snow = Image.new("L", (W, H), 0)
     ImageDraw.Draw(snow).line(top[1:], fill=255, width=max(1, int(8 * S)))
     img = Image.composite(solid(rgb("#f6f4f4")), img, ImageChops.multiply(snow.filter(ImageFilter.GaussianBlur(3 * S)), cliff))
-    # The fortress door: a great dark slab with a frame, set into the cliff.
-    dx0, dx1, dy0, dy1 = W * 0.6, W * 0.74, HZ - H * 0.16, HZ + 18 * S
-    d = ImageDraw.Draw(img)
-    d.rectangle([dx0 - 14 * S, dy0 - 14 * S, dx1 + 14 * S, dy1], fill=rgb("#8a8690"))
-    d.rectangle([dx0, dy0, dx1, dy1], fill=rgb("#4a4652"))
-    for k in range(1, 6):
-        y = dy0 + (dy1 - dy0) * k / 6
-        d.line([(dx0, y), (dx1, y)], fill=rgb("#3a3640"), width=max(1, int(3 * S)))
-    d.rectangle([dx0 + (dx1 - dx0) * 0.48, dy0, dx0 + (dx1 - dx0) * 0.52, dy1], fill=rgb("#36323c"))
     # Crystals in the foreground: clusters of pale shards, lit on one face,
     # their bases tinged red where the salt is broken.
     def shard(x, y, h, w, lean):
