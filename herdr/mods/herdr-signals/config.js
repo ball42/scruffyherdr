@@ -31,3 +31,13 @@ export function reloadConfig(prevCfg, text, defaults) {
   const r = readConfig(text, defaults);
   return r.problem ? { cfg: prevCfg, problem: r.problem } : r;
 }
+
+/** What clicking the rail's alert arrow does; kit-rail/arrow.js keeps the same list (a test checks). */
+export const ARROW_MODES = ["scroll-switch", "scroll", "switch"];
+
+/** Config `alert_arrow`: a known mode, else the default and a problem for the strip. */
+export function validArrowMode(v) {
+  if (v === undefined || v === null) return { mode: ARROW_MODES[0], problem: null };
+  if (ARROW_MODES.includes(v)) return { mode: v, problem: null };
+  return { mode: ARROW_MODES[0], problem: `alert_arrow: "${String(v)}" isn't scroll-switch, scroll or switch` };
+}

@@ -1,6 +1,7 @@
 {
   "discord_webhook": "",
   "alert_colors": {},
+  "alert_arrow": "scroll-switch",
   "done_min_seconds": 180,
   "away_seconds": 120,
   "grace_seconds": 60,

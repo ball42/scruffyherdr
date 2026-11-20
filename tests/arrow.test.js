@@ -80,3 +80,8 @@ test("arrowButton: unlit, no +N for one, and each direction's glyph", () => {
     assert.ok(texts(arrowButton({ dir, target: { address: "a", name: "x", more: 0 }, lit: false, t: T, onClick: () => {} })).includes(g));
   }
 });
+
+test("ARROW_MODES is herdr-signals' list (two copies: mods import only their own folder)", async () => {
+  const signals = await import("../herdr/mods/herdr-signals/config.js");
+  assert.deepEqual(ARROW_MODES, signals.ARROW_MODES);
+});

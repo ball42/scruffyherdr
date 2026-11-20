@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { configChanged, readConfig, reloadConfig } from "../herdr/mods/herdr-signals/config.js";
+import { configChanged, readConfig, reloadConfig, validArrowMode } from "../herdr/mods/herdr-signals/config.js";
 
 const D = { poll_ms: 1500, readme_tabs: false };
 
@@ -56,4 +56,12 @@ test("reloadConfig: a reload that can't parse keeps the last good config and nam
 test("reloadConfig: the first read is readConfig's", () => {
   assert.deepEqual(reloadConfig(null, null, { a: 1 }), readConfig(null, { a: 1 }));
   assert.deepEqual(reloadConfig(null, "{", { a: 1 }), readConfig("{", { a: 1 }));
+});
+
+test("validArrowMode: the default, a known mode, and a bad one named", () => {
+  assert.deepEqual(validArrowMode(undefined), { mode: "scroll-switch", problem: null });
+  assert.deepEqual(validArrowMode("scroll"), { mode: "scroll", problem: null });
+  assert.deepEqual(validArrowMode("switch"), { mode: "switch", problem: null });
+  assert.deepEqual(validArrowMode("jump"), { mode: "scroll-switch", problem: 'alert_arrow: "jump" isn\'t scroll-switch, scroll or switch' });
+  assert.equal(validArrowMode(3).mode, "scroll-switch");
 });
