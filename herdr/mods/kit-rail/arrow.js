@@ -15,12 +15,21 @@ export function flaring(a) {
   return a?.attention?.kind === "blocked" && Boolean(a.attention.pulse) && !a.snoozed;
 }
 
-const target = (list, i) => (list.length ? { address: list[i].address, name: list[i].name, more: list.length - 1 } : null);
+/**
+ * One side's target: the Claude that blocked last (latest attention.since: the
+ * one behind Herdr's latest sound), the nearest on a tie, with how many more
+ * flaring Claudes lie that way. `list` is in nearest-first order.
+ */
+function target(list) {
+  if (!list.length) return null;
+  const last = list.reduce((best, a) => ((a.attention.since ?? 0) > (best.attention.since ?? 0) ? a : best));
+  return { address: last.address, name: last.name, more: list.length - 1 };
+}
 
 /**
- * Each edge's target: the nearest flaring Claude before `here` in the rail's
- * order, and after it, with how many more lie that way. With `here` not on
- * the rail (or null), every flaring Claude is before, the first nearest.
+ * Each edge's target among the flaring Claudes before `here` in the rail's
+ * order, and after it. With `here` not on the rail (or null), every flaring
+ * Claude is before.
  */
 export function alertArrows(agents, here) {
   const at = agents.findIndex((a) => a.address === here);
@@ -31,7 +40,7 @@ export function alertArrows(agents, here) {
     if (at < 0 || i < at) before.push(a);
     else after.push(a);
   });
-  return { before: target(before, at < 0 ? 0 : before.length - 1), after: target(after, 0) };
+  return { before: target(at < 0 ? before : before.reverse()), after: target(after) };
 }
 
 /**
@@ -44,6 +53,15 @@ export function arrowAction(mode, row) {
   if (row < 0) return { scroll: null, flash: false, switch: false };
   const scroll = m !== "switch";
   return { scroll: scroll ? row : null, flash: scroll, switch: m !== "scroll" };
+}
+
+/**
+ * How the arrow's switch reaches its Claude in `view` (shared kit.view): in the
+ * grid, as a card click does (it swaps the spotlight); elsewhere by focusing its
+ * terminal, since a card click in the focus view opens the grid.
+ */
+export function switchVia(view) {
+  return view === "grid" ? "card" : "focus";
 }
 
 const GLYPH = { up: "▲", down: "▼", left: "◀", right: "▶" };

@@ -10,7 +10,7 @@ import { View, div, svg } from "gpui-kit";
 import { ScrollHandle, h_flex, v_flex } from "gpui-base";
 import { focused, nextCommand, panes, props, run, settings, setShared, shared, theme } from "herdr";
 import { OpenCard } from "./expand.js";
-import { alertArrows, arrowAction, arrowButton } from "./arrow.js";
+import { alertArrows, arrowAction, arrowButton, switchVia } from "./arrow.js";
 import { hereBar, hereFill, scrollStep } from "./here.js";
 import { MultiReply } from "./multi-ui.js";
 import { saidGist, saidLines } from "./answer.js";
@@ -363,7 +363,8 @@ export default class Rail extends View {
         if (act.scroll !== null) this.scroll.scroll_to_item(act.scroll);
         if (act.flash) this.flares.flash(target.address, cx);
         const a = act.switch ? (shared("herdr-kit")?.agents ?? []).find((x) => x.address === target.address) : null;
-        if (a) click(a);
+        if (a && switchVia(shared("kit.view")) === "card") click(a);
+        else if (a) run("agent.focus", { terminal: a.address });
       },
     });
     return { before: one(pick.before, dirs[0]), after: one(pick.after, dirs[1]) };

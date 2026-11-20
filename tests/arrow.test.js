@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import "./support/gpui-stub.js";
 
-const { ARROW_MODES, alertArrows, arrowAction, flaring } = await import("../herdr/mods/kit-rail/arrow.js");
+const { ARROW_MODES, alertArrows, arrowAction, flaring, switchVia } = await import("../herdr/mods/kit-rail/arrow.js");
 
 const ag = (address, blocked = false, pulse = true, snoozed = false, space = "s1") =>
   ({ address, name: address, space, attention: { kind: blocked ? "blocked" : "idle", pulse }, snoozed });
@@ -84,4 +84,18 @@ test("arrowButton: unlit, no +N for one, and each direction's glyph", () => {
 test("ARROW_MODES is herdr-signals' list (two copies: mods import only their own folder)", async () => {
   const signals = await import("../herdr/mods/herdr-signals/config.js");
   assert.deepEqual(ARROW_MODES, signals.ARROW_MODES);
+});
+
+test("alertArrows: each side points at the Claude that blocked last (the one behind the sound)", () => {
+  const at = (address, since) => ({ ...ag(address, true), attention: { kind: "blocked", pulse: true, since } });
+  const agents = [at("old", 1_000), at("new", 9_000), ag("here"), at("b1", 5_000), at("b2", 8_000)];
+  const got = alertArrows(agents, "here");
+  assert.deepEqual(got.before, { address: "new", name: "new", more: 1 });
+  assert.deepEqual(got.after, { address: "b2", name: "b2", more: 1 });
+});
+
+test("switchVia: the grid swaps the spotlight like a card click; elsewhere focus the Claude", () => {
+  assert.equal(switchVia("grid"), "card");
+  assert.equal(switchVia("focus"), "focus");
+  assert.equal(switchVia(undefined), "focus");
 });
