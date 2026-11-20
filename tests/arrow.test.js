@@ -52,3 +52,31 @@ test("arrowAction: each mode, an unknown one, and a row that's gone", () => {
   assert.deepEqual(arrowAction("scroll", -1), { scroll: null, flash: false, switch: false });
   assert.deepEqual(ARROW_MODES, ["scroll-switch", "scroll", "switch"]);
 });
+
+const { arrowButton } = await import("../herdr/mods/kit-rail/arrow.js");
+const T = { foreground: "#e6edf3", muted: "#8b949e", hover: "#222222", chrome: "#161b22", border: "#30363d" };
+/** Every [name, ...args] call in an element and its children. */
+const calls = (e) => e.calls.flatMap((c) => [c, ...(c[0] === "child" && c[1]?.calls ? calls(c[1]) : [])]);
+const texts = (e) => calls(e).filter((c) => c[0] === "child" && typeof c[1] === "string").map((c) => c[1]).join(" ");
+
+test("arrowButton: a named button with the direction, ✋, the name and +N", () => {
+  let clicked = 0;
+  const b = arrowButton({ dir: "up", target: { address: "a", name: "claude · beta", more: 1 }, lit: true, t: T, onClick: () => clicked++ });
+  assert.ok(calls(b).some((c) => c[0] === "id" && c[1] === "alert-arrow-up"));
+  const words = texts(b);
+  for (const w of ["▲", "✋", "claude · beta", "+1"]) assert.ok(words.includes(w), `${w} in ${words}`);
+  assert.ok(calls(b).some((c) => c[0] === "tooltip" && c[1] === "Needs you: claude · beta"));
+  const click = calls(b).find((c) => c[0] === "on_click");
+  click[1]({}, {});
+  assert.equal(clicked, 1);
+  assert.equal(calls(b).find((c) => c[0] === "opacity")[1], 0.7);
+});
+
+test("arrowButton: unlit, no +N for one, and each direction's glyph", () => {
+  const b = arrowButton({ dir: "right", target: { address: "a", name: "x", more: 0 }, lit: false, t: T, onClick: () => {} });
+  assert.equal(calls(b).find((c) => c[0] === "opacity")[1], 0);
+  assert.ok(!texts(b).includes("+"));
+  for (const [dir, g] of [["down", "▼"], ["left", "◀"], ["right", "▶"]]) {
+    assert.ok(texts(arrowButton({ dir, target: { address: "a", name: "x", more: 0 }, lit: false, t: T, onClick: () => {} })).includes(g));
+  }
+});

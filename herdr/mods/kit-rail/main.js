@@ -10,6 +10,7 @@ import { View, div, svg } from "gpui-kit";
 import { ScrollHandle, h_flex, v_flex } from "gpui-base";
 import { focused, nextCommand, panes, props, run, settings, setShared, shared, theme } from "herdr";
 import { OpenCard } from "./expand.js";
+import { alertArrows, arrowAction, arrowButton } from "./arrow.js";
 import { hereBar, hereFill, scrollStep } from "./here.js";
 import { MultiReply } from "./multi-ui.js";
 import { saidGist, saidLines } from "./answer.js";
@@ -348,6 +349,26 @@ export default class Rail extends View {
     return outline(el, a.attention.kind, t);
   }
 
+  /**
+   * The flaring-Claude arrows for one view (arrow.js): `shown` in its order,
+   * `rowOf` its address -> scroll-child index, `dirs` [before, after] glyph
+   * directions. A click scrolls, flares and/or switches as config alert_arrow says.
+   */
+  arrows(shown, here, rowOf, t, dirs) {
+    const pick = alertArrows(shown, here);
+    const one = (target, dir) => target && arrowButton({
+      dir, target, t, lit: Boolean(this.flares.lit[target.address]),
+      onClick: (_e, cx) => {
+        const act = arrowAction(shared("kit.alertArrow"), rowOf[target.address] ?? -1);
+        if (act.scroll !== null) this.scroll.scroll_to_item(act.scroll);
+        if (act.flash) this.flares.flash(target.address, cx);
+        const a = act.switch ? (shared("herdr-kit")?.agents ?? []).find((x) => x.address === target.address) : null;
+        if (a) click(a);
+      },
+    });
+    return { before: one(pick.before, dirs[0]), after: one(pick.after, dirs[1]) };
+  }
+
   /** Scroll row `index` into view when the focused terminal has changed (here.js). */
   scrollTo(focus, index) {
     const step = scrollStep(this.lastFocus, focus ?? null, index);
@@ -373,14 +394,21 @@ export default class Rail extends View {
       const all = Boolean(shared("kit.gridAll"));
       const others = agents.filter((a) => (all || a.space === model?.current_space) && a.address !== spot);
       this.scrollTo(here, others.findIndex((a) => a.address === here));
-      return keys(h_flex().id("kit-cards")).size_full().px(8).py(6).gap(6).items_stretch().bg(t.chrome).border_t(1).border_color(t.border)
+      const ends = this.arrows(others, here, Object.fromEntries(others.map((a, i) => [a.address, i])), t, ["left", "right"]);
+      const list = h_flex().id("kit-cards-list").flex_1().min_w_0().h_full().gap(6).items_stretch()
         .overflow_x_scrollbar().track_scroll(this.scroll)
         .children(others.map((a) => div().w(220).flex_none().child(this.card(a, t, a.address === here))));
+      return keys(h_flex().id("kit-cards")).size_full().px(8).py(6).gap(6).items_center().bg(t.chrome).border_t(1).border_color(t.border)
+        .children([ends.before, list, ends.after].filter(Boolean));
     }
 
     if (props()?.compact) {
-      return keys(h_flex().id("kit-chips")).size_full().px(8).gap(4).items_center().bg(t.chrome).overflow_x_scrollbar()
+      const ends = this.arrows(agents, here, Object.fromEntries(agents.map((a, i) => [a.address, i])), t, ["left", "right"]);
+      const list = h_flex().id("kit-chips-list").flex_1().min_w_0().h_full().gap(4).items_center()
+        .overflow_x_scrollbar().track_scroll(this.scroll)
         .children(agents.map((a) => this.chip(a, t, a.address === here)));
+      return keys(h_flex().id("kit-chips")).size_full().px(8).gap(4).items_center().bg(t.chrome)
+        .children([ends.before, list, ends.after].filter(Boolean));
     }
 
     this.multi.sync(agents, cx);
@@ -389,12 +417,14 @@ export default class Rail extends View {
     if (bar) rows.push(bar);
     let space = null;
     let hereRow = -1;
+    const rowOf = {};
     for (const a of agents) {
       if (a.space !== space) {
         space = a.space;
         rows.push(this.spaceHeader(a, agents, model?.current_space, t, rows.length === 0));
       }
       if (a.address === here) hereRow = rows.length;
+      rowOf[a.address] = rows.length;
       if (this.answer.open?.address === a.address) {
         const open = this.expanded(a, t);
         rows.push(a.address === here ? div().relative().w_full().child(open).child(hereBar(shared("kit.here"), t)) : open);
@@ -409,7 +439,13 @@ export default class Rail extends View {
       for (const r of loose) rows.push(this.looseRow(r, t));
     }
     this.scrollTo(here, hereRow);
-    return keys(v_flex().id("kit-rail")).size_full().p(8).gap(5).bg(t.chrome).border_l(1).border_color(t.border)
+    // The arrows sit outside the scrolling list, so they stay put while it scrolls;
+    // the list is always its own element, so an arrow appearing keeps its scroll.
+    const ends = this.arrows(agents, here, rowOf, t, ["up", "down"]);
+    const list = v_flex().id("kit-rail-list").flex_1().min_h_0().w_full().p(8).gap(5)
       .overflow_y_scrollbar().track_scroll(this.scroll).children(rows);
+    const edge = (el, top) => el && div().flex_none().w_full().px(8).when(top, (d) => d.pt(8)).when(!top, (d) => d.pb(8)).child(el);
+    return keys(v_flex().id("kit-rail")).size_full().bg(t.chrome).border_l(1).border_color(t.border)
+      .children([edge(ends.before, true), list, edge(ends.after, false)].filter(Boolean));
   }
 }

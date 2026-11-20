@@ -4,6 +4,8 @@
 // card): earlier in the order is the top edge (◀ in a row), later the bottom
 // (▶). Herdr can't say where the rail is scrolled, so the order decides, not
 // the scroll position.
+import { div } from "gpui-kit";
+import { ORANGE } from "./look.js";
 
 /** What clicking the arrow does (config `alert_arrow`, published as kit.alertArrow). */
 export const ARROW_MODES = ["scroll-switch", "scroll", "switch"];
@@ -42,4 +44,28 @@ export function arrowAction(mode, row) {
   if (row < 0) return { scroll: null, flash: false, switch: false };
   const scroll = m !== "switch";
   return { scroll: scroll ? row : null, flash: scroll, switch: m !== "scroll" };
+}
+
+const GLYPH = { up: "▲", down: "▼", left: "◀", right: "▶" };
+
+/**
+ * One edge's arrow, a named button: the direction, ✋, the Claude's name and
+ * "+N" for the others that way, in the needs-you colour. `lit` is the card's
+ * own flare state (Flares.lit), so the arrow flares on the card's beat with the
+ * same rise and fade as Flares.overlay.
+ */
+export function arrowButton({ dir, target, lit, t, onClick }) {
+  const word = (text, size = 12) => div().flex_none().text_size(size).text_color(ORANGE).child(text);
+  let el = div().id(`alert-arrow-${dir}`).relative().flex().flex_none().items_center().gap(5)
+    .px(8).py(4).rounded(6).border(1).border_color(ORANGE).bg(t.chrome).cursor_pointer()
+    .hover((st) => st.bg(t.hover))
+    .tooltip(`Needs you: ${target.name}`)
+    .on_click((e, cx) => onClick(e, cx))
+    .child(word(GLYPH[dir] ?? "▲", 10))
+    .child(word("✋"))
+    .child(div().min_w(0).truncate().text_size(12).text_color(t.foreground).child(target.name));
+  if (target.more > 0) el = el.child(word(`+${target.more}`, 11));
+  return el.child(div().id(`alert-arrow-${dir}-flare`).absolute().inset_0().rounded(6).bg(ORANGE)
+      .opacity(lit ? 0.7 : 0)
+      .transition("opacity", lit ? { duration: 120, easing: "ease-out" } : { duration: 1200, easing: "ease-in" }));
 }
