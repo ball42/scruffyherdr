@@ -184,7 +184,16 @@ function clip(s, max) {
   return cps.length > max ? `${cps.slice(0, max - 1).join("")}…` : s;
 }
 
+/**
+ * Longest badge url the deck gets, in characters. A link can't be clipped like
+ * the text, so a longer one goes as null: the badge still shows, without a link,
+ * and the report stays under the deck's 4096 bytes.
+ */
+export const MAX_DECK_URL = 2048;
+
 /** The focused Claude's badge as the Stream Deck gets it: {text, url, short}, nulls for the missing parts. */
 export function deckBadge(b) {
-  return b ? { text: clip(b.text, MAX_DECK_TEXT), url: b.url ?? null, short: b.short ?? null } : null;
+  if (!b) return null;
+  const url = typeof b.url === "string" && b.url.length <= MAX_DECK_URL ? b.url : null;
+  return { text: clip(b.text, MAX_DECK_TEXT), url, short: b.short ?? null };
 }
