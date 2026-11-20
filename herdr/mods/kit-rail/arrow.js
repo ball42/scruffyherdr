@@ -29,14 +29,16 @@ function target(list) {
 /**
  * Each edge's target among the flaring Claudes before `here` in the rail's
  * order, and after it. With `here` not on the rail (or null), every flaring
- * Claude is before.
+ * Claude is before. `skip` lists Claudes that keep their place in the order
+ * but are never targets: the strip's spotlight, shown above it with no card
+ * in the row.
  */
-export function alertArrows(agents, here) {
+export function alertArrows(agents, here, skip = []) {
   const at = agents.findIndex((a) => a.address === here);
   const before = [];
   const after = [];
   agents.forEach((a, i) => {
-    if (a.address === here || !flaring(a)) return;
+    if (a.address === here || skip.includes(a.address) || !flaring(a)) return;
     if (at < 0 || i < at) before.push(a);
     else after.push(a);
   });
@@ -74,14 +76,18 @@ const GLYPH = { up: "▲", down: "▼", left: "◀", right: "▶" };
  */
 export function arrowButton({ dir, target, lit, t, onClick }) {
   const word = (text, size = 12) => div().flex_none().text_size(size).text_color(ORANGE).child(text);
+  // A Tab stop: GPUI counts Enter or Space on it as a click; the ring is a shape, not a colour.
   let el = div().id(`alert-arrow-${dir}`).relative().flex().flex_none().items_center().gap(5)
     .px(8).py(4).rounded(6).border(1).border_color(ORANGE).bg(t.chrome).cursor_pointer()
     .hover((st) => st.bg(t.hover))
+    .role("button").accessibility_label(`Needs you: ${target.name}`).tab_index(0)
+    .focus((st) => st.border_2().border_color(t.foreground))
     .tooltip(`Needs you: ${target.name}`)
     .on_click((e, cx) => onClick(e, cx))
     .child(word(GLYPH[dir] ?? "▲", 10))
     .child(word("✋"))
-    .child(div().min_w(0).truncate().text_size(12).text_color(t.foreground).child(target.name));
+    // Capped, so a long name can't squeeze the chip row's list to nothing.
+    .child(div().min_w(0).max_w(140).truncate().text_size(12).text_color(t.foreground).child(target.name));
   if (target.more > 0) el = el.child(word(`+${target.more}`, 11));
   return el.child(div().id(`alert-arrow-${dir}-flare`).absolute().inset_0().rounded(6).bg(ORANGE)
       .opacity(lit ? 0.7 : 0)

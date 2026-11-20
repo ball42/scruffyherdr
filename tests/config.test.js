@@ -64,6 +64,8 @@ test("validArrowMode: the default, a known mode, and a bad one named", () => {
   assert.deepEqual(validArrowMode("switch"), { mode: "switch", problem: null });
   assert.deepEqual(validArrowMode("jump"), { mode: "scroll-switch", problem: 'alert_arrow: "jump" isn\'t scroll-switch, scroll or switch' });
   assert.equal(validArrowMode(3).mode, "scroll-switch");
+  assert.equal(validArrowMode({}).problem, "alert_arrow: an object isn't scroll-switch, scroll or switch");
+  assert.equal(validArrowMode(["scroll"]).problem, "alert_arrow: a list isn't scroll-switch, scroll or switch");
 });
 
 test("reloadConfig: poll_ms and run_cards keep their start values; other keys apply", () => {

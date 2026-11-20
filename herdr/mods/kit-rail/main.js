@@ -11,7 +11,7 @@ import { ScrollHandle, h_flex, v_flex } from "gpui-base";
 import { focused, nextCommand, panes, props, run, settings, setShared, shared, theme } from "herdr";
 import { OpenCard } from "./expand.js";
 import { alertArrows, arrowAction, arrowButton, switchVia } from "./arrow.js";
-import { hereBar, hereFill, scrollStep } from "./here.js";
+import { HERE_PAD, hereBar, hereFill, railRows, scrollStep } from "./here.js";
 import { MultiReply } from "./multi-ui.js";
 import { saidGist, saidLines } from "./answer.js";
 import { BLUE, Flares, ORANGE, useTheme, RunGate, asksBadge, canCompact, cardClick, compactPill, cardMark, confirmRun, copyCommand, ctxEdge, ctxFigure, ctxMeter, dismissRun, groupRuns, mark, openItems, openRunLog, outline, pill, pressRun, ranClean, runCard, runStatus, runningText, runTick, visibleRuns, snoozeControls, snoozeGlyph, snoozeLabel, snoozeSet, waited, withCard } from "./look.js";
@@ -125,7 +125,7 @@ export default class Rail extends View {
   }
 
   /** The open card, drawn by expand.js. */
-  expanded(a, t) {
+  expanded(a, t, current = false) {
     const glyph = a.snoozed ? snoozeGlyph(t.dim, snoozeLabel(a)) : mark(a.attention.kind, a.attention.pulse) ?? statusGlyph(a, t);
     const meta = [
       a.attention.kind === "blocked" && a.attention.since ? div().text_size(11).text_color(t.muted).child(`waiting ${waited(a.attention.since)}`) : null,
@@ -143,6 +143,7 @@ export default class Rail extends View {
       runs: this.runRows(a, t),
       font: typeof settings()?.font_family === "string" ? settings().font_family : null,
       overlay: this.flares.overlay(a.address),
+      here: current ? hereBar(shared("kit.here"), t) : null,
     });
   }
 
@@ -237,7 +238,7 @@ export default class Rail extends View {
   quiet(a, t, current) {
     const glyph = a.snoozed ? snoozeGlyph(t.dim, snoozeLabel(a)) : statusGlyph(a, t);
     const m = ctxMeter(a.ctx_left);
-    return div().id(`rail-${a.address}`).relative().w_full().px(10).py(3).rounded(6)
+    return div().id(`rail-${a.address}`).relative().w_full().pl(HERE_PAD.card).pr(10).py(3).rounded(6)
       .bg(current ? hereFill(shared("kit.here"), t) : t.chrome)
       .hover((s) => s.bg(t.hover))
       .on_mouse_down("left", () => this.answer.remember())
@@ -255,7 +256,7 @@ export default class Rail extends View {
       .when(canCompact(a), (el) => el.child(h_flex().pt(3).child(this.compactPill(a, t))))
       .when(this.hoverCard === a.address, (el) => el.child(h_flex().pt(3).child(snoozeControls(t, `rail-zz-${a.address}`, a, (c) => snooze(a.address, c)))))
       .when(Boolean(m), (el) => el.child(ctxEdge(m, t)))
-      .when(current, (el) => el.pl(13).child(hereBar(shared("kit.here"), t)))
+      .when(current, (el) => el.child(hereBar(shared("kit.here"), t)))
       .border(1).border_color(current ? t.border : t.chrome);
   }
 
@@ -273,7 +274,7 @@ export default class Rail extends View {
   card(a, t, current, expandable = false) {
     const badge = asksFor(a);
     const glyph = a.snoozed ? snoozeGlyph(t.dim, snoozeLabel(a)) : badge && a.attention.kind === "blocked" ? null : mark(a.attention.kind, a.attention.pulse) ?? statusGlyph(a, t);
-    const body = v_flex().id(`rail-${a.address}`).relative().w_full().px(10).py(6).gap(2).rounded(6)
+    const body = v_flex().id(`rail-${a.address}`).relative().w_full().pl(HERE_PAD.card).pr(10).py(6).gap(2).rounded(6)
       .bg(current ? hereFill(shared("kit.here"), t) : t.raised)
       .hover((s) => s.bg(t.hover))
       .when(expandable, (el) => el.on_mouse_down("left", () => this.answer.remember()))
@@ -302,7 +303,7 @@ export default class Rail extends View {
       .when(Boolean(ctxMeter(a.ctx_left)), (el) => el.child(ctxEdge(ctxMeter(a.ctx_left), t)))
       .when(canCompact(a), (el) => el.child(h_flex().pt(3).child(this.compactPill(a, t))))
       .when(this.hoverCard === a.address, (el) => el.child(h_flex().pt(3).child(snoozeControls(t, `rail-zz-${a.address}`, a, (c) => snooze(a.address, c)))))
-      .when(current, (el) => el.pl(13).child(hereBar(shared("kit.here"), t)))
+      .when(current, (el) => el.child(hereBar(shared("kit.here"), t)))
       .child(this.flares.overlay(a.address));
     return outline(body, a.attention.kind, t);
   }
@@ -336,7 +337,7 @@ export default class Rail extends View {
   chip(a, t, current) {
     const badge = asksFor(a);
     const glyph = a.snoozed ? snoozeGlyph(t.dim) : badge && a.attention.kind === "blocked" ? null : mark(a.attention.kind, a.attention.pulse) ?? statusGlyph(a, t);
-    const el = h_flex().id(`chip-${a.address}`).relative().h(24).px(8).gap(6).flex_none().items_center().rounded(6)
+    const el = h_flex().id(`chip-${a.address}`).relative().h(24).pl(HERE_PAD.chip).pr(8).gap(6).flex_none().items_center().rounded(6)
       .bg(current ? hereFill(shared("kit.here"), t) : t.raised)
       .hover((s) => s.bg(t.hover))
       .on_click(() => click(a))
@@ -344,7 +345,7 @@ export default class Rail extends View {
       .when(Boolean(a.card), (e) => e.child(cardMark(a.card, a.attention.kind === "blocked" ? ORANGE : BLUE)))
       .when(Boolean(badge), (e) => e.child(badge))
       .child(div().max_w(160).truncate().text_size(12).text_color(t.foreground).child(a.name))
-      .when(current, (e) => e.pl(11).child(hereBar(shared("kit.here"), t)))
+      .when(current, (e) => e.child(hereBar(shared("kit.here"), t)))
       .child(this.flares.overlay(a.address));
     return outline(el, a.attention.kind, t);
   }
@@ -352,10 +353,11 @@ export default class Rail extends View {
   /**
    * The flaring-Claude arrows for one view (arrow.js): `shown` in its order,
    * `rowOf` its address -> scroll-child index, `dirs` [before, after] glyph
-   * directions. A click scrolls, flares and/or switches as config alert_arrow says.
+   * directions, `skip` Claudes placed but never pointed at. A click scrolls,
+   * flares and/or switches as config alert_arrow says.
    */
-  arrows(shown, here, rowOf, t, dirs) {
-    const pick = alertArrows(shown, here);
+  arrows(shown, here, rowOf, t, dirs, skip = []) {
+    const pick = alertArrows(shown, here, skip);
     const one = (target, dir) => target && arrowButton({
       dir, target, t, lit: Boolean(this.flares.lit[target.address]),
       onClick: (_e, cx) => {
@@ -393,9 +395,11 @@ export default class Rail extends View {
     if (props()?.strip) {
       const spot = shared("kit.grid")?.spotlight;
       const all = Boolean(shared("kit.gridAll"));
-      const others = agents.filter((a) => (all || a.space === model?.current_space) && a.address !== spot);
+      const shown = agents.filter((a) => all || a.space === model?.current_space);
+      const others = shown.filter((a) => a.address !== spot);
       this.scrollTo(here, others.findIndex((a) => a.address === here));
-      const ends = this.arrows(others, here, Object.fromEntries(others.map((a, i) => [a.address, i])), t, ["left", "right"]);
+      // The spotlight has no card in the row but keeps its slot, so the arrows place around it.
+      const ends = this.arrows(shown, here, Object.fromEntries(others.map((a, i) => [a.address, i])), t, ["left", "right"], spot ? [spot] : []);
       const list = h_flex().id("kit-cards-list").flex_1().min_w_0().h_full().gap(6).items_stretch()
         .overflow_x_scrollbar().track_scroll(this.scroll)
         .children(others.map((a) => div().w(220).flex_none().child(this.card(a, t, a.address === here))));
@@ -413,32 +417,21 @@ export default class Rail extends View {
     }
 
     this.multi.sync(agents, cx);
-    const rows = [];
     const bar = this.multi.bar(t);
-    if (bar) rows.push(bar);
-    let space = null;
-    let hereRow = -1;
-    const rowOf = {};
-    for (const a of agents) {
-      if (a.space !== space) {
-        space = a.space;
-        rows.push(this.spaceHeader(a, agents, model?.current_space, t, rows.length === 0));
-      }
-      if (a.address === here) hereRow = rows.length;
-      rowOf[a.address] = rows.length;
-      if (this.answer.open?.address === a.address) {
-        const open = this.expanded(a, t);
-        rows.push(a.address === here ? div().relative().w_full().child(open).child(hereBar(shared("kit.here"), t)) : open);
-      }
-      else if (this.isQuiet(a)) rows.push(this.quiet(a, t, a.address === here));
-      else rows.push(this.card(a, t, a.address === here, true));
-    }
-    if (!rows.length) rows.push(div().p(8).text_size(12).text_color(t.dim).child("No Claudes yet"));
-    const loose = model?.rows ?? [];
-    if (loose.length) {
-      rows.push(div().pt(14).pb(2).px(2).text_size(10.5).font_semibold().text_color(t.muted).child("No Claude on these"));
-      for (const r of loose) rows.push(this.looseRow(r, t));
-    }
+    const plan = railRows(agents, { bar: Boolean(bar), loose: model?.rows ?? [] });
+    const rowOf = plan.rowOf;
+    const hereRow = rowOf[here] ?? -1;
+    const rows = plan.rows.map((r) => {
+      if (r.kind === "bar") return bar;
+      if (r.kind === "space") return this.spaceHeader(r.a, agents, model?.current_space, t, r.first);
+      if (r.kind === "empty") return div().p(8).text_size(12).text_color(t.dim).child("No Claudes yet");
+      if (r.kind === "looseHead") return div().pt(14).pb(2).px(2).text_size(10.5).font_semibold().text_color(t.muted).child("No Claude on these");
+      if (r.kind === "loose") return this.looseRow(r.r, t);
+      const a = r.a;
+      const current = a.address === here;
+      if (this.answer.open?.address === a.address) return this.expanded(a, t, current);
+      return this.isQuiet(a) ? this.quiet(a, t, current) : this.card(a, t, current, true);
+    });
     this.scrollTo(here, hereRow);
     // The arrows sit outside the scrolling list, so they stay put while it scrolls;
     // the list is always its own element, so an arrow appearing keeps its scroll.

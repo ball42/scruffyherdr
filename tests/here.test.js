@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import "./support/gpui-stub.js";
 
-const { hereBar, hereFill, scrollStep } = await import("../herdr/mods/kit-rail/here.js");
+const { HERE_PAD, hereBar, hereFill, railRows, scrollStep } = await import("../herdr/mods/kit-rail/here.js");
 
 test("scrollStep: no scroll on the first render", () => {
   assert.deepEqual(scrollStep(undefined, "t1", 3), { index: null, prev: "t1" });
@@ -48,4 +48,30 @@ test("hereBar: a 3-px bar in kit.here's colour, else foreground", () => {
 test("hereFill: kit.here's fill, else the theme's selected", () => {
   assert.equal(hereFill({ hereFill: "#1d2a33" }, { selected: "#222" }), "#1d2a33");
   assert.equal(hereFill(null, { selected: "#222" }), "#222");
+});
+
+test("hereBar: inset from the card's ends and edge, so it clears the corners and the outline", () => {
+  const calls = hereBar({ here: "#5fd4d0" }, { foreground: "#fff" }).calls;
+  const at = (k) => calls.find((c) => c[0] === k)?.[1];
+  assert.ok(at("top") >= 3 && at("bottom") >= 3, "clear of the rounded corners");
+  assert.ok(at("left") >= 1, "inside a 2-px outline");
+  assert.ok(calls.some((c) => c[0] === "rounded_full"));
+  assert.ok(HERE_PAD.card > 3 + at("left") && HERE_PAD.chip > 3 + at("left"), "every card reserves the bar's width");
+});
+
+const claude = (address, space) => ({ address, space });
+
+test("railRows: the multi bar, space headers, Claudes and loose rows, with each Claude's row index", () => {
+  const agents = [claude("a", "s1"), claude("b", "s1"), claude("c", "s2")];
+  const { rows, rowOf } = railRows(agents, { bar: true, loose: [{ id: "r1" }] });
+  assert.deepEqual(rows.map((r) => r.kind), ["bar", "space", "claude", "claude", "space", "claude", "looseHead", "loose"]);
+  assert.deepEqual(rowOf, { a: 2, b: 3, c: 5 });
+  assert.equal(rows[1].first, false, "a header under the bar isn't the top row");
+  assert.equal(railRows(agents).rows[0].first, true, "without the bar, the first header is");
+});
+
+test("railRows: no bar and no Claudes is one empty row; rowOf is empty", () => {
+  const { rows, rowOf } = railRows([], { bar: false, loose: [] });
+  assert.deepEqual(rows.map((r) => r.kind), ["empty"]);
+  assert.deepEqual(rowOf, {});
 });
