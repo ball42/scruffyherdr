@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ADDON_KEYS, MAX_BUTTONS, MAX_ROWS, addonBlocks, cardName, deckBadge, goodLink, pressCommand, readAddon, withAddons, withBadges } from "../herdr/mods/herdr-signals/addons.js";
+import { deckAsks, summary } from "../herdr/mods/herdr-signals/policy.js";
 
 /** Each key's value as an add-on publishes it: {at, items}. */
 const fresh = (o, at = 1000) => Object.fromEntries(Object.entries(o).map(([k, items]) => [k, { at, items }]));
@@ -136,6 +137,31 @@ test("deckBadge: the deck gets text, url and short, nulls for the missing parts"
   assert.deepEqual(deckBadge({ text: "t" }), { text: "t", url: null, short: null });
   assert.equal(deckBadge(null), null);
   assert.equal(deckBadge(undefined), null);
+});
+
+test("deckBadge: a text over 200 code points is clipped to 200, ending in …", () => {
+  const long = "😀".repeat(300);
+  const t = deckBadge({ text: long }).text;
+  assert.equal([...t].length, 200);
+  assert.ok(t.endsWith("…"));
+  assert.equal(t, `${"😀".repeat(199)}…`);
+  const exact = "a".repeat(200);
+  assert.equal(deckBadge({ text: exact }).text, exact);
+});
+
+test("deckBadge: a 5,000-character badge text still leaves the deck's report under 4096 bytes", () => {
+  // The deck plugin answers 413 to a body over 4096 bytes (streamdeck/src/server.ts
+  // MAX_BODY in herdr-kit), which freezes every key, not just the badge key.
+  const agents = Array.from({ length: 8 }, (_, i) => ({
+    address: `w1:t${i}`, name: `claude-${i}`, status: i % 2 ? "blocked" : "done",
+    card: null, attention: { since: 1000 + i },
+  }));
+  const body = JSON.stringify({ ...summary(agents), asks: deckAsks(agents, "w1:t0"), badge: deckBadge({ text: "x".repeat(5000), url: "https://example.com/PROJ-12", short: "PROJ-12 In Progress" }) });
+  assert.ok(Buffer.byteLength(body) < 4096, `body is ${Buffer.byteLength(body)} bytes`);
+  const sent = JSON.parse(body);
+  assert.equal(sent.blocked, 4);
+  assert.equal(sent.done, 4);
+  assert.equal([...sent.badge.text].length, 200);
 });
 
 test("goodLink agrees with the shared URL cases (the Stream Deck server checks the same file)", () => {
