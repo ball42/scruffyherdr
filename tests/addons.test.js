@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ADDON_KEYS, MAX_BUTTONS, MAX_ROWS, addonBlocks, cardName, deckBadge, goodLink, pressCommand, readAddon, withAddons, withBadges } from "../herdr/mods/herdr-signals/addons.js";
+import { ADDON_KEYS, MAX_BUTTONS, MAX_DECK_URL, MAX_ROWS, addonBlocks, cardName, deckBadge, goodLink, pressCommand, readAddon, withAddons, withBadges } from "../herdr/mods/herdr-signals/addons.js";
 import { deckAsks, summary } from "../herdr/mods/herdr-signals/policy.js";
 
 /** Each key's value as an add-on publishes it: {at, items}. */
@@ -162,6 +162,44 @@ test("deckBadge: a 5,000-character badge text still leaves the deck's report und
   assert.equal(sent.blocked, 4);
   assert.equal(sent.done, 4);
   assert.equal([...sent.badge.text].length, 200);
+});
+
+test("deckBadge: a url over 2,048 characters goes to the deck as null, an ASCII one at 2,048 goes whole", () => {
+  const base = "https://example.com/";
+  const at = base + "a".repeat(MAX_DECK_URL - base.length);
+  assert.equal(at.length, 2048);
+  assert.equal(deckBadge({ text: "t", url: at }).url, at);
+  assert.equal(deckBadge({ text: "t", url: `${at}a` }).url, null);
+  assert.equal(deckBadge({ text: "t", url: `${at}a` }).text, "t", "the badge itself still goes");
+});
+
+test("deckBadge: the url cap counts UTF-8 bytes, so a non-ASCII url can't double past it", () => {
+  const base = "https://example.com/";
+  const wide = base + "é".repeat(1100);
+  assert.ok(wide.length <= MAX_DECK_URL && Buffer.byteLength(wide) > MAX_DECK_URL);
+  assert.equal(deckBadge({ text: "t", url: wide }).url, null);
+  const fits = base + "é".repeat((MAX_DECK_URL - base.length) / 2);
+  assert.equal(Buffer.byteLength(fits), MAX_DECK_URL);
+  assert.equal(deckBadge({ text: "t", url: fits }).url, fits);
+  const emoji = base + "😀".repeat(507);
+  assert.equal(Buffer.byteLength(emoji), 2048);
+  assert.equal(deckBadge({ text: "t", url: emoji }).url, emoji);
+  assert.equal(deckBadge({ text: "t", url: `${emoji}a` }).url, null);
+});
+
+test("deckBadge: a 5,000-character badge url still leaves the deck's report under 4096 bytes", () => {
+  const agents = Array.from({ length: 8 }, (_, i) => ({
+    address: `w1:t${i}`, name: `claude-${i}`, status: i % 2 ? "blocked" : "done",
+    card: null, attention: { since: 1000 + i },
+  }));
+  const url = `https://example.com/${"a".repeat(5000 - 20)}`;
+  assert.equal(url.length, 5000);
+  const body = JSON.stringify({ ...summary(agents), asks: deckAsks(agents, "w1:t0"), badge: deckBadge({ text: "x".repeat(5000), url, short: "PROJ-12 In Progress" }) });
+  assert.ok(Buffer.byteLength(body) < 4096, `body is ${Buffer.byteLength(body)} bytes`);
+  const sent = JSON.parse(body);
+  assert.equal(sent.blocked, 4);
+  assert.equal(sent.done, 4);
+  assert.equal(sent.badge.url, null);
 });
 
 test("goodLink agrees with the shared URL cases (the Stream Deck server checks the same file)", () => {
