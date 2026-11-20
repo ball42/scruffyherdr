@@ -17,7 +17,7 @@ Herdr's own window, dressed as a scene and focused on your Claudes. One picture 
 **How it behaves:**
 
 - **Working:** a spinner on the rail row, the tab and the pane header.
-- **Blocked** (a permission prompt or a question): orange `#ec8e2c` (on a light theme `#b35900`) and a glyph, on the rail card, tab, pane header, strip and grid tile. The card counts the wait in seconds, then minutes. Each scene picks its own warm hue and glyph: Tatooine ☀☀ `#ec8e2c`, Endor fireflies `#f2c14e`, Hoth ❄ `#ff9e7a`, Dagobah ≈ `#f0b45a`, Coruscant ▥ `#ffb347`, Bespin ☁ `#ffcf5c`, Naboo ⌂ `#ffab66`, Scarif ⌒ `#ff9a3c`, Kamino ☂ `#ffb84a`, Mustafar ▲ `#ffd84d`, Asteroid Belt ☄ `#ff9a3c`, Small Moon ◉ `#ff8a3d`.
+- **Blocked** (a permission prompt or a question): the scene's needs-you colour and a glyph, on the rail card, tab, pane header, strip and grid tile. The card counts the wait in seconds, then minutes. Each scene picks its own warm hue and glyph (night colours; `herdr-signals/scenes.js` has the day ones): Tatooine ☀☀ `#fd9f01`, Endor fireflies `#c9c510`, Hoth ❄ `#ffe5de`, Dagobah ≈ `#b4cc1d`, Coruscant ▥ `#f775ad`, Bespin ☁ `#fd8a8f`, Naboo ⌂ `#cc930d`, Scarif ⌒ `#aba700`, Kamino ☂ `#d1bc8a`, Mustafar ▲ `#ffd84d`, Asteroid Belt ☄ `#fd9f01`, Small Moon ◉ `#c8be9a`. Config `alert_colors` sets your own needs-you and done colours over these (README, Config).
 - **Done** (finished while you weren't looking): blue `#58a6ff` (light `#0969da`) and a ✓. It turns idle once you look.
 - **Idle:** a plain row.
 - Red is never set against green, and every state also carries a glyph or a word.

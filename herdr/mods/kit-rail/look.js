@@ -1,6 +1,6 @@
-// Shared look for the herdr-kit focus view: twin suns (Tatooine) or a tree
-// with fireflies (Endor) for "needs you",
-// a blue check for "done", and a one-time flare when a Claude newly blocks.
+// Shared look for the herdr-kit focus view: each scene's glyph for "needs
+// you" (twin suns on Tatooine, a fir with fireflies on Endor), a blue check for
+// "done", and a one-time flare when a Claude newly blocks.
 // Colors are never the only cue: every state also has a glyph.
 import { div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
@@ -8,25 +8,25 @@ import { h_flex, v_flex } from "gpui-base";
 // Each scene's needs-you glyph and its state colors in a dark and a light
 // tone of the same hue, so "needs you" keeps its hue and "done" stays blue on
 // either theme. Not taken from the theme: a preset could make them red and
-// green. `orange` is the needs-you color (desert orange on Tatooine, firefly
-// gold on Endor), always warm against the blue so they stay apart for
-// colour-blind eyes. The keys are the kit scenes, in herdr-signals/scenes.js's
+// green. `orange` is the needs-you color, whatever its hue (desert amber on
+// Tatooine, moss lemon on Endor; each scene's is in herdr-signals/scenes.js),
+// always warm against the blue so they stay apart for colour-blind eyes. The keys are the kit scenes, in herdr-signals/scenes.js's
 // order (a mod can't import another's files; tests/scenes.test.js checks they match).
 export const TONES = {
   tatooine: {
     glyph: "suns",
     dark: { orange: "#fd9f01", blue: "#58a6ff", sun: "#f6c15b", count: "#fd9f01", badge: "#5a3815", ink: "#0d1117" },
-    light: { orange: "#b35900", blue: "#0969da", sun: "#e8a35a", count: "#9d4d00", badge: "#fbf8f7", ink: "#ffffff" },
+    light: { orange: "#b35900", blue: "#0969da", sun: "#e8a35a", count: "#9d4d00", badge: "#f6f0ef", ink: "#ffffff" },
   },
   endor: {
     glyph: "fireflies",
     dark: { orange: "#c9c510", blue: "#58a6ff", sun: "#fff0a8", tree: "#7fd4b0", count: "#c9c510", badge: "#525116", ink: "#0d1117" },
-    light: { orange: "#8b8810", blue: "#0969da", sun: "#d9a521", tree: "#2f7a5c", count: "#7a770d", badge: "#ffffff", ink: "#0d1117" },
+    light: { orange: "#8b8810", blue: "#0969da", sun: "#d9a521", tree: "#2f7a5c", count: "#7a770d", badge: "#fcfcfa", ink: "#0d1117" },
   },
   hoth: {
     glyph: "beacon",
     dark: { orange: "#ffe5de", blue: "#58a6ff", sun: "#ffd1bd", flake: "#b5e3ff", count: "#ffe5de", badge: "#6a5f5d", ink: "#0d1117" },
-    light: { orange: "#d76549", blue: "#0969da", sun: "#e8896a", flake: "#2f6fb0", count: "#bd583f", badge: "#ffffff", ink: "#0d1117" },
+    light: { orange: "#d76549", blue: "#0969da", sun: "#e8896a", flake: "#2f6fb0", count: "#b1523b", badge: "#faf1f0", ink: "#0d1117" },
   },
   dagobah: {
     glyph: "rocks",
@@ -36,7 +36,7 @@ export const TONES = {
   coruscant: {
     glyph: "skyline",
     dark: { orange: "#f775ad", blue: "#58a6ff", sun: "#ffe0a8", towers: "#c8a6ff", count: "#f775ad", badge: "#4a2436", ink: "#0d1117" },
-    light: { orange: "#c64882", blue: "#0969da", sun: "#e09a40", towers: "#6a3fb0", count: "#ae3e72", badge: "#ffffff", ink: "#ffffff" },
+    light: { orange: "#c64882", blue: "#0969da", sun: "#e09a40", towers: "#6a3fb0", count: "#ae3e72", badge: "#f8f0f2", ink: "#ffffff" },
   },
   bespin: {
     glyph: "cloudCity",
@@ -46,32 +46,32 @@ export const TONES = {
   naboo: {
     glyph: "palace",
     dark: { orange: "#cc930d", blue: "#58a6ff", sun: "#ffe4c4", palace: "#c8d2e6", count: "#cc930d", badge: "#3d2c16", ink: "#0d1117" },
-    light: { orange: "#ae7c04", blue: "#0969da", sun: "#e0a060", palace: "#4f6680", count: "#996c03", badge: "#ffffff", ink: "#0d1117" },
+    light: { orange: "#ae7c04", blue: "#0969da", sun: "#e0a060", palace: "#4f6680", count: "#996c03", badge: "#fcfbfa", ink: "#0d1117" },
   },
   scarif: {
     glyph: "lagoon",
     dark: { orange: "#aba700", blue: "#58a6ff", sun: "#ffe0b0", palm: "#7fd0b0", tower: "#a8b8cc", count: "#aba700", badge: "#3b3b15", ink: "#0d1117" },
-    light: { orange: "#8b8810", blue: "#0969da", sun: "#d08a40", palm: "#1f7a5a", tower: "#5a6a80", count: "#7a770d", badge: "#ffffff", ink: "#0d1117" },
+    light: { orange: "#8b8810", blue: "#0969da", sun: "#d08a40", palm: "#1f7a5a", tower: "#5a6a80", count: "#7a770d", badge: "#fcfcfa", ink: "#0d1117" },
   },
   kamino: {
     glyph: "storm",
     dark: { orange: "#d1bc8a", blue: "#58a6ff", sun: "#bcdcec", pod: "#a8bccc", count: "#d1bc8a", badge: "#494333", ink: "#0d1117" },
-    light: { orange: "#958151", blue: "#0969da", sun: "#5a8aa8", pod: "#4e6070", count: "#837146", badge: "#ffffff", ink: "#0d1117" },
+    light: { orange: "#958151", blue: "#0969da", sun: "#5a8aa8", pod: "#4e6070", count: "#837146", badge: "#f9f9f8", ink: "#0d1117" },
   },
   mustafar: {
     glyph: "volcano",
     dark: { orange: "#ffd84d", blue: "#58a6ff", sun: "#ff9a6a", rock: "#a8968e", count: "#ffd84d", badge: "#6a5924", ink: "#0d1117" },
-    light: { orange: "#8a6a00", blue: "#0969da", sun: "#c4602e", rock: "#5a4a44", count: "#795c00", badge: "#f6f5f3", ink: "#ffffff" },
+    light: { orange: "#8a6a00", blue: "#0969da", sun: "#c4602e", rock: "#5a4a44", count: "#795c00", badge: "#f3f1ef", ink: "#ffffff" },
   },
   "asteroid-belt": {
     glyph: "asteroids",
     dark: { orange: "#fd9f01", blue: "#58a6ff", sun: "#e8dcc0", rock: "#aaa49a", count: "#fd9f01", badge: "#5a3815", ink: "#0d1117" },
-    light: { orange: "#a76700", blue: "#0969da", sun: "#9a8460", rock: "#5e5a54", count: "#935a00", badge: "#fefdfd", ink: "#ffffff" },
+    light: { orange: "#a76700", blue: "#0969da", sun: "#9a8460", rock: "#5e5a54", count: "#935a00", badge: "#f5f1ef", ink: "#ffffff" },
   },
   "small-moon": {
     glyph: "layered",
     dark: { orange: "#c8be9a", blue: "#58a6ff", sun: "#ffd6b0", body: "#b4bcc8", count: "#c8be9a", badge: "#464338", ink: "#0d1117" },
-    light: { orange: "#89805e", blue: "#0969da", sun: "#c98a5a", body: "#5a6474", count: "#787052", badge: "#ffffff", ink: "#0d1117" },
+    light: { orange: "#89805e", blue: "#0969da", sun: "#c98a5a", body: "#5a6474", count: "#787052", badge: "#f6f6f5", ink: "#0d1117" },
   },
 };
 /** The tree behind Endor's fireflies, tinted with the text color. */
@@ -125,14 +125,16 @@ export function isLight(hex) {
  * Pick the tone for theme `t` (from theme()) in scene `sceneKey` (shared
  * "kit.scene"): its scene's, Tatooine's for an unknown key or null, with
  * `resolved` (shared "kit.tones": the config's alert colours, resolved by
- * herdr-signals) laid over it. Nothing is cached across calls, so a scene or
- * colour change shows on the next render.
+ * herdr-signals) laid over it, unless it names another scene (a render
+ * between herdr-signals' kit.scene and kit.tones writes). Nothing is cached
+ * across calls, so a scene or colour change shows on the next render.
  */
 export function useTheme(t, sceneKey = null, resolved = null) {
   scene = Object.hasOwn(TONES, sceneKey) ? sceneKey : "tatooine";
   const tones = TONES[scene] ?? TONES.tatooine;
   const mode = isLight(t?.background) ? "light" : "dark";
-  const over = resolved && typeof resolved[mode] === "object" ? resolved[mode] : null;
+  const mine = resolved && (resolved.scene === undefined || resolved.scene === scene);
+  const over = mine && typeof resolved[mode] === "object" ? resolved[mode] : null;
   tone = over ? { ...tones[mode], ...over } : tones[mode];
   ORANGE = tone.orange; BLUE = tone.blue; INK = tone.ink;
 }
