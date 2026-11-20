@@ -116,6 +116,15 @@ export const SCENES = {
     needs: { dark: "#c8be9a", light: "#89805e" },
     asks: "◉",
   },
+  lothal: {
+    label: "Lothal",
+    theme: { light: "lothal-day", dark: "lothal-night" },
+    walls: { dark: "backgrounds/lothal.jpg", light: "backgrounds/lothal-day.jpg" },
+    panel: { dark: "#10131c", light: "#f7f4ea" },
+    // Wheat gold, warm against the blue "done" over a grass sea; the far spire on the strip.
+    needs: { dark: "#ffd36b", light: "#8a6200" },
+    asks: "↟",
+  },
 };
 export const DEFAULT_SCENE = "tatooine";
 

@@ -73,6 +73,11 @@ export const TONES = {
     dark: { orange: "#c8be9a", blue: "#58a6ff", sun: "#ffd6b0", body: "#b4bcc8", count: "#c8be9a", badge: "#464338", ink: "#0d1117" },
     light: { orange: "#89805e", blue: "#0969da", sun: "#c98a5a", body: "#5a6474", count: "#787052", badge: "#f6f6f5", ink: "#0d1117" },
   },
+  lothal: {
+    glyph: "spire",
+    dark: { orange: "#ffd36b", blue: "#58a6ff", sun: "#ffe2a0", spire: "#b8c4d8", count: "#ffd36b", badge: "#6a572f", ink: "#0d1117" },
+    light: { orange: "#8a6200", blue: "#0969da", sun: "#c98a3a", spire: "#4f5a6a", count: "#795500", badge: "#f3f1ef", ink: "#ffffff" },
+  },
 };
 /** The tree behind Endor's fireflies, tinted with the text color. */
 export const TREE_SVG = "mods/kit-rail/tree.svg";
@@ -93,6 +98,8 @@ export const POD_SVG = "mods/kit-rail/pod.svg";
 export const CONE_SVG = "mods/kit-rail/cone.svg";
 /** The Asteroid Belt's cratered rock, tinted with the text color. */
 export const ASTEROID_SVG = "mods/kit-rail/asteroid.svg";
+/** Lothal's needle spire on its low base, tinted with the text color. */
+export const SPIRE_SVG = "mods/kit-rail/spire.svg";
 /**
  * A scene's glyph drawn from layer files in Herdr's home, not from code:
  * `glyphs/<scene>-body.svg`, `-edge.svg`, `-light.svg` and `-mover.svg`, each a 14 by 14
@@ -407,7 +414,15 @@ export function layered(pulse) {
     .child(pulse ? mover.loop("left", { from: -1, to: 13, period: 2000 }) : mover.opacity(0));
 }
 
-const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, volcano, asteroids, layered };
+/** Lothal: a needle spire on a low base, the light at its tip blinking while unseen. */
+export function spire(pulse) {
+  const tip = div().absolute().left(5).top(0).size(4).rounded(4).bg(ORANGE);
+  return div().relative().flex_none().w(14).h(14)
+    .child(svg(SPIRE_SVG).absolute().left(0).top(0).size(14).text_color(tone.spire))
+    .child(pulse ? tip.loop("opacity", { from: 0.2, to: 1, period: 1400 }) : tip);
+}
+
+const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, volcano, asteroids, layered, spire };
 
 /**
  * The needs-you glyph in sand with the open-item count; hover lists every open
