@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { checkAlert, deriveTones } from "../herdr/mods/herdr-signals/alerts.js";
+import { checkAlert, deriveTones, resolveAlerts } from "../herdr/mods/herdr-signals/alerts.js";
 import { DONE } from "../herdr/mods/herdr-signals/colour.js";
 import { DEFAULT_SCENE, KIT_LAYOUT, LEGACY_LAYOUTS, isGridTree, legacyView, sceneFor, sceneOfTheme, sceneOfTree, kitLayouts } from "../herdr/mods/herdr-signals/scenes.js";
 import * as scenes from "../herdr/mods/herdr-signals/scenes.js";
@@ -83,6 +83,21 @@ test("sceneOfTree reads the scene from the theme pair", () => {
   assert.equal(sceneOfTree({ theme: { light: "x", dark: "y" } }), DEFAULT_SCENE);
 });
 
+test("sceneOfTheme maps the new scenes' themes", () => {
+  for (const k of ["lothal", "crait", "yavin", "hyperspace", "kessel", "utapau"]) {
+    assert.equal(sceneOfTheme(`${k}-night`), k);
+    assert.equal(sceneOfTheme(`${k}-day`), k);
+  }
+});
+
+test("scenes: alert_colors reach a new scene alone", () => {
+  const cfg = { scenes: { lothal: { needs: "#ffd84d" } } };
+  const own = resolveAlerts(cfg, "lothal", scenes.SCENES.lothal);
+  assert.deepEqual(own.problems, []);
+  assert.equal(own.tones.dark.orange, "#ffd84d");
+  assert.equal(resolveAlerts(cfg, "tatooine", scenes.SCENES.tatooine).tones.dark.orange, "#fd9f01");
+});
+
 test("sceneOfTheme maps a scene theme to its scene", () => {
   assert.equal(sceneOfTheme("small-moon-day"), "small-moon");
   assert.equal(sceneOfTheme("endor-night"), "endor");
@@ -102,6 +117,9 @@ const PICKS = {
   dagobah: ["#b4cc1d", "#63710b"], coruscant: ["#f775ad", "#c64882"], bespin: ["#fd8a8f", "#aa4049"],
   naboo: ["#cc930d", "#ae7c04"], scarif: ["#aba700", "#8b8810"], kamino: ["#d1bc8a", "#958151"],
   mustafar: ["#ffd84d", "#8a6a00"], "asteroid-belt": ["#fd9f01", "#a76700"], "small-moon": ["#c8be9a", "#89805e"],
+  lothal: ["#ffd36b", "#8a6200"], crait: ["#ff6a55", "#b3261e"],
+  yavin: ["#ff8a3d", "#b04a00"], hyperspace: ["#ffe9a8", "#8a6a00"],
+  kessel: ["#ffcf5c", "#8a6100"], utapau: ["#ffb347", "#9a5a00"],
 };
 const themeFile = (name) => {
   const f = JSON.parse(readFileSync(new URL(`../herdr/themes/${name}.json`, import.meta.url), "utf8"));

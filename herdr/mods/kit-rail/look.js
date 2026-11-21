@@ -73,6 +73,36 @@ export const TONES = {
     dark: { orange: "#c8be9a", blue: "#58a6ff", sun: "#ffd6b0", body: "#b4bcc8", count: "#c8be9a", badge: "#464338", ink: "#0d1117" },
     light: { orange: "#89805e", blue: "#0969da", sun: "#c98a5a", body: "#5a6474", count: "#787052", badge: "#f6f6f5", ink: "#0d1117" },
   },
+  lothal: {
+    glyph: "spire",
+    dark: { orange: "#ffd36b", blue: "#58a6ff", sun: "#ffe2a0", spire: "#b8c4d8", count: "#ffd36b", badge: "#6a572f", ink: "#0d1117" },
+    light: { orange: "#8a6200", blue: "#0969da", sun: "#c98a3a", spire: "#4f5a6a", count: "#795500", badge: "#f3f1ef", ink: "#ffffff" },
+  },
+  crait: {
+    glyph: "streak",
+    dark: { orange: "#ff6a55", blue: "#58a6ff", sun: "#ffd0c4", salt: "#e6e2ee", count: "#ff6a55", badge: "#4d2120", ink: "#0d1117" },
+    light: { orange: "#b3261e", blue: "#0969da", sun: "#d76a55", salt: "#6b6478", count: "#9d2019", badge: "#f6efef", ink: "#ffffff" },
+  },
+  yavin: {
+    glyph: "temple",
+    dark: { orange: "#ff8a3d", blue: "#58a6ff", sun: "#ffc08a", stone: "#a8b0a0", count: "#ff8a3d", badge: "#5b311d", ink: "#0d1117" },
+    light: { orange: "#b04a00", blue: "#0969da", sun: "#c46a2a", stone: "#4f5a4a", count: "#9b4000", badge: "#f6f0ef", ink: "#ffffff" },
+  },
+  hyperspace: {
+    glyph: "streaks",
+    dark: { orange: "#ffe9a8", blue: "#58a6ff", sun: "#dfe6ff", count: "#ffe9a8", badge: "#6a6147", ink: "#0d1117" },
+    light: { orange: "#8a6a00", blue: "#0969da", sun: "#4e5a8c", count: "#795c00", badge: "#f3f1ef", ink: "#ffffff" },
+  },
+  kessel: {
+    glyph: "maelstrom",
+    dark: { orange: "#ffcf5c", blue: "#58a6ff", sun: "#7fd4c8", count: "#ffcf5c", badge: "#6a5629", ink: "#0d1117" },
+    light: { orange: "#8a6100", blue: "#0969da", sun: "#2a7a72", count: "#795400", badge: "#f3f1ef", ink: "#ffffff" },
+  },
+  utapau: {
+    glyph: "sinkhole",
+    dark: { orange: "#ffb347", blue: "#58a6ff", sun: "#ffd9a0", rock: "#a9b4c2", count: "#ffb347", badge: "#6a4a22", ink: "#0d1117" },
+    light: { orange: "#9a5a00", blue: "#0969da", sun: "#c98a3a", rock: "#5d6878", count: "#874e00", badge: "#f4f0ef", ink: "#ffffff" },
+  },
 };
 /** The tree behind Endor's fireflies, tinted with the text color. */
 export const TREE_SVG = "mods/kit-rail/tree.svg";
@@ -93,6 +123,18 @@ export const POD_SVG = "mods/kit-rail/pod.svg";
 export const CONE_SVG = "mods/kit-rail/cone.svg";
 /** The Asteroid Belt's cratered rock, tinted with the text color. */
 export const ASTEROID_SVG = "mods/kit-rail/asteroid.svg";
+/** Lothal's needle spire on its low base, tinted with the text color. */
+export const SPIRE_SVG = "mods/kit-rail/spire.svg";
+/** Crait's scar, a wedge from the foot of the frame to the horizon, tinted with the text color. */
+export const STREAK_SVG = "mods/kit-rail/streak.svg";
+/** Yavin 4's stepped temple, tinted with the text color. */
+export const TEMPLE_SVG = "mods/kit-rail/temple.svg";
+/** Hyperspace's starburst, six rays round a bright centre, tinted with the text color. */
+export const BURST_SVG = "mods/kit-rail/burst.svg";
+/** Kessel's open spiral, tinted with the text color. */
+export const SPIRAL_SVG = "mods/kit-rail/spiral.svg";
+/** Utapau's sinkhole rim and its stepped ledges, tinted with the text color. */
+export const RIM_SVG = "mods/kit-rail/rim.svg";
 /**
  * A scene's glyph drawn from layer files in Herdr's home, not from code:
  * `glyphs/<scene>-body.svg`, `-edge.svg`, `-light.svg` and `-mover.svg`, each a 14 by 14
@@ -407,7 +449,54 @@ export function layered(pulse) {
     .child(pulse ? mover.loop("left", { from: -1, to: 13, period: 2000 }) : mover.opacity(0));
 }
 
-const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, volcano, asteroids, layered };
+/** Lothal: a needle spire on a low base, the light at its tip blinking while unseen. */
+export function spire(pulse) {
+  const tip = div().absolute().left(5).top(0).size(4).rounded(4).bg(ORANGE);
+  return div().relative().flex_none().w(14).h(14)
+    .child(svg(SPIRE_SVG).absolute().left(0).top(0).size(14).text_color(tone.spire))
+    .child(pulse ? tip.loop("opacity", { from: 0.2, to: 1, period: 1400 }) : tip);
+}
+
+/** Crait: a salt horizon and a red scar across it, which draws itself across the salt while unseen. */
+export function streak(pulse) {
+  const scar = div().absolute().left(0).top(0).w(14).h(14).overflow_hidden()
+    .child(svg(STREAK_SVG).absolute().left(0).top(0).size(14).text_color(ORANGE));
+  return div().relative().flex_none().w(14).h(14)
+    .child(div().absolute().left(0).top(8).w(14).h(1).bg(tone.salt))
+    .child(pulse ? scar.loop("width", { from: 3, to: 14, period: 1800 }) : scar);
+}
+
+/** Yavin 4: a stepped temple with the gas giant behind it, rising while unseen. */
+export function temple(pulse) {
+  const planet = div().absolute().left(7).top(4).size(7).rounded(7).bg(ORANGE);
+  return div().relative().flex_none().w(14).h(14)
+    .child(pulse ? planet.loop("top", { from: 6, to: 0, period: 2200 }) : planet)
+    .child(svg(TEMPLE_SVG).absolute().left(0).top(0).size(14).text_color(tone.stone));
+}
+
+/** Hyperspace: a starburst whose rays stretch while unseen, as if the jump is about to drop out. */
+export function streaks(pulse) {
+  const burst = svg(BURST_SVG).absolute().left(0).top(0).size(14).text_color(ORANGE);
+  return div().relative().flex_none().w(14).h(14)
+    .child(pulse ? burst.loop("width", { from: 10, to: 14, period: 1600 }).loop("height", { from: 10, to: 14, period: 1600 }) : burst);
+}
+
+/** Kessel: an open spiral that turns and brightens while unseen, winding in. */
+export function maelstrom(pulse) {
+  const spiral = svg(SPIRAL_SVG).absolute().left(0).top(0).size(14).text_color(ORANGE);
+  return div().relative().flex_none().w(14).h(14)
+    .child(pulse ? spiral.spin(2400).loop("opacity", { from: 0.5, to: 1, period: 1800 }) : spiral);
+}
+
+/** Utapau: the sinkhole rim, a lantern sinking down into it while unseen. */
+export function sinkhole(pulse) {
+  const lantern = div().absolute().left(5.5).top(5).size(3).rounded(3).bg(ORANGE);
+  return div().relative().flex_none().w(14).h(14)
+    .child(svg(RIM_SVG).absolute().left(0).top(0).size(14).text_color(tone.rock))
+    .child(pulse ? lantern.loop("top", { from: 5, to: 10, period: 2000 }) : lantern);
+}
+
+const GLYPHS = { suns, fireflies, beacon, rocks, skyline, cloudCity, palace, lagoon, storm, volcano, asteroids, layered, spire, streak, temple, streaks, maelstrom, sinkhole };
 
 /**
  * The needs-you glyph in sand with the open-item count; hover lists every open

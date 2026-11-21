@@ -1,8 +1,9 @@
 // kit-scenes' pure logic: the picker's cursor and the tiles' inputs. No herdr
 // globals here; main.js draws and wires it.
 
-// Twelve scenes in a 4 by 3 grid: narrow enough for a half-screen window.
-export const COLS = 4;
+// Eighteen scenes in a 6 by 3 grid of small tiles, 834 px wide: it fits a
+// half-screen window on a 1728 px wide screen (mods can't read the window's width).
+export const COLS = 6;
 
 /** The picker's starting state: the cursor on `current` (a scene key) when it is listed, else the first tile. */
 export function pickerStart(scenes, current, light = false) {
@@ -57,9 +58,9 @@ export function tileInputs(scenes) {
     }));
 }
 
-export const TILE = { w: 184, h: 104 }; // 16:9
-export const GAP = 12;
-export const PAD = 28;
+export const TILE = { w: 124, h: 70 }; // 16:9
+export const GAP = 10;
+export const PAD = 20;
 export const HEADER = 76; // px: the heading, the hint and the night/day toggle
 export const LABEL = 30; // px under each picture
 export const ROWS = 3;

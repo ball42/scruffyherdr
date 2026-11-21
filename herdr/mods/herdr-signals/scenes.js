@@ -116,6 +116,60 @@ export const SCENES = {
     needs: { dark: "#c8be9a", light: "#89805e" },
     asks: "◉",
   },
+  lothal: {
+    label: "Lothal",
+    theme: { light: "lothal-day", dark: "lothal-night" },
+    walls: { dark: "backgrounds/lothal.jpg", light: "backgrounds/lothal-day.jpg" },
+    panel: { dark: "#10131c", light: "#f7f4ea" },
+    // Wheat gold, warm against the blue "done" over a grass sea; the far spire on the strip.
+    needs: { dark: "#ffd36b", light: "#8a6200" },
+    asks: "↟",
+  },
+  crait: {
+    label: "Crait",
+    theme: { light: "crait-day", dark: "crait-night" },
+    walls: { dark: "backgrounds/crait.jpg", light: "backgrounds/crait-day.jpg" },
+    panel: { dark: "#14121c", light: "#f7f4f2" },
+    // Mineral scarlet under white salt, warm against the blue "done"; a skid streak on the strip.
+    needs: { dark: "#ff6a55", light: "#b3261e" },
+    asks: "⟋",
+  },
+  yavin: {
+    label: "Yavin 4",
+    theme: { light: "yavin-day", dark: "yavin-night" },
+    walls: { dark: "backgrounds/yavin.jpg", light: "backgrounds/yavin-day.jpg" },
+    panel: { dark: "#0f1614", light: "#f3f6f1" },
+    // Gas-giant orange, warm against the blue "done" over a dark canopy; the planet behind the temple on the strip.
+    needs: { dark: "#ff8a3d", light: "#b04a00" },
+    asks: "◓",
+  },
+  hyperspace: {
+    label: "Hyperspace",
+    theme: { light: "hyperspace-day", dark: "hyperspace-night" },
+    walls: { dark: "backgrounds/hyperspace.jpg", light: "backgrounds/hyperspace-day.jpg" },
+    panel: { dark: "#0a0c18", light: "#f4f5fb" },
+    // Star-white butter, warm against the blue "done" on near-black; a starburst on the strip.
+    needs: { dark: "#ffe9a8", light: "#8a6a00" },
+    asks: "✳",
+  },
+  kessel: {
+    label: "Kessel",
+    theme: { light: "kessel-day", dark: "kessel-night" },
+    walls: { dark: "backgrounds/kessel.jpg", light: "backgrounds/kessel-day.jpg" },
+    panel: { dark: "#130d1c", light: "#f8f4fa" },
+    // Spice gold (spice pink sat too near the blue "done" for deuteranopia); a spiral on the strip.
+    needs: { dark: "#ffcf5c", light: "#8a6100" },
+    asks: "◎",
+  },
+  utapau: {
+    label: "Utapau",
+    theme: { light: "utapau-day", dark: "utapau-night" },
+    walls: { dark: "backgrounds/utapau.jpg", light: "backgrounds/utapau-day.jpg" },
+    panel: { dark: "#121418", light: "#f5f3ef" },
+    // Lantern amber, warm against the blue "done" in a grey sinkhole; the rim and its light on the strip.
+    needs: { dark: "#ffb347", light: "#9a5a00" },
+    asks: "◍",
+  },
 };
 export const DEFAULT_SCENE = "tatooine";
 

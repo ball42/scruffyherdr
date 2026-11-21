@@ -64,7 +64,7 @@ test("hereTones: Mustafar day's accent is too near its needs-you, so the bar is 
 
 test("hereTones: every scene theme's fill keeps foreground readable", () => {
   const names = readdirSync(new URL("../herdr/themes/", import.meta.url)).filter((f) => /-(day|night)\.json$/.test(f));
-  assert.equal(names.length, 24);
+  assert.equal(names.length, Object.keys(SCENES).length * 2);
   for (const f of names) {
     const scene = f.replace(/-(day|night)\.json$/, "");
     const light = f.includes("-day");
