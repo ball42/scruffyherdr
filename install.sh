@@ -672,8 +672,8 @@ if [ "$HOOKS" = "yes" ]; then
   # Claude Code gives context use only to the status line command, so the rail's
   # context meters need the status line to feed ctx-tap. Wrap it (statusline.mjs runs
   # ctx-tap's write, then the old line unchanged), unless something already feeds
-  # it: a line that names ctx-tap or a statusline.mjs, or a ctx file written in the
-  # last day. A status line that is not a command one is left alone too.
+  # it: a line that names ctx-tap or a statusline.mjs (or Herdr Chat's line chained to
+  # one), or a ctx file written in the last day. A status line that is not a command one is left alone too.
   if HERDR_KIT_NO_BACKUP="$settings_new" node "$REPO/scripts/merge-config.js" wrapstatus "$CLAUDE_SETTINGS" node "$REPO" "$STATUS_PREV" "$(ctx_fresh)"; then
     :
   else

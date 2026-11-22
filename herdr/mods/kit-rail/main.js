@@ -14,7 +14,7 @@ import { alertArrows, arrowAction, arrowButton, switchVia } from "./arrow.js";
 import { HERE_PAD, hereBar, hereFill, railRows, scrollStep } from "./here.js";
 import { MultiReply } from "./multi-ui.js";
 import { saidGist, saidLines } from "./answer.js";
-import { BLUE, Flares, ORANGE, useTheme, RunGate, asksBadge, canCompact, cardClick, commandPreview, compactPill, cardMark, confirmRun, copyCommand, ctxEdge, ctxFigure, ctxMeter, dismissRun, dismissRuns, gapText, goLabel, mark, openItems, openRunLog, outline, pill, planCounts, planRuns, pressRun, ranAgo, ranClean, runCard, runStatus, runningText, runTick, visibleRuns, waitsOn, snoozeControls, snoozeGlyph, snoozeLabel, snoozeSet, waited, withCard } from "./look.js";
+import { BLUE, Flares, ORANGE, useTheme, RunGate, asksBadge, canCompact, cardClick, commandPreview, compactPill, cardMark, confirmRun, copyCommand, ctxEdge, ctxFigure, ctxMeter, dismissRun, dismissRuns, gapText, goLabel, hiddenRuns, hiddenText, mark, openItems, openRunLog, outline, pill, planCounts, planRuns, pressRun, ranAgo, ranClean, runCard, runStatus, runningText, runTick, showRuns, visibleRuns, waitsOn, snoozeControls, snoozeGlyph, snoozeLabel, snoozeSet, waited, withCard } from "./look.js";
 
 const SPINNER = "mods/workspace-chrome/spinner.svg";
 
@@ -97,6 +97,11 @@ function click(a) {
 /** The rail's Clear: dismisses every Run card `list` of the Claude at `address`. */
 function clearRuns(address, list) {
   setShared("kit.runsDismissed", dismissRuns(shared("kit.runsDismissed"), shared("herdr-kit")?.agents, address, list));
+}
+
+/** Shows the Run cards of the Claude at `address` that were dismissed. */
+function showHidden(address) {
+  setShared("kit.runsDismissed", showRuns(shared("kit.runsDismissed"), address));
 }
 
 function dismiss(address, r) {
@@ -250,13 +255,18 @@ export default class Rail extends View {
     const plan = planRuns(a, shared("kit.runsDismissed"));
     const rows = plan.flatMap((g, i) => (g.seq ? [this.runSeq(a, g, t)] : g.done ? g.done.map((r, k) => this.runRow(a, r, `d${k}`, t)) : [this.runRow(a, g.card, i, t)]));
     const { open, done } = planCounts(plan);
-    if (open + done < 2) return rows;
+    // Cards hidden with ✕ or Clear stay hidden while the session lists them, so say how many.
+    const hidden = hiddenRuns(a, shared("kit.runsDismissed"));
+    const more = hidden ? [h_flex().id(`runs-hidden-${a.address}`).gap(5).items_center().mt(4)
+      .child(div().flex_1().min_w(0).truncate().text_size(10.5).text_color(t.dim).child(`▶ ${hiddenText(hidden)}`))
+      .child(pill(t, `runs-show-${a.address}`, "Show", () => showHidden(a.address), t.dim))] : [];
+    if (open + done < 2) return [...rows, ...more];
     const shown = visibleRuns(a, shared("kit.runsDismissed"));
     const words = [open ? `${open} open` : null, done ? `${done} done` : null].filter(Boolean).join(" · ");
     const head = h_flex().id(`runs-head-${a.address}`).gap(5).items_center().mt(4)
       .child(div().flex_1().min_w(0).truncate().text_size(10.5).font_semibold().text_color(t.muted).child(`▶ RUNS · ${words}`))
       .child(pill(t, `runs-clear-${a.address}`, "Clear", () => clearRuns(a.address, shown), t.dim));
-    return [head, ...rows];
+    return [head, ...rows, ...more];
   }
 
   /**
@@ -268,6 +278,7 @@ export default class Rail extends View {
   quiet(a, t, current) {
     const glyph = a.snoozed ? snoozeGlyph(t.dim, snoozeLabel(a)) : statusGlyph(a, t);
     const m = ctxMeter(a.ctx_left);
+    const hidden = hiddenRuns(a, shared("kit.runsDismissed"));
     return div().id(`rail-${a.address}`).relative().w_full().pl(HERE_PAD.card).pr(10).py(3).rounded(6)
       .bg(current ? hereFill(shared("kit.here"), t) : t.chrome)
       .hover((s) => s.bg(t.hover))
@@ -282,6 +293,7 @@ export default class Rail extends View {
         .when(a.status === "working" && Boolean(a.tool), (el) => el.child(div().flex_1().min_w(0).truncate().text_size(10.5).text_color(t.dim).child(a.tool)))
         .when(!(a.status === "working" && a.tool), (el) => el.child(div().flex_1()))
         .when(Boolean(this.multi.chip(a, t)), (el) => el.child(this.multi.chip(a, t)))
+        .when(hidden > 0, (el) => el.child(pill(t, `quiet-show-${a.address}`, `▶ ${hiddenText(hidden)}`, () => showHidden(a.address), t.dim)))
         .when(Boolean(ctxFigure(m, t)), (el) => el.child(ctxFigure(m, t))))
       .when(canCompact(a), (el) => el.child(h_flex().pt(3).child(this.compactPill(a, t))))
       .when(this.hoverCard === a.address, (el) => el.child(h_flex().pt(3).child(snoozeControls(t, `rail-zz-${a.address}`, a, (c) => snooze(a.address, c)))))

@@ -166,6 +166,10 @@ export default class Signals extends View {
     this.usage = null; // usageView for the strip and the deck
     this.usageSig = "";
     this.runDir = `${home()}/.config/herdr-kit/runstate`;
+    // kit.runsDismissed mirrored for the card hook, which can't read the shared store.
+    this.dismissedPath = `${home()}/.config/herdr-kit/runs-dismissed.json`;
+    this.dismissedSaved = null;
+    this.dismissedWriting = false;
     this.runstate = {};
     this.pinsMissing = {}; // address -> first poll its pinned Claude was gone (pins.js)
     this.autoHandled = {};
@@ -428,6 +432,24 @@ export default class Signals extends View {
       }
     } finally {
       this.sizesWriting = false;
+    }
+  }
+
+  // kit.runsDismissed as a file, for the card hook's open-runs note: written only when it
+  // changed, one write at a time. A failure is logged and retried on the next poll.
+  async saveDismissed() {
+    const d = shared("kit.runsDismissed");
+    const text = JSON.stringify(d && typeof d === "object" ? d : {}) + "\n";
+    if (text === this.dismissedSaved || this.dismissedWriting) return;
+    this.dismissedWriting = true;
+    try {
+      const prev = await readTextFile(this.dismissedPath).catch(() => null);
+      await writeTextFile(this.dismissedPath, text, prev);
+      this.dismissedSaved = text;
+    } catch (e) {
+      console.log(`herdr-signals: runs-dismissed.json not saved: ${e}`);
+    } finally {
+      this.dismissedWriting = false;
     }
   }
 
@@ -1027,6 +1049,7 @@ export default class Signals extends View {
       if (this.digest && now >= this.digest.until) { this.digest = null; cx.notify(); }
       // The kit layout: requests first, then the scene's dress and the grid's tiles (apply).
       this.model = model;
+      this.saveDismissed().catch(() => null);
       await this.apply();
       // The strip's "· 14m" ages without the model changing, so redraw when its text does.
       const label = blockedLabel(summary(model.agents), now) + focusLabel(shared("kit.focus"), now);

@@ -43,7 +43,7 @@ When a run ends, its terminal closes and types one message into your session. Th
 
 - \`[herdr-kit] ▶ Run finished: "<label>" exited <code>. Output: <log>\`, or for Run all \`[herdr-kit] ▶ Run all finished: 1/3 "<label>" exit 0; 2/3 "<label>" exit 1; 3/3 "<label>" skipped. Output: <log>\`.
 - The log holds the run's stdout and stderr, kept in a log folder you choose (config \`run_log_pipe\`; \`~/.config/herdr-kit/runlogs/\` by default). Read it (the terminal is gone), say in a few lines whether it worked, and go on with whatever it unblocked. Exit 130 means the user pressed Ctrl-C.
-- The rail keeps a Run card, with its last result, until an action items section leaves it out, or it ran with exit 0 and the user writes again, or the session ends. Each prompt may open with a \`[herdr-kit] Your Run cards on the rail\` list: it is the rail's set as it stands, with each card's last run. In your reply to a Run note, list the cards still open and add any new step.
+- The rail keeps a Run card, with its last result, until an action items section leaves it out, or it ran with exit 0 and the user writes again, or the session ends. Each prompt may open with a \`[herdr-kit] Your Run cards on the rail\` list: it is the rail's set as it stands, with each card's last run. A card marked dismissed is one the user hid: leave it out, or post it changed if it's still needed. In your reply to a Run note, list the cards still open and add any new step.
 
 ## Ask card: a free-form question
 
@@ -403,17 +403,35 @@ function lastRun(st) {
 /**
  * The rail's Run cards as a note for the session: one line per card
  * with its last run, so Claude lists the open set right. `states` maps a run id
- * to its runstate ({state, exit}). Null when there are no cards.
+ * to its runstate ({state, exit}); `dismissed` holds the ids the owner hid with
+ * ✕ or Clear, marked "· dismissed", since a card listed again unchanged stays
+ * hidden. Null when there are no cards.
  */
-export function openRunsNote(runs, states = {}) {
+export function openRunsNote(runs, states = {}, dismissed = new Set()) {
   const list = runs ?? [];
   if (!list.length) return null;
-  const lines = list.map((r) => `- ${r.step ? `${r.step}/${r.of} ` : ""}"${oneLine(r.label)}" · ${lastRun(states[r.id])}`);
+  const hidden = (r) => Boolean(r.id && dismissed?.has(r.id));
+  const lines = list.map((r) => `- ${r.step ? `${r.step}/${r.of} ` : ""}"${oneLine(r.label)}" · ${lastRun(states[r.id])}${hidden(r) ? " · dismissed" : ""}`);
   return [
     "[herdr-kit] Your Run cards on the rail, with each one's last run:",
     ...lines,
     "Your next action items section replaces this set: list each card still needed, unchanged to keep its result. A card you leave out leaves the rail.",
+    ...(list.some(hidden) ? ["A dismissed card is hidden from the owner: leave it out, or post it changed if it's still needed."] : []),
   ].join("\n");
+}
+
+/**
+ * The card ids `dismissed` (kit.runsDismissed, as herdr-signals saves it in
+ * runs-dismissed.json) hides for the Claude at `address`: its keys are
+ * `<address>:<id>` (look.js runKey).
+ */
+export function dismissedIds(dismissed, address) {
+  const out = new Set();
+  const prefix = `${address}:`;
+  for (const [k, v] of Object.entries(dismissed && typeof dismissed === "object" ? dismissed : {})) {
+    if (v === true && k.startsWith(prefix)) out.add(k.slice(prefix.length));
+  }
+  return out;
 }
 
 const oneLine = (s) => String(s ?? "").replace(/\s+/g, " ").trim();

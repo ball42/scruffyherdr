@@ -10,10 +10,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import "./support/gpui-stub.js";
-import { dropRan, hasItems, namesKey, nextRuns, openRunsNote, runCards, runSets, CARD_SPEC } from "../claude/cards.js";
+import { dismissedIds, dropRan, hasItems, namesKey, nextRuns, openRunsNote, runCards, runSets, CARD_SPEC } from "../claude/cards.js";
 import { readRunState } from "../herdr/mods/herdr-signals/model.js";
 
-const { RUN_NOTE, runArgv, runStatus, goLabel, ranAgo, planRuns, paneRun, planCounts, gapText, waitsOn, dismissRun, dismissRuns, runKey, visibleRuns } =
+const { RUN_NOTE, runArgv, runStatus, goLabel, ranAgo, planRuns, paneRun, planCounts, gapText, waitsOn, dismissRun, dismissRuns, runKey, visibleRuns, hiddenRuns, showRuns, hiddenText } =
   await import("../herdr/mods/kit-rail/look.js");
 
 const F = "```";
@@ -287,4 +287,57 @@ test("the rail and the pane both draw from planRuns", () => {
 test("runCards reads numbered steps the way runSets groups them", () => {
   const runs = runCards(items(card("a", "1", "1/2"), card("b", "2", "2/2"), card("c", "3")));
   assert.deepEqual(runSets(runs).map((s) => s.length), [2]);
+});
+
+// A card the owner hid stays hidden while the session lists it
+// unchanged, so the note says which ones are hidden, and the rail counts them
+// and can show them again.
+test("the open-runs note marks a dismissed card, and says what to do with it", () => {
+  const runs = [
+    { id: "a", label: "deploy", command: "x" },
+    { id: "b", label: "check", command: "y" },
+  ];
+  const note = openRunsNote(runs, { b: { state: "done", exit: 3 } }, new Set(["b"]));
+  assert.equal(note, [
+    "[herdr-kit] Your Run cards on the rail, with each one's last run:",
+    '- "deploy" · not run',
+    '- "check" · ✗ exit 3 · dismissed',
+    "Your next action items section replaces this set: list each card still needed, unchanged to keep its result. A card you leave out leaves the rail.",
+    "A dismissed card is hidden from the owner: leave it out, or post it changed if it's still needed.",
+  ].join("\n"));
+  // Nothing dismissed: the note is as before.
+  assert.doesNotMatch(openRunsNote(runs, {}, new Set()), /dismissed/);
+});
+
+test("dismissedIds: the card ids kit.runsDismissed hides for one Claude", () => {
+  const d = { [runKey("t1", { id: "a" })]: true, [runKey("t1", { id: "b" })]: true, [runKey("t2", { id: "c" })]: true, "t10:z": true };
+  assert.deepEqual([...dismissedIds(d, "t1")].sort(), ["a", "b"]);
+  assert.deepEqual([...dismissedIds(d, "t3")], []);
+  assert.deepEqual([...dismissedIds(null, "t1")], []);
+  assert.deepEqual([...dismissedIds({ "t1:a": false }, "t1")], []);
+});
+
+test("the rail counts a Claude's hidden cards and Show brings them back", () => {
+  const a = { address: "t1", runs: [{ id: "a", label: "a", command: "1" }, { id: "b", label: "b", command: "2" }] };
+  const b = { address: "t2", runs: [{ id: "c", label: "c", command: "3" }] };
+  let d = dismissRuns({}, [a, b], "t1", a.runs);
+  d = dismissRun(d, [a, b], "t2", b.runs[0]);
+  assert.equal(hiddenRuns(a, d), 2);
+  assert.equal(hiddenRuns(b, d), 1);
+  assert.equal(hiddenRuns(a, {}), 0);
+  assert.equal(hiddenText(2), "2 hidden");
+  assert.equal(hiddenText(1), "1 hidden");
+  const shown = showRuns(d, "t1");
+  assert.equal(visibleRuns(a, shown).length, 2);
+  assert.equal(hiddenRuns(b, shown), 1, "another Claude's cards stay hidden");
+  // A Claude whose address is a prefix of another's is its own Claude.
+  assert.deepEqual(showRuns({ "t1:a": true, "t10:a": true }, "t1"), { "t10:a": true });
+});
+
+test("the rail draws the hidden count with a Show pill, on the card and the quiet line", () => {
+  const rail = readFileSync(join(HERE, "..", "herdr", "mods", "kit-rail", "main.js"), "utf8");
+  assert.match(rail, /hiddenRuns\(a, shared\("kit\.runsDismissed"\)\)/);
+  assert.match(rail, /showRuns\(shared\("kit\.runsDismissed"\), address\)/);
+  assert.match(rail, /runs-show-\$\{a\.address\}/);
+  assert.match(rail, /quiet-show-\$\{a\.address\}/);
 });

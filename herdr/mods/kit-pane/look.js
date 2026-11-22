@@ -1131,6 +1131,22 @@ export function visibleRuns(a, dismissed) {
   return (a?.runs ?? []).filter((r) => !d[runKey(a.address, r)]);
 }
 
+/** How many of the Claude's Run cards are dismissed (hidden on the rail). */
+export function hiddenRuns(a, dismissed) {
+  return (a?.runs ?? []).length - visibleRuns(a, dismissed).length;
+}
+
+/** The rail's words for `n` hidden cards: "2 hidden". */
+export function hiddenText(n) {
+  return `${n} hidden`;
+}
+
+/** The next kit.runsDismissed after showing every hidden card of `address` again. */
+export function showRuns(dismissed, address) {
+  const prefix = `${address}:`;
+  return Object.fromEntries(Object.entries(dismissed ?? {}).filter(([k]) => !k.startsWith(prefix)));
+}
+
 /**
  * The next kit.runsDismissed after clearing every card in `list` of `address`
  * (the rail's Clear). Keeps only keys still on some Claude.

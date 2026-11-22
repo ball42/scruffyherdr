@@ -6,6 +6,12 @@
 // the same stdin, and passes its stdout through unchanged. With no old status
 // line it prints nothing. An old command still running after 5 s is stopped
 // and nothing more is printed. It always exits 0.
+//
+// The old line runs with HERDR_STATUSLINE_DEPTH set, and a wrapper that starts
+// with it set does nothing at all: an old line that leads back to a herdr
+// status line (this file, another checkout's copy, or Herdr Chat's
+// statusline-herdr.py chained to one) stops there instead of looping
+// (one such chain once spawned hundreds of processes).
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -14,6 +20,10 @@ import { writeCtx } from "./ctx.js";
 import { writeLimits } from "./limits.js";
 
 const TIMEOUT_MS = Number(process.env.HERDR_KIT_STATUSLINE_TIMEOUT_MS) || 5000;
+const DEPTH = "HERDR_STATUSLINE_DEPTH";
+
+// Started by a wrapper's old line: the outer wrapper already tapped, so stop.
+if (process.env[DEPTH]) process.exit(0);
 
 let input = Buffer.alloc(0);
 try {
@@ -71,7 +81,7 @@ const finish = () => {
 };
 try {
   // Its own process group, so the timeout stops anything it started too.
-  child = spawn("/bin/sh", ["-c", command], { stdio: ["pipe", "pipe", "inherit"], detached: true });
+  child = spawn("/bin/sh", ["-c", command], { stdio: ["pipe", "pipe", "inherit"], detached: true, env: { ...process.env, [DEPTH]: "1" } });
 } catch {
   process.exit(0);
 }
