@@ -316,19 +316,38 @@ export function wrapperDir(command) {
  *   last day (the caller checks and passes ctxFresh).
  * "unwrapped": anything else, including no status line.
  */
-export function statusLineState({ statusLine, ctxFresh, wrapper, saved = false }) {
+export function statusLineState({ statusLine, ctxFresh, wrapper, saved = false, chain = null }) {
   const has = statusLine !== undefined && statusLine !== null;
   if (has && (typeof statusLine !== "object" || statusLine.type !== "command" || typeof statusLine.command !== "string")) return "notcommand";
   const command = has ? statusLine.command : "";
   if (wrapper && command === wrapper) return "wrapped";
   if (saved && wrapperDir(command) !== null) return "moved";
-  if (ctxFresh || command.includes("ctx-tap") || command.includes("claude/statusline.mjs")) return "wired";
+  // Herdr Chat's statusline-herdr.py runs the line in its own chain; one that is a
+  // wrapper already feeds ctx-tap, and saving it as ours would loop.
+  const chained = isHerdrChat(command) && typeof chain === "string" ? chain : "";
+  const feeds = (c) => c.includes("ctx-tap") || c.includes("claude/statusline.mjs");
+  if (ctxFresh || feeds(command) || feeds(chained)) return "wired";
   return "unwrapped";
 }
 
+/** True for Herdr Chat's status line, which runs ~/.claude/statusline-herdr.json's chain after itself. */
+export function isHerdrChat(command) {
+  return String(command ?? "").includes("statusline-herdr");
+}
+
+/** The chain in ~/.claude/statusline-herdr.json (under `home`), or null. */
+export function herdrChatChain(home = homedir()) {
+  try {
+    const chain = JSON.parse(readFileSync(join(home, ".claude", "statusline-herdr.json"), "utf8"))?.chain;
+    return typeof chain === "string" ? chain : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Whether install should wrap the status line: only a command line (or none) that doesn't feed ctx-tap yet. */
-export function shouldWrap({ statusLine, ctxFresh, wrapper, saved = false }) {
-  return statusLineState({ statusLine, ctxFresh, wrapper, saved }) === "unwrapped";
+export function shouldWrap({ statusLine, ctxFresh, wrapper, saved = false, chain = null }) {
+  return statusLineState({ statusLine, ctxFresh, wrapper, saved, chain }) === "unwrapped";
 }
 
 /**
@@ -469,13 +488,13 @@ function statusMain(op, file, rest) {
     writeFileSync(file, JSON.stringify(next, null, 2) + "\n");
   };
   if (op === "statusstate") {
-    console.log(statusLineState({ statusLine: data.statusLine, ctxFresh: third === "fresh", wrapper, saved: Boolean(fourth && existsSync(fourth)) }));
+    console.log(statusLineState({ statusLine: data.statusLine, ctxFresh: third === "fresh", wrapper, saved: Boolean(fourth && existsSync(fourth)), chain: herdrChatChain() }));
     process.exit(0);
   }
   if (op === "wrapstatus") {
     const prevFile = third;
     if (!prevFile) usage();
-    const state = statusLineState({ statusLine: data.statusLine, ctxFresh: fourth === "fresh", wrapper, saved: existsSync(prevFile) });
+    const state = statusLineState({ statusLine: data.statusLine, ctxFresh: fourth === "fresh", wrapper, saved: existsSync(prevFile), chain: herdrChatChain() });
     if (state === "wrapped") process.exit(0);
     if (state === "moved") {
       // "moved" needs the saved line, which still holds the user's original: keep it.

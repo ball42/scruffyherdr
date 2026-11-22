@@ -221,3 +221,81 @@ test("a reader that stops reading can't hold the wrapper past the timeout", { ti
   assert.ok(Date.now() - started < SLOW, `took ${Date.now() - started} ms`);
   w.stdout.destroy();
 });
+
+// A status line that chained back to itself. The kit wrapper ran
+// the saved line (Herdr Chat's statusline-herdr.py), whose chain was a second
+// copy of the wrapper (another checkout), which read the same saved line and ran
+// it again: hundreds of processes and a load in the hundreds. The chain script below stands in
+// for statusline-herdr.py; it counts its runs and gives up after 6, so this
+// test can't fork-bomb the machine when the guard is missing.
+test("two wrappers chained through the saved line: the saved line runs once per render", () => {
+  const h = home();
+  const copy = join(h, "scruffyherdr", "claude");
+  mkdirSync(copy, { recursive: true });
+  for (const f of ["statusline.mjs", "ctx.js", "limits.js"]) writeFileSync(join(copy, f), readFileSync(join(KIT, "claude", f)));
+  const count = join(h, "runs");
+  const chain = join(h, "statusline-herdr.sh");
+  writeFileSync(chain, [
+    `echo run >> '${count}'`,
+    `[ "$(wc -l < '${count}')" -gt 6 ] && exit 0`,
+    "printf 'line|'",
+    `'${process.execPath}' '${join(copy, "statusline.mjs")}'`,
+  ].join("\n") + "\n");
+  const r = run(h, { type: "command", command: `sh '${chain}'` }, "{}", { HERDR_KIT_STATUSLINE_TIMEOUT_MS: "20000" });
+  assert.equal(r.status, 0);
+  assert.equal(readFileSync(count, "utf8").trim().split("\n").length, 1, "the saved line ran more than once");
+  assert.equal(r.stdout, "line|");
+});
+
+test("a wrapper started by a wrapper's saved line runs nothing and prints nothing", () => {
+  const h = home();
+  const r = run(h, { type: "command", command: "printf again" }, "{}", { ...NO_DEADLINE, HERDR_STATUSLINE_DEPTH: "1" });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, "");
+});
+
+test("the saved line runs with HERDR_STATUSLINE_DEPTH set", () => {
+  const r = run(home(), { type: "command", command: "printf %s \"$HERDR_STATUSLINE_DEPTH\"" }, "{}");
+  assert.equal(r.stdout, "1");
+});
+
+test("a timed-out old command's whole process group is killed", async () => {
+  const h = home();
+  const pidFile = join(h, "pid");
+  const r = run(h, { type: "command", command: `sleep 30 & echo $! > '${pidFile}'; wait` }, "{}", { HERDR_KIT_STATUSLINE_TIMEOUT_MS: "1500" });
+  assert.equal(r.status, 0);
+  const sleeper = Number(readFileSync(pidFile, "utf8").trim());
+  const alive = () => { try { process.kill(sleeper, 0); return true; } catch { return false; } };
+  for (const end = Date.now() + 5000; alive() && Date.now() < end;) await new Promise((res) => setTimeout(res, 50));
+  assert.equal(alive(), false, "the old command's background child outlived the timeout");
+});
+
+test("statusLineState: Herdr Chat's line whose chain is a kit wrapper is wired, never saved", () => {
+  const wrapper = wrapperCommand("node", "/kit");
+  const line = { type: "command", command: "python3 ~/.claude/statusline-herdr.py" };
+  assert.equal(statusLineState({ statusLine: line, ctxFresh: false, wrapper, chain: 'node "/home/me/scruffyherdr/claude/statusline.mjs"' }), "wired");
+  assert.equal(statusLineState({ statusLine: line, ctxFresh: false, wrapper, chain: "node ~/kit/claude/ctx-tap.mjs" }), "wired");
+  assert.equal(statusLineState({ statusLine: line, ctxFresh: false, wrapper, chain: "~/.claude/statusline.sh" }), "unwrapped");
+  assert.equal(statusLineState({ statusLine: line, ctxFresh: false, wrapper, chain: null }), "unwrapped");
+});
+
+test("wrapstatus reads statusline-herdr.json's chain: a line that leads back to a wrapper is left alone", () => {
+  const h = home();
+  mkdirSync(join(h, ".claude"), { recursive: true });
+  const settings = join(h, ".claude", "settings.json");
+  const prevFile = join(h, ".config", "herdr-kit", "statusline-prev.json");
+  const line = { type: "command", command: `python3 ${h}/.claude/statusline-herdr.py` };
+  const go = () => spawnSync(process.execPath, [join(KIT, "scripts", "merge-config.js"), "wrapstatus", settings, "node", "/kit", prevFile, "stale"],
+    { env: { ...process.env, HOME: h, HERDR_KIT_NO_BACKUP: "1" }, encoding: "utf8" });
+  writeFileSync(settings, JSON.stringify({ statusLine: line }));
+  writeFileSync(join(h, ".claude", "statusline-herdr.json"), JSON.stringify({ chain: `node "${h}/scruffyherdr/claude/statusline.mjs"` }));
+  let r = go();
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(existsSync(prevFile), false, "a line that chains to a wrapper was saved as the previous one");
+  assert.deepEqual(JSON.parse(readFileSync(settings, "utf8")).statusLine, line);
+  // A chain to the user's own line is not a wrapper: wrapped as before.
+  writeFileSync(join(h, ".claude", "statusline-herdr.json"), JSON.stringify({ chain: `${h}/.claude/statusline.sh` }));
+  r = go();
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(prevFile, "utf8")).statusLine, line);
+});

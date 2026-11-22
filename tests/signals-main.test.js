@@ -402,3 +402,18 @@ test("a scene file's theme name that isn't a plain file name is never read, and 
   assert.match(view.sceneProblem(), /fixture-two.*\.\.\/\.\.\/etc\/day/);
   setActiveScenes(null);
 });
+
+// The card hook can't read Herdr's shared store, so the owner copy
+// mirrors kit.runsDismissed to a file, and the open-runs note marks those cards.
+test("the owner mirrors kit.runsDismissed to runs-dismissed.json, only when it changes", async () => {
+  const FILE = "/home/test/.config/herdr-kit/runs-dismissed.json";
+  const { cx } = await start({}, { layoutName: "scruffy", tree: coreTree() });
+  assert.deepEqual(JSON.parse(host.files[FILE]), {}, "written once with nothing dismissed");
+  host.shared["kit.runsDismissed"] = { "t1:abc": true };
+  await quiet(cx, 3_000);
+  assert.deepEqual(JSON.parse(host.files[FILE]), { "t1:abc": true });
+  const n = host.writes.filter((p) => p === FILE).length;
+  await quiet(cx, 6_000);
+  assert.equal(host.writes.filter((p) => p === FILE).length, n, "no rewrite while it stays the same");
+  setActiveScenes(null);
+});
