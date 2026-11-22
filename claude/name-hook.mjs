@@ -7,7 +7,7 @@ import { closeSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, re
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { gitBranch } from "./git.js";
-import { askCards, askText, cardKind, carryRuns, dropRan, isHarnessPrompt, lastAssistantText, lastSaid, menuFromInput, mergeRuns, runCards, turnText } from "./cards.js";
+import { askCards, askText, cardKind, dropRan, isHarnessPrompt, lastAssistantText, lastSaid, menuFromInput, namesKey, nextRuns, turnText } from "./cards.js";
 import { latestTitles, summarizeAsk, summarizeTool } from "./titles.js";
 
 const TAIL_BYTES = 512 * 1024;
@@ -37,23 +37,6 @@ function cleanStale(dir, keep) {
       // gone already, or not ours to delete
     }
   }
-}
-
-/**
- * The names file this session writes, without ".json": its terminal, or for a
- * Claude Code background session "bg-<session id>". A background session runs
- * in a daemon worker that kept the HC_TERMINAL_ID of the terminal it was
- * started from, which may be another terminal or none; herdr-signals gives its
- * file to the terminal whose title matches (folder.js homeBackground). Null
- * outside Herdr.
- */
-function fileKey(env, sessionId) {
-  const terminal = env.HC_TERMINAL_ID;
-  if (!terminal || !/^[A-Za-z0-9_-]+$/.test(terminal)) return null;
-  // Claude Code strips CLAUDE_CODE_SESSION_KIND from the processes it starts;
-  // a background job's hooks still see CLAUDE_JOB_DIR (~/.claude/jobs/<id>).
-  if (env.CLAUDE_CODE_SESSION_KIND !== "bg" && !env.CLAUDE_JOB_DIR) return terminal;
-  return typeof sessionId === "string" && /^[A-Za-z0-9-]{1,64}$/.test(sessionId) ? `bg-${sessionId}` : null;
 }
 
 /**
@@ -87,9 +70,9 @@ function ranClean(runs) {
 
 function main() {
   // Outside Herdr, leave before reading stdin: nothing may be piped in.
-  if (!fileKey(process.env, "x")) return;
+  if (!namesKey(process.env, "x")) return;
   const input = JSON.parse(readFileSync(0, "utf8"));
-  const terminal = fileKey(process.env, input?.session_id);
+  const terminal = namesKey(process.env, input?.session_id);
   if (!terminal) return;
   const event = input.hook_event_name;
   // A background subagent's tool calls carry the parent's session_id and an
@@ -168,7 +151,7 @@ function main() {
     // The message before the menu ended the reply's text, but no Stop has read
     // it: take its Run cards now, and let the Stop after the answer add to them.
     if (input.transcript_path) {
-      next.runs = mergeRuns(next.runs, runCards(turnText(readTail(input.transcript_path))));
+      next.runs = nextRuns(next.runs, turnText(readTail(input.transcript_path)), ranClean(next.runs));
       next.ask_turn = true;
     }
   } else if (event === "UserPromptSubmit" && isHarnessPrompt(input.prompt)) {
@@ -189,17 +172,14 @@ function main() {
     next.said = null;
   } else if (event === "Stop") {
     const text = typeof input.last_assistant_message === "string" && input.last_assistant_message ? input.last_assistant_message : lastAssistantText(tail);
-    const fresh = runCards(text);
+    // An action items section is the whole open set; a message
+    // without one keeps the cards and adds its closing card.
+    next.runs = nextRuns(next.runs, text, ranClean(next.runs));
     if (next.note_turn || next.ask_turn) {
-      // A reply to a Run note, or the rest of a turn that asked a question,
-      // keeps the list and only adds new cards.
-      next.runs = mergeRuns(next.runs, fresh);
+      // A reply to a Run note, or the rest of a turn that asked a question.
       next.card = cardKind(text) ?? (next.runs.length ? "run" : next.card);
       next.asks = askCards(text).length ? askCards(text) : next.asks;
     } else {
-      // A new turn: the open cards from earlier turns stay, and a card posted
-      // again replaces its old copy.
-      next.runs = carryRuns(next.runs, fresh);
       next.card = cardKind(text) ?? (next.runs.length ? "run" : null);
       next.asks = askCards(text);
     }

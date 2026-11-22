@@ -197,9 +197,9 @@ const RUN_STATES = new Set(["running", "done", "skipped"]);
 
 /**
  * A run state file (runstate/<address>-<id>.json, written by the ▶ Run
- * script) as {state, exit, terminal, log, since}, or null when it isn't one.
- * `since` is when a running step started (epoch ms, from the file's `at`
- * seconds), else null.
+ * script) as {state, exit, terminal, log, since, ended}, or null when it isn't
+ * one. `since` is when a running step started and `ended` when a finished or
+ * skipped one ended (epoch ms, from the file's `at` seconds), else null.
  */
 export function readRunState(d) {
   if (!d || typeof d !== "object" || !RUN_STATES.has(d.state)) return null;
@@ -209,5 +209,6 @@ export function readRunState(d) {
     state: d.state, exit, terminal: typeof d.terminal === "string" ? d.terminal : null,
     log: typeof d.log === "string" && d.log ? d.log : null,
     since: d.state === "running" && Number.isFinite(d.at) && d.at > 0 ? d.at * 1000 : null,
+    ended: d.state !== "running" && Number.isFinite(d.at) && d.at > 0 ? d.at * 1000 : null,
   };
 }

@@ -7,7 +7,7 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { panes, props, run, setShared, shared, theme, home } from "herdr";
-import { BLUE, Flares, ORANGE, useTheme, RunGate, cardMark, copyCommand, dismissRun, firstOpenRun, groupRuns, mark, openRunLog, pill, pressRun, runCard, runStatus, runningText, runTick, SNOOZE_CHOICES, snoozeLabel, snoozeSet, visibleRuns, waited, withCard } from "./look.js";
+import { BLUE, Flares, ORANGE, useTheme, RunGate, cardMark, copyCommand, dismissRun, goLabel, mark, openRunLog, paneRun, pill, planRuns, pressRun, runCard, runStatus, runningText, runTick, SNOOZE_CHOICES, snoozeLabel, snoozeSet, visibleRuns, waited, withCard } from "./look.js";
 
 function icon(p, size, color) {
   if (!p?.icon) return null;
@@ -79,11 +79,14 @@ export default class KitPane extends View {
     const pic = icon(p.program, 14, t.dim);
     const pane = p.pane;
     // The first Run card that hasn't finished gets its buttons here (and Run
-    // all when it starts a sequence); the rail lists them all.
+    // all when it starts a whole set); the rail lists them all. A step whose
+    // earlier step is missing or dismissed says so and offers only Copy.
     const runs = visibleRuns(kit, shared("kit.runsDismissed"));
-    const r0 = firstOpenRun(runs);
+    const pick = paneRun(planRuns(kit, shared("kit.runsDismissed")));
+    const r0 = pick?.card ?? null;
     const st0 = r0 ? runStatus(r0.state) : null;
-    const seq0 = r0?.step ? groupRuns(runs).find((g) => g.seq?.includes(r0))?.seq ?? null : null;
+    const seq0 = pick?.all ?? null;
+    const wait0 = pick?.wait ?? null;
     const live = runs.find((r) => r.state?.state === "running");
     const going = Boolean(live);
     runTick(this, going, cx);
@@ -113,8 +116,9 @@ export default class KitPane extends View {
       .when(Boolean(r0), (el) => el
         .child(div().id(`kp-lb-${pane}`).flex_none().truncate().max_w(200).text_size(11).text_color(t.foreground).tooltip(`${r0.label}\n\n${r0.command}`).child(r0.step ? `▶ ${r0.step}/${r0.of} ${r0.label}` : `▶ ${r0.label}`))
         .when(going, (e) => e.child(div().flex_none().text_size(11).text_color(t.foreground).child(runningText(live.state))))
-        .when(!going, (e) => e.child(pill(t, `kp-run-${pane}`, st0 ? "▶ Again" : "▶ Run", go(`${p.terminal}-${r0.id ?? r0.label}`, [r0]), ORANGE)))
-        .when(!going && Boolean(seq0) && r0.step === 1, (e) => e.child(pill(t, `kp-all-${pane}`, `▶ Run all ${seq0.length}`, go(`${p.terminal}-all`, seq0), ORANGE)))
+        .when(!going && wait0 == null, (e) => e.child(pill(t, `kp-run-${pane}`, goLabel(st0), go(`${p.terminal}-${r0.id ?? r0.label}`, [r0]), ORANGE)))
+        .when(!going && wait0 != null, (e) => e.child(div().flex_none().text_size(11).text_color(ORANGE).child(`⚠ waits on step ${wait0}`)))
+        .when(!going && Boolean(seq0), (e) => e.child(pill(t, `kp-all-${pane}`, `▶ Run all ${seq0.length}`, go(`${p.terminal}-all`, seq0), ORANGE)))
         .when(!going && Boolean(r0.state?.log), (e) => e.child(pill(t, `kp-log-${pane}`, "log", () => openRunLog(p.terminal, r0.state.log, { panes, shared, setShared, run }))))
         .child(pill(t, `kp-cp-${pane}`, this.copied === pane ? "✓ Copied" : "Copy", (_e, cx2) => copyCommand(this, pane, r0.command, cx2)))
         .child(pill(t, `kp-x-run-${pane}`, "✕", () => setShared("kit.runsDismissed", dismissRun(shared("kit.runsDismissed"), shared("herdr-kit")?.agents, p.terminal, r0)), t.dim))

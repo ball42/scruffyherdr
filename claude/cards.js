@@ -13,7 +13,7 @@ Anything the user can answer by picking is a decision, and every decision goes t
 
 ## Everything else: action items
 
-A message that needs anything else from the user (a command to run, a page to check, an open-ended question) ends with a \`## Your action items\` section. No text comes after it; when there are decisions too, call AskUserQuestion right after writing it. Every item in it is a card, most urgent first. Repeat items still open from earlier messages as cards, don't refer back; a Run card posted again replaces its old copy on the rail. When nothing is needed, don't add the section.
+A message that needs anything else from the user (a command to run, a page to check, an open-ended question) ends with a \`## Your action items\` section. No text comes after it; when there are decisions too, call AskUserQuestion right after writing it. Every item in it is a card, most urgent first. The section is your whole open set: list every card still open, from earlier messages too, and don't refer back. The rail drops any Run card the section leaves out. A Run card listed again unchanged keeps its last result; change its label or command and it is a new card. A message without the section leaves the rail's cards as they are. When nothing is needed, don't add the section.
 
 ## Run card: something the user must do
 
@@ -31,10 +31,11 @@ npm --prefix site run build
 - Keep every line in the fence to 60 characters or fewer, the leading spaces included. The terminal wraps a longer line with real line breaks, so copying it pastes a broken command. Break a long command between arguments with a trailing \` \\\`, start the next line with two spaces, write paths with \`~\`, or \`cd\` on its own line first. A single path or URL still too long goes in a script, and the card runs the script.
 - A procedure of several separate blocks goes in a runbook; its card is one \`open <runbook>\` command.
 - Herdr shows each Run card on the rail with a **▶ Run** button that runs the whole block in a new terminal under your pane, in your folder, and a **Copy** button. So the block must run as-is: no placeholders like \`<N>\`, no step that waits on a later card.
+- The block stops at the first line that fails, and that line's exit code is the card's, as under \`set -e\`. A line whose failure is fine needs \`|| true\`.
 
 ## Steps that must run in order: number them
 
-When some Run cards are steps that must run back to back, each needing the one before, number them: \`**▶ Run 1/3:**\`, \`**▶ Run 2/3:**\`, \`**▶ Run 3/3:**\`, next to each other. Herdr adds a **▶ Run all** button that runs them in one terminal, in order, and stops at the first failure. Every numbered step needs a command block. Never number a step that waits on the user doing something by hand, and leave independent cards unnumbered.
+When some Run cards are steps that must run back to back, each needing the one before, number them: \`**▶ Run 1/3:**\`, \`**▶ Run 2/3:**\`, \`**▶ Run 3/3:**\`, next to each other. Herdr adds a **▶ Run all** button that runs them in one terminal, in order, and stops at the first failure. Every numbered step needs a command block. Never number a step that waits on the user doing something by hand, and leave independent cards unnumbered. List a numbered set whole, steps that already ran too, until every step has run: a step whose earlier step is missing or dismissed can't run from the rail.
 
 ## When the user clicks ▶ Run
 
@@ -42,7 +43,7 @@ When a run ends, its terminal closes and types one message into your session. Th
 
 - \`[herdr-kit] ▶ Run finished: "<label>" exited <code>. Output: <log>\`, or for Run all \`[herdr-kit] ▶ Run all finished: 1/3 "<label>" exit 0; 2/3 "<label>" exit 1; 3/3 "<label>" skipped. Output: <log>\`.
 - The log holds the run's stdout and stderr, kept in a log folder you choose (config \`run_log_pipe\`; \`~/.config/herdr-kit/runlogs/\` by default). Read it (the terminal is gone), say in a few lines whether it worked, and go on with whatever it unblocked. Exit 130 means the user pressed Ctrl-C.
-- The rail keeps every Run card from this session, with its last result, until it ran with exit 0 and the user writes again, or the session ends. In your reply to a Run note, repeat only the cards still open and add any new step.
+- The rail keeps a Run card, with its last result, until an action items section leaves it out, or it ran with exit 0 and the user writes again, or the session ends. Each prompt may open with a \`[herdr-kit] Your Run cards on the rail\` list: it is the rail's set as it stands, with each card's last run. In your reply to a Run note, list the cards still open and add any new step.
 
 ## Ask card: a free-form question
 
@@ -372,6 +373,51 @@ export function runId(label, command, message = "") {
   return h.toString(36);
 }
 
+/**
+ * The names file a session's hooks share, without ".json": its terminal, or
+ * for a Claude Code background session "bg-<session id>". A background session
+ * runs in a daemon worker that kept the HC_TERMINAL_ID of the terminal it was
+ * started from, which may be another terminal or none; herdr-signals gives its
+ * file to the terminal whose title matches (folder.js homeBackground). Null
+ * outside Herdr.
+ */
+export function namesKey(env, sessionId) {
+  const terminal = env?.HC_TERMINAL_ID;
+  if (!terminal || !/^[A-Za-z0-9_-]+$/.test(terminal)) return null;
+  // Claude Code strips CLAUDE_CODE_SESSION_KIND from the processes it starts;
+  // a background job's hooks still see CLAUDE_JOB_DIR (~/.claude/jobs/<id>).
+  if (env.CLAUDE_CODE_SESSION_KIND !== "bg" && !env.CLAUDE_JOB_DIR) return terminal;
+  return typeof sessionId === "string" && /^[A-Za-z0-9-]{1,64}$/.test(sessionId) ? `bg-${sessionId}` : null;
+}
+
+/** How a card's last run went, in words: "not run", "✓ exit 0", "✗ exit 2", "running"... */
+function lastRun(st) {
+  if (!st) return "not run";
+  if (st.state === "running") return "running";
+  if (st.state === "skipped") return "skipped";
+  if (st.state !== "done") return "not run";
+  if (st.exit === 0) return "✓ exit 0";
+  return st.exit === 130 ? "✗ stopped (exit 130)" : `✗ exit ${st.exit}`;
+}
+
+/**
+ * The rail's Run cards as a note for the session: one line per card
+ * with its last run, so Claude lists the open set right. `states` maps a run id
+ * to its runstate ({state, exit}). Null when there are no cards.
+ */
+export function openRunsNote(runs, states = {}) {
+  const list = runs ?? [];
+  if (!list.length) return null;
+  const lines = list.map((r) => `- ${r.step ? `${r.step}/${r.of} ` : ""}"${oneLine(r.label)}" · ${lastRun(states[r.id])}`);
+  return [
+    "[herdr-kit] Your Run cards on the rail, with each one's last run:",
+    ...lines,
+    "Your next action items section replaces this set: list each card still needed, unchanged to keep its result. A card you leave out leaves the rail.",
+  ].join("\n");
+}
+
+const oneLine = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
+
 /** True when the text is a note the ▶ Run terminal typed, not the user. */
 export const RUN_NOTE_PREFIX = "[herdr-kit] ▶ Run";
 export function isRunNote(text) {
@@ -396,20 +442,70 @@ export function isHarnessPrompt(text) {
 const runText = (r) => `${r.step ?? ""}/${r.of ?? ""}\u0000${r.label}\u0000${r.command}`;
 
 /**
- * The Run cards a new turn's reply leaves: `kept` from earlier turns, then the
- * reply's `fresh` ones. A card posted again (same step, label and command)
- * replaces its old copy, so it shows again under its new id with no old result.
- * Keeps the newest MAX_RUNS.
+ * The numbered sets among `runs`: each a list of cards next to each other with
+ * the same `of` and rising steps, as a message posts them. A lone numbered card
+ * (the rest of its set gone) is a set of one.
  */
-export function carryRuns(kept, fresh) {
-  const now = mergeRuns([], fresh);
-  const texts = new Set(now.map(runText));
-  return [...(kept ?? []).filter((r) => !texts.has(runText(r))), ...now].slice(-MAX_RUNS);
+export function runSets(runs) {
+  const out = [];
+  let cur = null;
+  for (const r of runs ?? []) {
+    const last = cur?.[cur.length - 1];
+    if (r?.step && last && r.of === last.of && r.step > last.step) cur.push(r);
+    else if (r?.step) out.push((cur = [r]));
+    else cur = null;
+  }
+  return out;
 }
 
-/** `runs` minus the ones whose id is in `ranClean`, the ids whose run ended with exit 0. */
+/**
+ * `runs` minus the ones whose id is in `ranClean`, the ids whose run ended with
+ * exit 0. A step of a numbered set stays while another step of its set hasn't
+ * run clean, so the rail can tell a done prerequisite from a missing one.
+ */
 export function dropRan(runs, ranClean) {
-  return (runs ?? []).filter((r) => !(r.id && ranClean?.has(r.id)));
+  const clean = (r) => Boolean(r?.id && ranClean?.has(r.id));
+  const held = new Set();
+  for (const set of runSets(runs)) if (!set.every(clean)) for (const r of set) held.add(r);
+  return (runs ?? []).filter((r) => !clean(r) || held.has(r));
+}
+
+/** True when the message has a "Your action items" section. */
+export function hasItems(text) {
+  return itemsStart(parse(text)) >= 0;
+}
+
+/**
+ * The session's Run cards after a message. A message with an
+ * action items section names the whole open set: a card it leaves out goes,
+ * and a card it lists again unchanged (same step, label and command) keeps its
+ * old id, so its last result and its ✕ stay. A done step of a numbered set the
+ * message lists again in part stays too (`clean`: the ids that ran exit 0). A
+ * message without the section adds its closing card, if any, and drops none.
+ * Keeps the newest MAX_RUNS.
+ */
+export function nextRuns(kept, text, clean = new Set()) {
+  const old = kept ?? [];
+  const fresh = mergeRuns([], runCards(text));
+  const byText = new Map(old.map((r) => [runText(r), r]));
+  const same = (r) => { const o = byText.get(runText(r)); return o ? { ...r, id: o.id } : r; };
+  if (!hasItems(text)) {
+    return [...old, ...fresh.filter((r) => !byText.has(runText(r)))].slice(-MAX_RUNS);
+  }
+  const now = fresh.map(same);
+  const ids = new Set(now.map((r) => r.id));
+  // A listed step's old set: its done steps the message left out come back with it.
+  const out = [];
+  const placed = new Set();
+  for (const r of now) {
+    const set = runSets(old).find((s) => s.some((o) => o.id === r.id));
+    if (set && !placed.has(set)) {
+      placed.add(set);
+      for (const o of set) if (!ids.has(o.id) && clean.has(o.id) && o.step < r.step) out.push(o);
+    }
+    out.push(r);
+  }
+  return out.slice(-MAX_RUNS);
 }
 
 /**
