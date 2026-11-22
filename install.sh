@@ -76,9 +76,10 @@ CARD_CMD="node \"$REPO/claude/card-hook.mjs\""
 # The name hook only writes its file and tells Claude nothing, so every event runs
 # async: Claude never waits on node's startup, which takes ~150 ms on a quiet Mac
 # and past Claude's 30 s hook timeout on a loaded one. The card hook stays
-# synchronous: its Stop answer is what makes Claude rewrite a reply.
+# synchronous: its Stop answer is what makes Claude rewrite a reply, and its
+# UserPromptSubmit answer hands Claude the rail's open Run cards.
 NAME_EVENTS=SessionStart:async,UserPromptSubmit:async,Stop:async,Notification:async,PermissionRequest:async,PreToolUse:async
-CARD_EVENTS=SessionStart,Stop
+CARD_EVENTS=SessionStart,UserPromptSubmit,Stop
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 # The status line install replaced, kept for statusline.mjs and for --uninstall.
 STATUS_PREV="$KIT_HOME/statusline-prev.json"
