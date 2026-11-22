@@ -6,12 +6,12 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fakeCx } from "./support/gpui-stub.js";
-import { runCards, runId, mergeRuns, carryRuns, dropRan, isRunNote, isHarnessPrompt, lintMessage, turnText } from "../claude/cards.js";
+import { runCards, runId, mergeRuns, nextRuns, dropRan, isRunNote, isHarnessPrompt, lintMessage, turnText } from "../claude/cards.js";
 import { initialNamesMemo, resolveNames } from "../herdr/mods/herdr-signals/names.js";
 import { attentionStep, buildModel, readRunState } from "../herdr/mods/herdr-signals/model.js";
 
 const look = await import("../herdr/mods/kit-rail/look.js");
-const { elapsed, runningText, RUN_NOTE, runArgv, runSlug, runCard, openRunLog, shellQuote, copyCommand, runKey, visibleRuns, dismissRun, runStatus, groupRuns, firstOpenRun, isQuietCommand, commandPreview } =
+const { elapsed, runningText, RUN_NOTE, runArgv, runSlug, runCard, openRunLog, shellQuote, copyCommand, runKey, visibleRuns, dismissRun, runStatus, planRuns, firstOpenRun, isQuietCommand, commandPreview } =
   await import("../herdr/mods/kit-rail/look.js");
 const F = "```";
 const AI = "## Your action items";
@@ -116,8 +116,8 @@ test("model: runs show in every status, each with its run state", () => {
 });
 
 test("readRunState: only well-formed states", () => {
-  assert.deepEqual(readRunState({ state: "running", exit: null, terminal: "t1", at: 1 }), { state: "running", exit: null, terminal: "t1", log: null, since: 1000 });
-  assert.deepEqual(readRunState({ state: "done", exit: 2, at: 5 }), { state: "done", exit: 2, terminal: null, log: null, since: null });
+  assert.deepEqual(readRunState({ state: "running", exit: null, terminal: "t1", at: 1 }), { state: "running", exit: null, terminal: "t1", log: null, since: 1000, ended: null });
+  assert.deepEqual(readRunState({ state: "done", exit: 2, at: 5 }), { state: "done", exit: 2, terminal: null, log: null, since: null, ended: 5000 });
   for (const at of [undefined, null, "9", 0, -1]) assert.equal(readRunState({ state: "running", at }).since, null);
   assert.equal(readRunState({ state: "done", exit: 1, log: "/r/x.log" }).log, "/r/x.log");
   for (const log of ["", 3, null]) assert.equal(readRunState({ state: "done", exit: 1, log }).log, null);
@@ -131,7 +131,7 @@ test("runStatus: words and glyphs, never colour alone", () => {
   assert.deepEqual(runStatus({ state: "running" }), { text: "running…", tone: "run" });
   assert.deepEqual(runStatus({ state: "running", since: 1000 }, 43_500), { text: "running 0:42", tone: "run" });
   assert.deepEqual(runStatus({ state: "done", exit: 0 }), { text: "✓ exit 0", tone: "ok" });
-  assert.deepEqual(runStatus({ state: "done", exit: 2 }), { text: "✗ exit 2", tone: "bad" });
+  assert.deepEqual(runStatus({ state: "done", exit: 2 }), { text: "✗ exited 2", tone: "bad" });
   assert.deepEqual(runStatus({ state: "done", exit: 130 }), { text: "✗ stopped", tone: "bad" });
   assert.deepEqual(runStatus({ state: "skipped" }), { text: "– skipped", tone: "dim" });
 });
@@ -146,12 +146,13 @@ test("elapsed: a m:ss clock, h:mm:ss past an hour", () => {
   assert.equal(runningText({ state: "running", since: 1000 }, 62_000), "running 1:01");
 });
 
-test("groupRuns gathers whole sequences; a broken one stays single cards", () => {
+test("planRuns gathers numbered sets; a broken one shows its gaps instead of falling apart", () => {
   const s = (step, of, id) => ({ id, label: id, command: id, step, of });
   const lone = { id: "l", label: "l", command: "l" };
-  assert.deepEqual(groupRuns([lone, s(1, 2, "a"), s(2, 2, "b")]), [{ card: lone }, { seq: [s(1, 2, "a"), s(2, 2, "b")] }]);
-  assert.deepEqual(groupRuns([s(1, 3, "a"), s(2, 3, "b")]), [{ card: s(1, 3, "a") }, { card: s(2, 3, "b") }]);
-  assert.deepEqual(groupRuns(undefined), []);
+  const a = (runs) => ({ address: "t1", runs });
+  assert.deepEqual(planRuns(a([lone, s(1, 2, "a"), s(2, 2, "b")]), {}), [{ card: lone }, { seq: [s(1, 2, "a"), s(2, 2, "b")], of: 2, gaps: [], wait: null }]);
+  assert.deepEqual(planRuns(a([s(1, 3, "a"), s(2, 3, "b")]), {}), [{ seq: [s(1, 3, "a"), s(2, 3, "b")], of: 3, gaps: [{ step: 3, why: "missing" }], wait: 3 }]);
+  assert.deepEqual(planRuns(a(undefined), {}), []);
 });
 
 test("firstOpenRun skips cards that finished with exit 0", () => {
@@ -170,7 +171,7 @@ test("shellQuote and runArgv: the folder is quoted, the steps run under script, 
   const [sh, flag, script] = runArgv([{ label: "x", command: "ls\npwd" }], "/home/b/it's here");
   assert.deepEqual([sh, flag], ["zsh", "-lc"]);
   assert.ok(script.includes("cd -- '/home/b/it'\\''s here' 2>/dev/null\n"));
-  assert.ok(script.includes("trap : INT\nls\npwd\n__kit_rc=$?"));
+  assert.ok(script.includes("__kit_step() {\nsetopt localoptions err_return\nls\npwd\n}\ntrap : INT\n__kit_step\n__kit_rc=$?"));
   assert.match(script, /\nscript -q "\$__kit_tmp\/raw" zsh -c '/);
   assert.match(script, /\nexit 0$/);
   assert.doesNotMatch(script, /exec zsh/);
@@ -354,25 +355,23 @@ test("dismissRun drops keys for cards no Claude has any more", () => {
   assert.deepEqual(Object.keys(d), [runKey("t1", now)]);
 });
 
-test("a card re-posted in a new message is visible again, and a numbered set keeps Run all", () => {
+test("a dismissed card listed again unchanged stays dismissed; a numbered set keeps Run all", () => {
   const msg = (n, tag) => [
     `Step ${tag}.`, "", AI, "",
     ...[1, 2].flatMap((i) => [`**▶ Run ${i}/2:** prod deploy ${i}`, "", `${F}sh`, `make deploy${i}`, F, ""]),
   ].join("\n");
-  const first = runCards(msg(1, "one"));
+  const first = nextRuns([], msg(1, "one"));
   const agent = (runs) => ({ address: "t1", runs });
+  assert.deepEqual(planRuns(agent(first), {}), [{ seq: first, of: 2, gaps: [], wait: null }]);
   let d = dismissRun(undefined, [agent(first)], "t1", first[0]);
   d = dismissRun(d, [agent(first)], "t1", first[1]);
   assert.deepEqual(visibleRuns(agent(first), d), []);
-  // Same message still shown: both stay hidden.
-  assert.deepEqual(visibleRuns(agent(runCards(msg(1, "one"))), d), []);
-  // A new message with identical label, command and step shows again.
-  const again = runCards(msg(2, "two"));
-  const shown = visibleRuns(agent(again), d);
-  assert.deepEqual(shown, again);
-  assert.equal(groupRuns(shown).length, 1);
-  assert.equal(groupRuns(shown)[0].seq.length, 2);
-  assert.notEqual(again[0].id, first[0].id);
+  // A later message lists the set again unchanged: the same cards, still dismissed.
+  const again = nextRuns(first, msg(2, "two"));
+  assert.deepEqual(again.map((r) => r.id), first.map((r) => r.id));
+  assert.deepEqual(visibleRuns(agent(again), d), []);
+  // The id still names the message it first came in.
+  assert.notEqual(runCards(msg(2, "two"))[0].id, first[0].id);
 });
 
 test("mergeRuns does not double a card the same text posted under another message", () => {
@@ -417,7 +416,7 @@ test("name hook: Stop writes runs, and a real prompt keeps the open ones", () =>
   assert.equal(read().card, "run");
 });
 
-test("name hook: a Run note keeps the cards; the reply adds new ones and drops none", () => {
+test("name hook: a Run note keeps the cards; a reply without a section drops none", () => {
   const { hook, read, home } = hookRig();
   hook({ hook_event_name: "Stop", last_assistant_message: two });
   const before = read().runs;
@@ -429,6 +428,8 @@ test("name hook: a Run note keeps the cards; the reply adds new ones and drops n
   assert.equal(read().card, "run");
   hook({ hook_event_name: "UserPromptSubmit", prompt: `${RUN_NOTE} finished: "where" exited 0 in terminal t6.` });
   hook({ hook_event_name: "Stop", last_assistant_message: `Good.\n\n${AI}\n\n**▶ Run:** next\n\n${F}sh\necho next\n${F}` });
+  assert.deepEqual(read().runs.map((r) => r.label), ["next"], "a section names the whole open set");
+  hook({ hook_event_name: "Stop", last_assistant_message: `Good.\n\n${two}\n\n**▶ Run:** next\n\n${F}sh\necho next\n${F}` });
   assert.deepEqual(read().runs.map((r) => r.label), ["list", "where", "next"]);
   // A real prompt drops the two that ran clean; the one not run yet stays.
   const runs = read().runs;
@@ -525,12 +526,13 @@ test("name hook: a second turn's message without action items leaves the first t
   hook({ hook_event_name: "Stop", last_assistant_message: "The docs are updated too." });
   assert.deepEqual(read().runs, first);
   assert.equal(read().card, "run");
-  // The next turn's new card joins them; a card posted again replaces its old copy.
+  // The next turn's section is the whole open set: a card listed again keeps its
+  // id, one left out goes, a new one joins.
   hook({ hook_event_name: "UserPromptSubmit", prompt: "ship it" });
   hook({ hook_event_name: "Stop", last_assistant_message: `${AI}\n\n**▶ Run:** list\n\n${F}sh\nls\n${F}\n\n**▶ Run:** ship\n\n${F}sh\nmake ship\n${F}` });
   const third = read().runs;
-  assert.deepEqual(third.map((r) => r.label), ["where", "list", "ship"]);
-  assert.notEqual(third[1].id, first[0].id, "the re-posted card is a new card");
+  assert.deepEqual(third.map((r) => r.label), ["list", "ship"]);
+  assert.equal(third[0].id, first[0].id, "the card listed again is the same card");
 });
 
 test("name hook: a failed run stays open; a new session starts with none", () => {
@@ -561,12 +563,14 @@ test("name hook: a background session keeps its Run cards across turns", () => {
   assert.equal(rec.card, "run");
 });
 
-test("carryRuns keeps the newest 8, and dropRan drops the ids that ran clean", () => {
+test("nextRuns keeps the newest 8, and dropRan drops the ids that ran clean", () => {
   const r = (i) => ({ id: `k${i}`, label: `c${i}`, command: `echo ${i}` });
   const kept = [1, 2, 3, 4, 5, 6].map(r);
-  assert.deepEqual(carryRuns(kept, [7, 8, 9].map(r)).map((x) => x.id), ["k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9"]);
-  assert.deepEqual(carryRuns(kept, []), kept);
-  assert.deepEqual(carryRuns(undefined, [r(1)]), [r(1)]);
+  const closing = (i) => `**▶ Run:** c${i}\n\n${F}sh\necho ${i}\n${F}`;
+  const grown = [7, 8, 9].reduce((runs, i) => nextRuns(runs, closing(i)), kept);
+  assert.deepEqual(grown.map((x) => x.label), ["c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9"]);
+  assert.deepEqual(nextRuns(kept, "No cards."), kept);
+  assert.deepEqual(nextRuns(undefined, closing(1)).map((x) => x.label), ["c1"]);
   assert.deepEqual(dropRan(kept, new Set(["k1", "k3"])).map((x) => x.id), ["k2", "k4", "k5", "k6"]);
   assert.deepEqual(dropRan([{ label: "x", command: "y" }], new Set(["undefined"])), [{ label: "x", command: "y" }]);
 });

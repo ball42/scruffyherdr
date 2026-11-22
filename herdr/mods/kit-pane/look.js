@@ -720,10 +720,18 @@ export function runArgv(steps, cwd, note = null) {
     I.push(`if [ -z "$__kit_failed" ]; then`);
     if (s.id) I.push(`__kit_state ${id} running`);
     if (many) I.push(`printf '\\033[90m── step %s ──\\033[0m\\n' ${shellQuote(tag)}`);
-    I.push("trap : INT");
+    // The block runs in a function under ERR_RETURN, like set -e: the first
+    // line that fails ends it with that line's code. A function,
+    // not a subshell, so a cd still carries to the next step.
+    I.push("__kit_step() {");
+    I.push("setopt localoptions err_return");
     I.push(String(s.command));
+    I.push("}");
+    I.push("trap : INT");
+    I.push("__kit_step");
     I.push("__kit_rc=$?");
     I.push("trap - INT");
+    I.push("unfunction __kit_step 2>/dev/null");
     if (s.id) I.push(`__kit_state ${id} done "$__kit_rc"`);
     I.push(many ? `__kit_sum="$__kit_sum"${shellQuote(`${sep}${tag} exit `)}"$__kit_rc"` : `__kit_sum=${shellQuote(`${tag} exited `)}"$__kit_rc"`);
     I.push(`[ "$__kit_rc" -ne 0 ] && __kit_failed=1`);
@@ -844,7 +852,18 @@ export function runStatus(state, now = Date.now()) {
   if (state.state === "skipped") return { text: "– skipped", tone: "dim" };
   if (state.exit === 0) return { text: "✓ exit 0", tone: "ok" };
   if (state.exit === 130) return { text: "✗ stopped", tone: "bad" };
-  return { text: `✗ exit ${state.exit}`, tone: "bad" };
+  return { text: `✗ exited ${state.exit}`, tone: "bad" };
+}
+
+/** A card's ▶ button: "▶ Run" before it ran, "▶ Retry" after a failure, else "▶ Again". */
+export function goLabel(st) {
+  if (!st || st.tone === "dim") return "▶ Run";
+  return st.tone === "bad" ? "▶ Retry" : "▶ Again";
+}
+
+/** When a finished run ended, for its done row: "3m ago", or null without a time. */
+export function ranAgo(state, now = Date.now()) {
+  return state?.ended ? `${waited(state.ended, now)} ago` : null;
 }
 
 /** True when every card's last run finished with exit 0. */
@@ -942,28 +961,107 @@ export function firstOpenRun(runs) {
   return (runs ?? []).find((r) => !(r.state?.state === "done" && r.state.exit === 0)) ?? null;
 }
 
+const isClean = (r) => r?.state?.state === "done" && r.state.exit === 0;
+
 /**
- * The cards in order, numbered sequences gathered: [{seq: [cards]} | {card}].
- * A sequence is cards with step 1..N of the same N, next to each other; a
- * broken one falls back to single cards.
+ * The numbered sets among `runs`: cards next to each other with the same `of`
+ * and rising steps. A lone numbered card is a set of one. (A copy of
+ * claude/cards.js runSets: a mod can't import from outside its folder.)
  */
-export function groupRuns(runs) {
+function runSets(runs) {
   const out = [];
-  const list = runs ?? [];
-  for (let i = 0; i < list.length; ) {
-    const r = list[i];
-    if (r.step === 1 && r.of >= 2) {
-      const seq = list.slice(i, i + r.of);
-      if (seq.length === r.of && seq.every((x, k) => x.step === k + 1 && x.of === r.of)) {
-        out.push({ seq });
-        i += r.of;
-        continue;
-      }
-    }
-    out.push({ card: r });
-    i++;
+  let cur = null;
+  for (const r of runs ?? []) {
+    const last = cur?.[cur.length - 1];
+    if (r?.step && last && r.of === last.of && r.step > last.step) cur.push(r);
+    else if (r?.step) out.push((cur = [r]));
+    else cur = null;
   }
   return out;
+}
+
+/**
+ * What the rail and the pane header draw from a Claude's Run cards, in order:
+ *   {card}  a card on its own that hasn't run clean;
+ *   {seq, of, gaps, wait}  a numbered set's shown steps. `gaps` are the steps
+ *     missing from it or dismissed before they ran clean ([{step, why}]); a
+ *     step that ran clean counts as done even when dismissed. `wait` is the
+ *     first gap's step, or null: a step after it can't run (Copy stays), and
+ *     the set has no Run all while any gap is open;
+ *   {done}  the cards on their own that ran clean, last.
+ * Dismissed cards aren't drawn; a set with nothing left to draw is left out.
+ */
+export function planRuns(a, dismissed) {
+  const d = dismissed ?? {};
+  const runs = a?.runs ?? [];
+  const hidden = (r) => Boolean(d[runKey(a.address, r)]);
+  const setOf = new Map();
+  for (const set of runSets(runs)) for (const r of set) setOf.set(r, set);
+  const out = [];
+  const done = [];
+  const seen = new Set();
+  for (const r of runs) {
+    const set = setOf.get(r);
+    if (!set) {
+      if (hidden(r)) continue;
+      if (isClean(r)) done.push(r); else out.push({ card: r });
+      continue;
+    }
+    if (seen.has(set)) continue;
+    seen.add(set);
+    const of = set[0].of;
+    const gaps = [];
+    for (let step = 1; step <= of; step++) {
+      const x = set.find((c) => c.step === step);
+      if (!x) gaps.push({ step, why: "missing" });
+      else if (hidden(x) && !isClean(x)) gaps.push({ step, why: "dismissed" });
+    }
+    const seq = set.filter((c) => !hidden(c));
+    if (seq.length) out.push({ seq, of, gaps, wait: gaps[0]?.step ?? null });
+  }
+  if (done.length) out.push({ done });
+  return out;
+}
+
+/** True when `r`, a step of `group`, waits on an earlier step that is missing or dismissed. */
+export function waitsOn(group, r) {
+  return group?.wait != null && r?.step > group.wait;
+}
+
+/** A set's gaps in words: "step 1 missing", "steps 1, 2 missing · step 4 dismissed". */
+export function gapText(gaps) {
+  const part = (why) => {
+    const n = gaps.filter((g) => g.why === why).map((g) => g.step);
+    return n.length ? `${n.length > 1 ? "steps" : "step"} ${n.join(", ")} ${why}` : null;
+  };
+  return [part("missing"), part("dismissed")].filter(Boolean).join(" · ");
+}
+
+/**
+ * The card the pane header offers from a plan: the first shown card that
+ * hasn't run clean, as {card, all, wait}. `all` is its set when the header
+ * may offer Run all (a whole set, from its first shown step), `wait` the step
+ * it waits on, or null. Null when every card ran clean.
+ */
+export function paneRun(plan) {
+  for (const g of plan ?? []) {
+    if (g.card) return { card: g.card, all: null, wait: null };
+    if (!g.seq) continue;
+    const card = g.seq.find((r) => !isClean(r));
+    if (!card) continue;
+    return { card, all: g.wait == null && card === g.seq[0] ? g.seq : null, wait: waitsOn(g, card) ? g.wait : null };
+  }
+  return null;
+}
+
+/** How many of a plan's shown cards are open and how many ran clean: {open, done}. */
+export function planCounts(plan) {
+  let open = 0;
+  let done = 0;
+  for (const g of plan ?? []) {
+    for (const r of g.card ? [g.card] : g.seq ?? g.done ?? []) if (isClean(r)) done++; else open++;
+  }
+  return { open, done };
 }
 
 const COPIED_FOR = 1500;
@@ -1031,6 +1129,16 @@ export function runKey(address, r) {
 export function visibleRuns(a, dismissed) {
   const d = dismissed ?? {};
   return (a?.runs ?? []).filter((r) => !d[runKey(a.address, r)]);
+}
+
+/**
+ * The next kit.runsDismissed after clearing every card in `list` of `address`
+ * (the rail's Clear). Keeps only keys still on some Claude.
+ */
+export function dismissRuns(dismissed, agents, address, list) {
+  let next = dismissed ?? {};
+  for (const r of list ?? []) next = dismissRun(next, agents, address, r);
+  return next;
 }
 
 /**

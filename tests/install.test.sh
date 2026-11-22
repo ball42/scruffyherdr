@@ -744,7 +744,7 @@ fi
 "$SP/install.sh" --uninstall >/dev/null 2>&1
 if [ "$(hookcount "$HOME/.claude/settings.json")" = "0" ]; then pass "uninstall removes quoted hook"; else fail "uninstall removes quoted hook"; fi
 
-# the card hook is added for SessionStart and Stop only, beside the name hook
+# the card hook is added for SessionStart, UserPromptSubmit and Stop only, beside the name hook
 cardcount() {
   node -e 'const s = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
 const evs = []; for (const [ev, es] of Object.entries(s.hooks ?? {})) for (const e of es) for (const h of e.hooks ?? []) if (String(h.command).includes("card-hook.mjs")) evs.push(ev);
@@ -757,13 +757,13 @@ echo '{"run_cards":true}' > "$HOME/.config/herdr-kit/config.json"
 echo '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"mine.sh"}]}]}}' > "$HOME/.claude/settings.json"
 "$REPO/install.sh" --hooks >/dev/null 2>&1
 S="$HOME/.claude/settings.json"
-if [ "$(cardcount "$S")" = "SessionStart,Stop" ] && [ "$(hookcount "$S")" = "6" ] && grep -q mine.sh "$S"; then
-  pass "registers the card hook on SessionStart and Stop"
+if [ "$(cardcount "$S")" = "SessionStart,Stop,UserPromptSubmit" ] && [ "$(hookcount "$S")" = "6" ] && grep -q mine.sh "$S"; then
+  pass "registers the card hook on SessionStart, UserPromptSubmit and Stop"
 else
-  fail "registers the card hook on SessionStart and Stop"
+  fail "registers the card hook on SessionStart, UserPromptSubmit and Stop"
 fi
 "$REPO/install.sh" --hooks >/dev/null 2>&1
-if [ "$(cardcount "$S")" = "SessionStart,Stop" ]; then pass "card hook re-install is idempotent"; else fail "card hook re-install is idempotent"; fi
+if [ "$(cardcount "$S")" = "SessionStart,Stop,UserPromptSubmit" ]; then pass "card hook re-install is idempotent"; else fail "card hook re-install is idempotent"; fi
 if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "ok    $S"; then pass "check reports the hooks ok"; else fail "check reports the hooks ok"; fi
 node -e 'const f=process.argv[1],s=JSON.parse(require("fs").readFileSync(f,"utf8"));delete s.hooks.SessionStart;require("fs").writeFileSync(f,JSON.stringify(s))' "$S"
 if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "DRIFT $S"; then pass "check reports a missing hook"; else fail "check reports a missing hook"; fi
@@ -803,7 +803,7 @@ fi
 if [ -n "$HAS_CARD_HOOK" ]; then
 echo '{"run_cards":true}' > "$HOME/.config/herdr-kit/config.json"
 HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --hooks </dev/null >/dev/null 2>&1
-if [ "$(cardcount "$HOME/.claude/settings.json")" = "SessionStart,Stop" ]; then pass "--hooks adds the card hook when run_cards is on"; else fail "--hooks adds the card hook when run_cards is on"; fi
+if [ "$(cardcount "$HOME/.claude/settings.json")" = "SessionStart,Stop,UserPromptSubmit" ]; then pass "--hooks adds the card hook when run_cards is on"; else fail "--hooks adds the card hook when run_cards is on"; fi
 fi
 echo '{"run_cards":false}' > "$HOME/.config/herdr-kit/config.json"
 HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --hooks </dev/null >/dev/null 2>&1

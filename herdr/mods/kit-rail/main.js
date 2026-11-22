@@ -14,7 +14,7 @@ import { alertArrows, arrowAction, arrowButton, switchVia } from "./arrow.js";
 import { HERE_PAD, hereBar, hereFill, railRows, scrollStep } from "./here.js";
 import { MultiReply } from "./multi-ui.js";
 import { saidGist, saidLines } from "./answer.js";
-import { BLUE, Flares, ORANGE, useTheme, RunGate, asksBadge, canCompact, cardClick, commandPreview, compactPill, cardMark, confirmRun, copyCommand, ctxEdge, ctxFigure, ctxMeter, dismissRun, groupRuns, mark, openItems, openRunLog, outline, pill, pressRun, ranClean, runCard, runStatus, runningText, runTick, visibleRuns, snoozeControls, snoozeGlyph, snoozeLabel, snoozeSet, waited, withCard } from "./look.js";
+import { BLUE, Flares, ORANGE, useTheme, RunGate, asksBadge, canCompact, cardClick, commandPreview, compactPill, cardMark, confirmRun, copyCommand, ctxEdge, ctxFigure, ctxMeter, dismissRun, dismissRuns, gapText, goLabel, mark, openItems, openRunLog, outline, pill, planCounts, planRuns, pressRun, ranAgo, ranClean, runCard, runStatus, runningText, runTick, visibleRuns, waitsOn, snoozeControls, snoozeGlyph, snoozeLabel, snoozeSet, waited, withCard } from "./look.js";
 
 const SPINNER = "mods/workspace-chrome/spinner.svg";
 
@@ -94,6 +94,11 @@ function click(a) {
 }
 
 /** Hides one Run card on the rail and the pane header. */
+/** The rail's Clear: dismisses every Run card `list` of the Claude at `address`. */
+function clearRuns(address, list) {
+  setShared("kit.runsDismissed", dismissRuns(shared("kit.runsDismissed"), shared("herdr-kit")?.agents, address, list));
+}
+
 function dismiss(address, r) {
   setShared("kit.runsDismissed", dismissRun(shared("kit.runsDismissed"), shared("herdr-kit")?.agents, address, r));
 }
@@ -169,7 +174,7 @@ export default class Rail extends View {
    * ▶ Run, Copy and ✕. A card that ran clean folds to one quiet line:
    * ✓, the label, log, ▶ Again and ✕. Hover the label or command for the full text.
    */
-  runRow(a, r, i, t) {
+  runRow(a, r, i, t, wait = null) {
     const key = `${a.address}-${r.id ?? i}`;
     const first = commandPreview(r.command);
     const st = runStatus(r.state);
@@ -187,6 +192,7 @@ export default class Rail extends View {
         .child(h_flex().gap(5).items_center()
           .child(div().flex_none().text_size(11).font_semibold().text_color(BLUE).child("✓"))
           .child(div().id(`run-lb-${key}`).flex_1().min_w(0).truncate().text_size(11).text_color(t.muted).tooltip(`${head}\n✓ exit 0\n\n${r.command}`).child(label))
+          .when(Boolean(ranAgo(r.state)), (el) => el.child(div().flex_none().text_size(10.5).text_color(t.dim).child(ranAgo(r.state))))
           .when(Boolean(logPill), (el) => el.child(logPill))
           .child(this.goPill(t, `run-go-${key}`, key, "▶ Again", true, start, t.dim))
           .child(xPill))
@@ -200,33 +206,57 @@ export default class Rail extends View {
         .child(div().id(`run-cmd-${key}`).flex_1().min_w(0).truncate().text_size(10.5).text_color(t.dim).tooltip(r.command)
           .when(typeof settings()?.font_family === "string", (el) => el.font_family(settings().font_family))
           .child(first))
-        .when(!going, (el) => el.child(this.goPill(t, `run-go-${key}`, key, st ? "▶ Again" : "▶ Run", false, start)))
+        // A step after a missing or dismissed one can't run: it says what it waits on.
+        .when(!going && wait == null, (el) => el.child(this.goPill(t, `run-go-${key}`, key, goLabel(st), false, start)))
+        .when(!going && wait != null, (el) => el.child(div().flex_none().text_size(10.5).text_color(t.muted).child(`waits on ${wait}`)))
         .when(Boolean(logPill), (el) => el.child(logPill))
         .child(pill(t, `run-cp-${key}`, this.copied === key ? "✓ Copied" : "Copy", (_e, cx) => copyCommand(this, key, r.command, cx)))
         .child(xPill))
       .when(armed, (el) => el.child(this.againLine(t, `run-again-${key}`, key, start)));
   }
 
-  /** A numbered sequence: a header with ▶ Run all, then its steps. */
-  runSeq(a, seq, t) {
+  /**
+   * A numbered set: a header with ▶ Run all, then its steps. A set with a step
+   * missing or dismissed says which, offers no Run all, and its later steps
+   * can't run.
+   */
+  runSeq(a, g, t) {
+    const seq = g.seq;
     const live = seq.find((r) => r.state?.state === "running");
     const going = Boolean(live);
     const key = `${a.address}-seq-${seq[0].id ?? seq[0].label}`;
     const start = () => runCard(a.address, seq, { panes, shared, setShared, run });
     const armed = !going && this.gate.armed(key, Date.now());
+    const whole = g.wait == null;
+    const head = whole ? `In order · ${g.of} steps${ranClean(seq) ? " · all ran clean" : ""}` : `In order · ${g.of} steps`;
     return v_flex().id(`runs-${key}`).gap(2).mt(2)
       .child(h_flex().gap(5).items_center().pt(4).border_t(1).border_color(t.border)
-        .child(div().flex_1().min_w(0).truncate().text_size(11).font_medium().text_color(t.muted).child(`In order · ${seq.length} steps${ranClean(seq) ? " · all ran clean" : ""}`))
+        .child(div().flex_1().min_w(0).truncate().text_size(11).font_medium().text_color(t.muted).child(head))
         .when(going, (el) => el.child(div().flex_none().text_size(10.5).text_color(t.foreground).child(runningText(live.state))))
-        .when(!going, (el) => el.child(this.goPill(t, `run-all-${key}`, key, `▶ Run all ${seq.length}`, ranClean(seq), start, ranClean(seq) ? t.dim : ORANGE))))
+        .when(!going && whole, (el) => el.child(this.goPill(t, `run-all-${key}`, key, `▶ Run all ${seq.length}`, ranClean(seq), start, ranClean(seq) ? t.dim : ORANGE))))
+      .when(!whole, (el) => el.child(div().id(`run-gap-${key}`).truncate().text_size(10.5).font_medium().text_color(ORANGE)
+        .tooltip("The steps after it wait on it. Ask the Claude to post the set again.")
+        .child(`⚠ ${gapText(g.gaps)}`)))
       .when(armed, (el) => el.child(this.againLine(t, `run-all-again-${key}`, key, start)))
-      .children(seq.map((r, i) => this.runRow(a, r, i, t)));
+      .children(seq.map((r, i) => this.runRow(a, r, i, t, waitsOn(g, r) ? g.wait : null)));
   }
 
-  /** The Claude's Run cards that aren't dismissed, sequences gathered. */
+  /**
+   * The Claude's Run cards that aren't dismissed: open cards and numbered sets
+   * first, the ones that ran clean last. With two or more, a line above them
+   * counts them and offers Clear.
+   */
   runRows(a, t) {
-    const dismissed = shared("kit.runsDismissed");
-    return groupRuns(visibleRuns(a, dismissed)).map((g, i) => (g.seq ? this.runSeq(a, g.seq, t) : this.runRow(a, g.card, i, t)));
+    const plan = planRuns(a, shared("kit.runsDismissed"));
+    const rows = plan.flatMap((g, i) => (g.seq ? [this.runSeq(a, g, t)] : g.done ? g.done.map((r, k) => this.runRow(a, r, `d${k}`, t)) : [this.runRow(a, g.card, i, t)]));
+    const { open, done } = planCounts(plan);
+    if (open + done < 2) return rows;
+    const shown = visibleRuns(a, shared("kit.runsDismissed"));
+    const words = [open ? `${open} open` : null, done ? `${done} done` : null].filter(Boolean).join(" · ");
+    const head = h_flex().id(`runs-head-${a.address}`).gap(5).items_center().mt(4)
+      .child(div().flex_1().min_w(0).truncate().text_size(10.5).font_semibold().text_color(t.muted).child(`▶ RUNS · ${words}`))
+      .child(pill(t, `runs-clear-${a.address}`, "Clear", () => clearRuns(a.address, shown), t.dim));
+    return [head, ...rows];
   }
 
   /**
