@@ -481,8 +481,8 @@ export function hasItems(text) {
  * and a card it lists again unchanged (same step, label and command) keeps its
  * old id, so its last result and its ✕ stay. A done step of a numbered set the
  * message lists again in part stays too (`clean`: the ids that ran exit 0). A
- * message without the section adds its closing card, if any, and drops none.
- * Keeps the newest MAX_RUNS.
+ * message without the section adds its closing card, if any, and drops none,
+ * keeping the newest MAX_RUNS; a section keeps its first MAX_RUNS.
  */
 export function nextRuns(kept, text, clean = new Set()) {
   const old = kept ?? [];
@@ -505,7 +505,8 @@ export function nextRuns(kept, text, clean = new Set()) {
     }
     out.push(r);
   }
-  return out.slice(-MAX_RUNS);
+  // Listed most urgent first, so a set over the cap loses its last cards.
+  return out.slice(0, MAX_RUNS);
 }
 
 /**
