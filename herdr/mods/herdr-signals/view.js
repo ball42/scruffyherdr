@@ -2,7 +2,7 @@
 // them: what one apply step should write, the tree for a view, and which
 // clicks (panel sizes) each shape keeps. main.js does the I/O. Pure.
 
-import { GRID_NODE, KIT_LAYOUT, SCENES, isGridTree, sceneOfTheme, sceneOfTree } from "./scenes.js";
+import { GRID_NODE, KIT_LAYOUT, activeScenes, defaultScene, isGridTree, sceneOfTheme, sceneOfTree } from "./scenes.js";
 import { gridLayout } from "./grid.js";
 import { missingIds } from "./clicks.js";
 import { applyPlan, dress } from "./dress.js";
@@ -10,7 +10,7 @@ import { applyPlan, dress } from "./dress.js";
 const VIEWS = ["focus", "grid"];
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
-const knownScene = (k) => (typeof k === "string" && Object.prototype.hasOwnProperty.call(SCENES, k) ? k : null);
+const knownScene = (k) => (typeof k === "string" && Object.prototype.hasOwnProperty.call(activeScenes(), k) ? k : null);
 
 /**
  * A scene request: "endor", or "endor:day" / "endor:night" to say which look
@@ -31,7 +31,7 @@ export function pinOf(t) {
   if (!isObj(t) || t.light !== t.dark) return null;
   const scene = sceneOfTheme(t.light);
   if (!scene) return null;
-  return SCENES[scene].theme.light === t.light ? "day" : "night";
+  return activeScenes()[scene].theme.light === t.light ? "day" : "night";
 }
 
 /**
@@ -47,24 +47,58 @@ export function pinFor({ look = null, light = false, fileTheme = null }) {
 const knownView = (v) => (VIEWS.includes(v) ? v : null);
 
 /**
- * One apply step's target. `shown` is the shown layout's name; `scene` and
- * `view` are what its tree holds; `sceneWant` / `viewWant` the latest
+ * One apply step's target. `shown` is the shown layout's name and `kit` the
+ * name of the layout this copy dresses (default KIT_LAYOUT); `scene` and
+ * `view` are what the shown tree holds; `sceneWant` / `viewWant` the latest
  * requests (kit.sceneWant, kit.viewWant). A request beats the theme-list
- * follow. Off the kit layout a scene request switches to it in focus, and a
- * view request does nothing.
- * @returns {{switchTo: string|null, scene, view, follow: boolean}}
+ * follow. `kits` is the set of kit layouts (those whose file holds a
+ * herdr-signals block). Shown on another kit layout, nothing happens; off every
+ * kit layout only the KIT_LAYOUT copy switches to it in focus on a scene
+ * request, and a view request does nothing. On `kit` a scene request outside
+ * the active set is dropped and named in `ignored`.
+ * @returns {{switchTo: string|null, scene, view, follow: boolean, ignored?: string}}
  */
-export function wantStep({ shown, scene = null, view = null, sceneWant = null, viewWant = null, stateTheme = null, fileTheme = null }) {
+export function wantStep({ shown, kit = KIT_LAYOUT, kits = null, scene = null, view = null, sceneWant = null, viewWant = null, stateTheme = null, fileTheme = null }) {
   const req = parseWant(sceneWant);
   const sw = req?.scene ?? null;
   const look = req?.look ?? null;
   const vw = knownView(viewWant);
-  if (shown !== KIT_LAYOUT) {
-    if (sw) return { switchTo: KIT_LAYOUT, scene: sw, look, view: "focus", follow: false };
+  if (shown !== kit) {
+    // Another kit layout is not ours to dress or to leave; only the KIT_LAYOUT copy brings a non-kit layout back.
+    const other = kits !== null && kits.has(shown);
+    if (sw && !other && kit === KIT_LAYOUT) return { switchTo: KIT_LAYOUT, scene: sw, look, view: "focus", follow: false };
     return { switchTo: null, scene, look: null, view, follow: false };
   }
   const follow = !sw && !vw && isObj(stateTheme) && (stateTheme.light !== fileTheme?.light || stateTheme.dark !== fileTheme?.dark);
-  return { switchTo: null, scene: sw ?? scene, look, view: vw ?? view, follow };
+  const out = { switchTo: null, scene: sw ?? scene, look, view: vw ?? view, follow };
+  // Name the scene when this layout lacks it; a scene it has, asked for with a bad suffix, is named as the whole request.
+  const head = typeof sceneWant === "string" ? sceneWant.split(":")[0] : "";
+  const asked = knownScene(head) ? sceneWant : head;
+  if (!req && asked !== "") out.ignored = asked;
+  return out;
+}
+
+/**
+ * The fallback scene key when the tree's `scene` left the active set (the set
+ * `set` lost it, or a scene file changed): `defaultScene()`. Null when it's
+ * still there, or when the set is empty.
+ */
+export function missingScene(scene, set = activeScenes()) {
+  if (typeof scene === "string" && Object.hasOwn(set, scene)) return null;
+  return defaultScene();
+}
+
+/** Strip problem: a scene was asked for that this layout doesn't have, or a request for one it has with a bad suffix (the whole request is named). */
+export const noSceneProblem = (key) => (key.includes(":") ? `herdr-signals: bad scene request "${key}"` : `herdr-signals: no scene "${key}" in this layout`);
+/** Strip problem: the tree's scene left this layout's set. */
+export const leftSceneProblem = (key, fallback) => `herdr-signals: "${key}" left this layout's scenes; showing "${fallback}"`;
+export const EMPTY_SET_PROBLEM = "herdr-signals: this layout's scene file has no scenes";
+
+/** Config `look` for a layout: one that names a scene file shows each scene's own pictures, so the user's wallpaper keys go. */
+export function lookFor(look, scenesProp) {
+  if (typeof scenesProp !== "string" || scenesProp === "core" || scenesProp === "") return look;
+  const { wallpaper: _w, wallpaper_dark: _d, wallpaper_light: _l, ...rest } = look ?? {};
+  return rest;
 }
 
 /**
@@ -87,7 +121,7 @@ export function pickFollow(fileTheme, stateTheme, light) {
   const picked = stateTheme[half];
   const scene = sceneOfTheme(picked);
   if (!scene) return "keep";
-  return `${scene}:${SCENES[scene].theme.light === picked ? "day" : "night"}`;
+  return `${scene}:${activeScenes()[scene].theme.light === picked ? "day" : "night"}`;
 }
 
 /**
@@ -97,8 +131,8 @@ export function pickFollow(fileTheme, stateTheme, light) {
  * stays. Null when nothing is kept, or when a scene request is pending (it sets the whole look).
  */
 export function keepTheme({ fileTheme = null, stateTheme = null, scene, sceneWant = null, light = false }) {
-  if (parseWant(sceneWant) || !SCENES[scene]) return null;
-  const base = SCENES[scene].theme;
+  if (parseWant(sceneWant) || !activeScenes()[scene]) return null;
+  const base = activeScenes()[scene].theme;
   const src = pickFollow(fileTheme, stateTheme, light) === "keep" ? stateTheme : fileTheme;
   if (!isObj(src)) return null;
   const half = (k) => (typeof src[k] === "string" && sceneOfTheme(src[k]) === null ? src[k] : base[k]);
@@ -122,7 +156,7 @@ export function recordTheme({ written = null, fileText = null, shown = null, sta
     const t = JSON.parse(fileText ?? "null")?.theme;
     if (pair(t)) return { light: t.light, dark: t.dark };
   } catch { /* fall through */ }
-  return { ...SCENES[knownScene(scene) ?? sceneOfTree(shown)].theme };
+  return { ...activeScenes()[knownScene(scene) ?? sceneOfTree(shown)].theme };
 }
 
 /** The view a toggle asks for: the other one from a pending request, else from the shown view. Null off the kit layout. */
@@ -148,7 +182,7 @@ function putMain(tree, main) {
 
 /**
  * The tree for `view`. Grid: `shown` tiled for `gridSpec`. Focus: the
- * undressed `focus` tree (layout-focus.json). Without one, a grid gets `main`
+ * undressed `focus` tree (layout-focus-<layout>.json). Without one, a grid gets `main`
  * back as a terminal block with Herdr's own content (`main`, main.json's
  * main node); with neither, or already in focus, `shown` comes back
  * unchanged and the caller notes LAYOUT_NOTE. Never throws for focus.
@@ -216,7 +250,21 @@ export function afterStep(after, view, pending) {
   return after.view === view ? "run" : "drop";
 }
 
-/** A layout tree from file text (layout-focus.json, main.json), or null when missing, malformed or not a tree. */
+/** The focus files to try for a layout, in order, in ~/.config/herdr-kit: its own, and for scruffy the old shared name until the first write moves it. */
+export function focusFiles(layout) {
+  return [`layout-focus-${layout}.json`, ...(layout === KIT_LAYOUT ? ["layout-focus.json"] : [])];
+}
+
+/** A layout's focus tree: the first of focusFiles(layout) in `dir` that reads as a tree, else null. `readText(path)` resolves to text or rejects. */
+export async function readFocus(layout, dir, readText) {
+  for (const f of focusFiles(layout)) {
+    const tree = readTree(await readText(`${dir}/${f}`).catch(() => null));
+    if (tree) return tree;
+  }
+  return null;
+}
+
+/** A layout tree from file text (a layout-focus file, main.json), or null when missing, malformed or not a tree. */
 export function readTree(text) {
   let j;
   try { j = JSON.parse(text); } catch { return null; }
@@ -281,7 +329,7 @@ export function stepPlan({ shown, cur, want, plan = null, clicks = {}, focus = n
     }
     out.next = dress(tree, { scene, light, look, clicks: nodes });
     // A pinned look puts that one theme in both halves; else a kept theme of the user's own may stay.
-    const pinned = SCENES[scene]?.theme[pin === "day" ? "light" : "dark"];
+    const pinned = activeScenes()[scene]?.theme[pin === "day" ? "light" : "dark"];
     const keep = pin ? null : keepTheme({ fileTheme, stateTheme, scene, sceneWant, light });
     if (pin && pinned) out.next.theme = { light: pinned, dark: pinned };
     else if (keep) out.next.theme = keep;

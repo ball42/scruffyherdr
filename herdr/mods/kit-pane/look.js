@@ -154,6 +154,7 @@ export let BLUE = TONES.tatooine.dark.blue;
 export let INK = TONES.tatooine.dark.ink;
 let tone = TONES.tatooine.dark;
 let scene = "tatooine";
+let glyph = TONES.tatooine.glyph;
 
 /** Whether a `#rrggbb` background is light (luminance over half). */
 export function isLight(hex) {
@@ -165,19 +166,26 @@ export function isLight(hex) {
 
 /**
  * Pick the tone for theme `t` (from theme()) in scene `sceneKey` (shared
- * "kit.scene"): its scene's, Tatooine's for an unknown key or null, with
+ * "kit.scene"): its scene's (an overlay's scene is drawn from `resolved.full`; until that arrives the last tone stays), Tatooine's for null, with
  * `resolved` (shared "kit.tones": the config's alert colours, resolved by
  * herdr-signals) laid over it, unless it names another scene (a render
  * between herdr-signals' kit.scene and kit.tones writes). Nothing is cached
  * across calls, so a scene or colour change shows on the next render.
  */
 export function useTheme(t, sceneKey = null, resolved = null) {
-  scene = Object.hasOwn(TONES, sceneKey) ? sceneKey : "tatooine";
-  const tones = TONES[scene] ?? TONES.tatooine;
+  // A scene outside TONES (an overlay's) is drawn from `resolved.full`, which names it.
+  const carried = !Object.hasOwn(TONES, sceneKey) && resolved?.scene === sceneKey && resolved.full && typeof resolved.full === "object" ? resolved.full : null;
+  // A key outside TONES whose tones haven't arrived yet (kit.tones follows kit.scene) keeps what was drawn last, never Tatooine.
+  if (!carried && sceneKey != null && !Object.hasOwn(TONES, sceneKey)) return;
+  scene = carried || Object.hasOwn(TONES, sceneKey) ? sceneKey : "tatooine";
+  const tones = carried ?? TONES[scene] ?? TONES.tatooine;
+  glyph = tones.glyph;
   const mode = isLight(t?.background) ? "light" : "dark";
   const mine = resolved && (resolved.scene === undefined || resolved.scene === scene);
   const over = mine && typeof resolved[mode] === "object" ? resolved[mode] : null;
   tone = over ? { ...tones[mode], ...over } : tones[mode];
+  // A carried scene need only name orange, blue and ink: its glyph's body and sun take the blue and orange.
+  if (carried) tone = { body: tone.blue, sun: tone.orange, ...tone };
   ORANGE = tone.orange; BLUE = tone.blue; INK = tone.ink;
 }
 // The flare rises in 120 ms, so hold long enough to reach full strength.
@@ -311,9 +319,9 @@ export function snoozeControls(t, id, a, pick) {
   return row.children(SNOOZE_CHOICES.map(([c, label]) => pill(t, `${id}-${c}`, label, () => pick(c), t.dim)));
 }
 
-/** The needs-you glyph of the shown scene (TONES[scene].glyph); breathes only while unseen. */
+/** The needs-you glyph of the shown scene (its tones' glyph); breathes only while unseen. */
 export function needsGlyph(pulse) {
-  return (GLYPHS[TONES[scene]?.glyph] ?? suns)(pulse);
+  return (GLYPHS[glyph] ?? suns)(pulse);
 }
 
 /** Tatooine's twin suns, 11px and 7px. */

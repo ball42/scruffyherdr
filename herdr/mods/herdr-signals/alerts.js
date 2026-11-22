@@ -3,7 +3,7 @@
 // the deuteranopia checks a needs-you colour must pass. Pure.
 import { DONE, contrast, deltaESim, hereTones, mix } from "./colour.js";
 import { isLight } from "./grid.js";
-import { SCENES } from "./scenes.js";
+import { SCENES, activeScenes } from "./scenes.js";
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const ROLES = ["needs", "done"];
@@ -41,6 +41,15 @@ export function deriveTones(needs, light, done) {
   };
 }
 
+/**
+ * Whether config `alert_colors.scenes` may name `key`. The config is shared by
+ * every kit layout, so a core scene, a scene of the active set, and one of
+ * `also` (the other kit layouts' scene keys) all count.
+ */
+function knownScene(key, also = null) {
+  return Object.hasOwn(SCENES, key) || Object.hasOwn(activeScenes(), key) || (also instanceof Set && also.has(key));
+}
+
 /** One role's value for one mode, or undefined: "#rrggbb" (both modes) or {dark?, light?}. */
 function pick(value, mode, where, problems) {
   if (value === undefined || value === null) return undefined;
@@ -72,7 +81,7 @@ export function resolveAlerts(cfg, scene, defaults) {
   const problems = [];
   const c = cfg && typeof cfg === "object" && !Array.isArray(cfg) ? cfg : {};
   const scenes = c.scenes && typeof c.scenes === "object" ? c.scenes : {};
-  for (const k of Object.keys(scenes)) if (!Object.hasOwn(SCENES, k)) problems.push(`alert_colors scenes: no scene named "${k}"`);
+  for (const k of Object.keys(scenes)) if (!knownScene(k)) problems.push(`alert_colors scenes: no scene named "${k}"`);
   const own = Object.hasOwn(scenes, scene) ? scenes[scene] : {};
   const tones = {};
   for (const mode of MODES) {
@@ -145,9 +154,11 @@ function entryProblems(e, where) {
 /**
  * Every problem in config `alert_colors`, whichever scene is shown: bad
  * colours in either mode, unknown keys and scenes, wrong shapes. Each is
- * named once; resolveAlerts skips the same values.
+ * named once; resolveAlerts skips the same values. A scene key counts when
+ * it is core's, the active set's or in `also` (a Set of the other kit
+ * layouts' scene keys).
  */
-export function alertProblems(cfg) {
+export function alertProblems(cfg, also = null) {
   if (cfg === undefined || cfg === null) return [];
   if (!isObj(cfg)) return ['alert_colors: expected an object such as {"needs": {"dark": "#ffd84d", "light": "#8a6a00"}}'];
   const { scenes, ...top } = cfg;
@@ -156,7 +167,7 @@ export function alertProblems(cfg) {
     if (!isObj(scenes)) out.push("alert_colors scenes: expected {scene: {needs, done}}");
     else {
       for (const [k, e] of Object.entries(scenes)) {
-        if (!Object.hasOwn(SCENES, k)) out.push(`alert_colors scenes: no scene named "${k}"`);
+        if (!knownScene(k, also)) out.push(`alert_colors scenes: no scene named "${k}"`);
         else if (!isObj(e)) out.push(`alert_colors scenes.${k}: expected {needs, done}`);
         else out.push(...entryProblems(e, `scenes.${k}.`));
       }

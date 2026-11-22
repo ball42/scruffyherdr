@@ -5,7 +5,7 @@
 // follow the appearance by itself, so dress.js sets the tint with the
 // pictures. Menus, dialogs and cards don't use `chrome` and stay solid. Pure.
 
-import { DEFAULT_SCENE, SCENES } from "./scenes.js";
+import { sceneFor } from "./scenes.js";
 
 /** Default tint strength: 0 shows the picture bare, 1 is solid. */
 export const GLASS = 0.6;
@@ -25,6 +25,6 @@ const alpha = (p) => Math.round(Math.max(0, Math.min(1, p)) * 255).toString(16).
 
 /** `#rrggbbaa`: the scene's panel colour for this appearance at this area's strength. */
 export function glassTint(scene, light, strength, area) {
-  const panel = (SCENES[scene] ?? SCENES[DEFAULT_SCENE]).panel[light ? "light" : "dark"];
+  const panel = sceneFor(scene).panel[light ? "light" : "dark"];
   return panel + alpha(area === "rail" ? strength - RAIL_LESS : strength);
 }

@@ -1,17 +1,24 @@
 #!/usr/bin/env node
-// Builds the one kit layout, scruffy.json: Herdr's shipped main layout
+// Builds the kit layout, scruffy.json (and with --name, a second one): Herdr's shipped main layout
 // with the herdr-signals strip beside the bottom status bar and herdr-kit's
 // focus view, dressed dark as a scene (dress.js). herdr-signals swaps it to
 // the grid and back, and to other scenes, in place. Shipped layouts reject
 // structural edits, so the strip needs a personal layout; generating it keeps
-// upstream changes. The undressed focus tree goes to layout-focus.json beside
+// upstream changes. The undressed focus tree goes to layout-focus-scruffy.json beside
 // the config, for herdr-signals to go back to focus from the grid.
 //   node scripts/make-layout.js <main.json> <layouts dir> [herdr-kit config.json] [--scene <key>] [--from <old layout>]
+//                                [--name <layout> --scenes <scene file>]
 //   node scripts/make-layout.js --pick <shown layout> [theme pick] [old layout.json]   prints "<scene> <view>"
 //   node scripts/make-layout.js --view <layout.json>                 prints "focus", "grid" or nothing
 //   node scripts/make-layout.js --list | --legacy | --old
 //   node scripts/make-layout.js --gallery | --gallery-keys   prints the gallery's herdr/layouts/scruffy.json
 //                                                            or herdr/keys.json (tests/gallery.test.js)
+// --name <layout> --scenes <file> builds a second kit layout, <layout>.json, over an
+// overlay's scene file (extra-scenes.js): its signals block's props name
+// the layout and the file, it is dressed with the file's scenes and their own
+// pictures (the config's wallpaper keys don't apply), and its focus tree goes to
+// layout-focus-<layout>.json. A theme a scene names is read from <the file's folder>/themes/<name>.json.
+// A file with no good scene is an error and writes nothing.
 // The scene: --scene, else the existing scruffy.json's, else the default.
 // Panel sizes carry over from the existing file and its .state (read only);
 // on the first migration (no scruffy.json yet), from --from's old layout
@@ -22,16 +29,19 @@
 // Its optional "addons" list names add-on mods (docs/addons.md): each one
 // present under <layouts dir>/../mods gets a 0-px block beside the strip.
 import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_SCENE, KIT_LAYOUT, LEGACY_LAYOUTS, OLD_KIT_LAYOUT, SCENES, isGridTree, kitLayouts, legacyView, sceneOfTree } from "../herdr/mods/herdr-signals/scenes.js";
+import { DEFAULT_SCENE, KIT_LAYOUT, LEGACY_LAYOUTS, OLD_KIT_LAYOUT, SCENES, activeScenes, defaultScene, isGridTree, kitLayouts, legacyView, sceneOfTree, setActiveScenes } from "../herdr/mods/herdr-signals/scenes.js";
 import { dress, validLook } from "../herdr/mods/herdr-signals/dress.js";
+import { lookFor } from "../herdr/mods/herdr-signals/view.js";
+import { loadSceneFile, themeNameOk } from "../herdr/mods/herdr-signals/extra-scenes.js";
 import { readClicks } from "../herdr/mods/herdr-signals/clicks.js";
 import { readSizes } from "../herdr/mods/herdr-signals/sizes.js";
 import { canonical, layoutChanged } from "../herdr/mods/herdr-signals/layout.js";
 import { addonBlocks, withAddons } from "../herdr/mods/herdr-signals/addons.js";
 import { kitKeys } from "./merge-config.js";
 
+export const SIGNALS_PROPS = (layout, scenes) => ({ layout, scenes });
 const SIGNALS = { id: "signals", type: "block", size: { px: 300 }, content: { mod: "herdr-signals" } };
 
 function find(node, id) {
@@ -44,7 +54,7 @@ function find(node, id) {
 }
 
 /** Returns a copy of `layout` whose `status` block is a row: [status bar, signals]. */
-export function withSignals(layout) {
+export function withSignals(layout, props = null) {
   const out = structuredClone(layout);
   const status = find(out, "status");
   if (!status) throw new Error("layout has no node with id 'status'");
@@ -52,7 +62,9 @@ export function withSignals(layout) {
   const bar = { id: "status-bar", type: "block", content: status.content };
   for (const k of Object.keys(status)) if (!["id", "size"].includes(k)) delete status[k];
   status.type = "row";
-  status.children = [bar, structuredClone(SIGNALS)];
+  const signals = structuredClone(SIGNALS);
+  if (props) signals.content.props = props;
+  status.children = [bar, signals];
   return out;
 }
 
@@ -105,9 +117,9 @@ export function sourcePath(cfg) {
   return join(dirname(cfg), "layout-source.json");
 }
 
-/** Where the undressed focus tree goes: beside the herdr-kit config (herdr-signals reads it there). */
-export function focusPath(cfg) {
-  return join(dirname(cfg), "layout-focus.json");
+/** Where a layout's undressed focus tree goes: beside the herdr-kit config (herdr-signals reads it there), one file per layout. */
+export function focusPath(cfg, layout = "scruffy") {
+  return join(dirname(cfg), `layout-focus-${layout}.json`);
 }
 
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -221,21 +233,51 @@ if (MAIN_SCRIPT && !OPS.includes(process.argv[2])) {
   };
   let want = flag("--scene");
   let from = flag("--from");
+  const nameFlag = flag("--name");
+  const name = nameFlag ?? KIT_LAYOUT;
+  const scenesFile = flag("--scenes");
   if (from !== null && !LEGACY_LAYOUTS.includes(from)) {
     console.error(`warning: --from ${JSON.stringify(from)} isn't an old kit layout; ignored`);
     from = null;
   }
   const [src, dir, cfg] = args;
   if (!src || !dir) {
-    console.error("usage: make-layout.js <main.json> <layouts dir> [config.json] [--scene <key>]");
+    console.error("usage: make-layout.js <main.json> <layouts dir> [config.json] [--scene <key>] [--name <layout> --scenes <scene file>]");
     process.exit(2);
+  }
+  if (scenesFile !== null && name === KIT_LAYOUT) {
+    console.error(`--scenes needs --name <layout> other than ${KIT_LAYOUT}`);
+    process.exit(2);
+  }
+  if (nameFlag !== null && nameFlag !== KIT_LAYOUT && scenesFile === null) {
+    console.error(`--name ${JSON.stringify(name)} needs --scenes <scene file>`);
+    process.exit(2);
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(name)) {
+    console.error(`--name ${JSON.stringify(name)} isn't a layout name`);
+    process.exit(2);
+  }
+  // A scene file's set, checked; a theme resolves to <the file's folder>/themes/<name>.json. No good scene: nothing is written.
+  let scenesPath = null;
+  let extra = null;
+  if (scenesFile !== null) {
+    scenesPath = resolve(scenesFile);
+    const themes = join(dirname(scenesPath), "themes");
+    const loaded = loadSceneFile(readText(scenesPath), (n) => (themeNameOk(n) ? readJson(join(themes, `${n}.json`)) : null));
+    for (const p of loaded.problems) console.error(`warning: ${p}`);
+    if (Object.keys(loaded.scenes).length === 0) {
+      console.error(`${scenesPath} has no usable scene; ${name} not built`);
+      process.exit(1);
+    }
+    extra = loaded.scenes;
   }
   const config = cfg && existsSync(cfg) ? readJson(cfg) : null;
   if (cfg && existsSync(cfg) && !isObj(config)) console.error(`warning: ${cfg} isn't valid JSON; building with the default look`);
-  const { look, problems } = validLook(isObj(config) ? config.look : undefined);
+  const { look: configLook, problems } = validLook(isObj(config) ? config.look : undefined);
+  const look = lookFor(configLook, scenesPath);
   for (const p of problems) console.error(`warning: ${p}`);
   const main = JSON.parse(readFileSync(src, "utf8"));
-  let base = withSignals(main);
+  let base = withSignals(main, scenesPath ? SIGNALS_PROPS(name, scenesPath) : null);
   try {
     base = withKitChrome(base);
   } catch (e) {
@@ -249,22 +291,23 @@ if (MAIN_SCRIPT && !OPS.includes(process.argv[2])) {
     present = [];
   }
   base = withAddons(base, addonBlocks(isObj(config) ? config.addons : undefined, present));
-  const dst = join(dir, `${KIT_LAYOUT}.json`);
+  const dst = join(dir, `${name}.json`);
   // The kit file, else (no scruffy.json yet, and no older layout named by --from) its old name's.
   let existing = readJson(dst);
-  let existingName = KIT_LAYOUT;
-  if (!isObj(existing) && (from === null || from === OLD_KIT_LAYOUT)) {
+  let existingName = name;
+  if (!isObj(existing) && name === KIT_LAYOUT && (from === null || from === OLD_KIT_LAYOUT)) {
     const prev = readJson(join(dir, `${OLD_KIT_LAYOUT}.json`));
     if (isObj(prev)) {
       existing = prev;
       existingName = OLD_KIT_LAYOUT;
     }
   }
-  if (want !== null && !Object.prototype.hasOwnProperty.call(SCENES, want)) {
+  setActiveScenes(extra);
+  if (want !== null && !Object.prototype.hasOwnProperty.call(activeScenes(), want)) {
     console.error(`warning: unknown scene ${JSON.stringify(want)}; keeping the layout's own`);
     want = null;
   }
-  const scene = want ?? (isObj(existing) ? sceneOfTree(existing) : DEFAULT_SCENE);
+  const scene = want ?? (isObj(existing) ? sceneOfTree(existing) : defaultScene());
   // Herdr's own click record; read, never written (Herdr owns layouts/.state).
   // Sizes, freshest last: herdr-signals' saved focus sizes (sizes.json), then
   // the kit file and its .state; on a first migration (no kit file yet), the
@@ -286,10 +329,11 @@ if (MAIN_SCRIPT && !OPS.includes(process.argv[2])) {
     clicks = mergeClicks(saved, sibling ? fileClicks(sibling, false) : {}, fileClicks(from, grid));
   }
   writeFileSync(dst, JSON.stringify(dress(base, { scene, light: false, look, clicks }), null, 2) + "\n");
-  console.log(`wrote ${dst} (${SCENES[scene].label})`);
+  console.log(`wrote ${dst} (${activeScenes()[scene].label})`);
+  setActiveScenes(null);
   if (cfg) {
     // herdr-signals goes back to focus from this, and compares main.json with the source to say when it's out of date.
-    writeFileSync(focusPath(cfg), JSON.stringify(base, null, 2) + "\n");
+    writeFileSync(focusPath(cfg, name), JSON.stringify(base, null, 2) + "\n");
     writeFileSync(sourcePath(cfg), canonical(main) + "\n");
   }
 }

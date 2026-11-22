@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { alertProblems, alertTheme, checkAlert, deriveTones, resolveAlerts } from "../herdr/mods/herdr-signals/alerts.js";
 import { DONE, contrast, deltaESim } from "../herdr/mods/herdr-signals/colour.js";
-import { SCENES } from "../herdr/mods/herdr-signals/scenes.js";
+import { SCENES, setActiveScenes } from "../herdr/mods/herdr-signals/scenes.js";
 
 const themeColors = (name) => {
   const f = JSON.parse(readFileSync(new URL(`../herdr/themes/${name}.json`, import.meta.url), "utf8"));
@@ -165,4 +165,22 @@ test("alertTheme: tones resolved for another scene leave the theme as it is", ()
   const tones = { scene: "endor", dark: { orange: "#ffd84d", blue: "#58a6ff" } };
   assert.equal(alertTheme(t, tones, "hoth"), t);
   assert.equal(alertTheme(t, tones, "endor").blocked, "#ffd84d");
+});
+
+// Config is shared by every kit layout: a scene key of core's, the shown layout's set or another kit layout's is fine on either.
+test("alert_colors.scenes accepts core keys on an extra set and extra keys on core; only a key in neither is named", () => {
+  const extra = { "fixture-scene": { ...SCENES.hoth, label: "Fixture" } };
+  const cfg = { scenes: { naboo: { needs: "#ffd84d" }, "fixture-scene": { needs: "#ffd84d" }, nowhere: { needs: "#ffd84d" } } };
+  const named = (ps) => ps.filter((p) => p.startsWith("alert_colors scenes: no scene"));
+  const nowhere = ['alert_colors scenes: no scene named "nowhere"'];
+  try {
+    // On the extra set: core's naboo is fine.
+    setActiveScenes(extra);
+    assert.deepEqual(named(alertProblems(cfg)), nowhere);
+    assert.deepEqual(named(resolveAlerts(cfg, "fixture-scene", extra["fixture-scene"]).problems), nowhere);
+    // On core: the other kit layout's key is fine when its keys are passed.
+    setActiveScenes(null);
+    assert.deepEqual(named(alertProblems(cfg, new Set(["fixture-scene"]))), nowhere);
+    assert.deepEqual(named(alertProblems(cfg)), ['alert_colors scenes: no scene named "fixture-scene"', ...nowhere]);
+  } finally { setActiveScenes(null); }
 });

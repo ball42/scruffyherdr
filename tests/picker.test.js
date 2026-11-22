@@ -115,3 +115,50 @@ test("dialogSize: exact content size, 16:9 tiles", () => {
 test("dialogSize: fits a half-screen window on a 1728 px wide screen", () => {
   assert.ok(dialogSize().width <= 1728 / 2 - 16, `${dialogSize().width} px is wider than half of 1728 less a margin`);
 });
+
+// ---- status order, the declined tag, the cross button ----
+import { crossInput, crossPress, orderTiles, rowOf } from "../herdr/mods/kit-scenes/picker.js";
+
+const tile = (key, status) => ({ key, label: key, thumbs: { dark: "d", light: "l" }, needs: { dark: "#111111", light: "#222222" }, ...(status ? { status } : {}) });
+
+test("picker: sceneList carries a scene file's status and leaves core's tiles without one", () => {
+  const core = sceneList(SCENES);
+  assert.ok(core.every((s) => !("status" in s)));
+  const one = { ...SCENES.hoth, status: "declined" };
+  assert.equal(sceneList({ "fixture-scene": one })[0].status, "declined");
+});
+
+test("picker: trial tiles come before declined ones, each group in its own order", () => {
+  const list = [tile("a", "declined"), tile("b", "trial"), tile("c"), tile("d", "declined"), tile("e", "trial")];
+  assert.deepEqual(tileInputs(list).map((t) => t.key), ["b", "c", "e", "a", "d"]);
+  assert.equal(tileInputs(list).find((t) => t.key === "a").status, "declined");
+  assert.equal(tileInputs(list).find((t) => t.key === "c").status, undefined);
+});
+
+test("picker: the core set keeps its order and has no declined tile", () => {
+  assert.deepEqual(tileInputs(sceneList(SCENES)).map((t) => t.key), keys);
+  assert.deepEqual(orderTiles([tile("x"), tile("y")]).map((t) => t.key), ["x", "y"]);
+});
+
+test("picker: the cross button is absent without a kit.cross, present with a good one", () => {
+  assert.equal(crossInput(null), null);
+  assert.equal(crossInput(undefined), null);
+  assert.equal(crossInput({ name: "", label: "x" }), null);
+  assert.equal(crossInput({ name: "fixture-alt" }), null);
+  assert.deepEqual(crossInput({ name: "fixture-alt", label: "Fixture-alt →" }), { name: "fixture-alt", label: "Fixture-alt →" });
+});
+
+test("picker: pressing the cross button asks for that layout and closes", () => {
+  assert.deepEqual(crossPress({ name: "fixture-alt", label: "Fixture-alt →" }), { want: "fixture-alt", close: true });
+  assert.deepEqual(crossPress(null), { want: null, close: false });
+});
+
+test("picker: more than eighteen tiles scroll past three rows, six columns wide", () => {
+  assert.equal(rowOf(0), 0);
+  assert.equal(rowOf(5), 0);
+  assert.equal(rowOf(6), 1);
+  assert.equal(rowOf(23), 3);
+  assert.equal(pickerStep(at(17, { count: 24 }), "down", keys).state.index, 23);
+  const size = dialogSize();
+  assert.equal(size.height, 76 + gridHeight(3));
+});

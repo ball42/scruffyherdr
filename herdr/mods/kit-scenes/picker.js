@@ -46,7 +46,7 @@ export function pickerStep(state, key, keys = state.keys) {
  */
 export function tileInputs(scenes) {
   if (!Array.isArray(scenes)) return [];
-  return scenes
+  return orderTiles(scenes
     .filter((s) => s && typeof s.key === "string" && typeof s.label === "string" && s.thumbs && s.needs)
     .map((s) => ({
       key: s.key,
@@ -55,7 +55,30 @@ export function tileInputs(scenes) {
       needs: { dark: s.needs.dark, light: s.needs.light },
       asks: s.asks ?? "",
       glyph: s.glyph ?? s.asks ?? "",
-    }));
+      ...(typeof s.status === "string" ? { status: s.status } : {}),
+    })));
+}
+
+/** Declined tiles after the rest (core's and trial ones), each group in its own order. */
+export function orderTiles(tiles) {
+  return [...tiles.filter((t) => t.status !== "declined"), ...tiles.filter((t) => t.status === "declined")];
+}
+
+/** The cross button's input from kit.cross: { name, label } or null. */
+export function crossInput(cross) {
+  if (!cross || typeof cross.name !== "string" || cross.name === "" || typeof cross.label !== "string" || cross.label === "") return null;
+  return { name: cross.name, label: cross.label };
+}
+
+/** What a press of the cross button does: write kit.layoutWant to the name, and close. */
+export function crossPress(cross) {
+  const c = crossInput(cross);
+  return c ? { want: c.name, close: true } : { want: null, close: false };
+}
+
+/** The grid row a tile index sits in: the picker scrolls to it past ROWS rows. */
+export function rowOf(index) {
+  return Math.floor(index / COLS);
 }
 
 export const TILE = { w: 124, h: 70 }; // 16:9

@@ -1,0 +1,104 @@
+{
+  "id": "root",
+  "type": "row",
+  "children": [
+    {
+      "id": "sidebar",
+      "type": "column",
+      "size": {
+        "px": 200
+      },
+      "children": [
+        {
+          "id": "agents",
+          "type": "block",
+          "content": {
+            "mod": "agents"
+          },
+          "hidden": true
+        }
+      ],
+      "background": "#14111f99"
+    },
+    {
+      "id": "work",
+      "type": "column",
+      "children": [
+        {
+          "id": "tabs",
+          "type": "block",
+          "size": {
+            "px": 42
+          },
+          "content": {
+            "mod": "kit-tabs"
+          },
+          "background": "#14111f99"
+        },
+        {
+          "id": "work-body",
+          "type": "row",
+          "children": [
+            {
+              "id": "main",
+              "type": "block",
+              "content": {
+                "tab": "active"
+              }
+            },
+            {
+              "id": "rail",
+              "type": "block",
+              "size": {
+                "px": 260
+              },
+              "min": 200,
+              "max": 420,
+              "content": {
+                "mod": "kit-rail"
+              },
+              "background": "#14111f73"
+            }
+          ]
+        },
+        {
+          "id": "status",
+          "type": "row",
+          "children": [
+            {
+              "id": "status-bar",
+              "type": "block",
+              "content": {
+                "mod": "workspace-status"
+              }
+            },
+            {
+              "id": "signals",
+              "type": "block",
+              "size": {
+                "px": 300
+              },
+              "content": {
+                "mod": "herdr-signals"
+              }
+            }
+          ],
+          "background": "#14111f99"
+        }
+      ]
+    }
+  ],
+  "background": {
+    "image": "backgrounds/twin-suns.jpg",
+    "fit": "cover"
+  },
+  "terminal_opacity": 0.45,
+  "theme": {
+    "light": "tatooine-day",
+    "dark": "tatooine-night"
+  },
+  "preview": "layouts/scruffy.svg",
+  "colors": {
+    "chrome": "#00000000"
+  }
+}

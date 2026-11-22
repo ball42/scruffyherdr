@@ -1,0 +1,16 @@
+{
+  "fixture-scene": {
+    "label": "Fixture Scene",
+    "theme": { "light": "fixture-day", "dark": "fixture-night" },
+    "walls": { "dark": "backgrounds/fixture.jpg", "light": "backgrounds/fixture-day.jpg" },
+    "panel": { "dark": "#0f1726", "light": "#f6f9fc" },
+    "needs": { "dark": "#ffe5de", "light": "#d76549" },
+    "asks": "*",
+    "status": "trial",
+    "tones": {
+      "glyph": "layered",
+      "dark": { "orange": "#ffe5de", "blue": "#58a6ff", "ink": "#0d1117" },
+      "light": { "orange": "#d76549", "blue": "#0969da", "ink": "#ffffff" }
+    }
+  }
+}
