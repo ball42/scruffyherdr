@@ -4,7 +4,7 @@
 // next Claude with an open card (main.js passes onUrgent and onAsks).
 import { div, svg } from "gpui-kit";
 import { focusLabel, focusOn, heldLabel } from "./focus.js";
-import { DEFAULT_SCENE, SCENES } from "./scenes.js";
+import { sceneFor } from "./scenes.js";
 
 // kit-rail's tree, the one its fireflies glyph draws.
 const TREE_SVG = "mods/kit-rail/tree.svg";
@@ -68,7 +68,7 @@ export function digestLine(t, digest, now, onGo) {
 /** "☀☀ 3 asks", or on Endor a small fir with a firefly before "3 asks". `scene` is a scene key; unknown or null gives the default scene's glyph. */
 export function asksLabel(t, asks, scene = null) {
   const words = `${asks} ${asks === 1 ? "ask" : "asks"}`;
-  const glyph = (Object.prototype.hasOwnProperty.call(SCENES, scene) ? SCENES[scene] : SCENES[DEFAULT_SCENE]).asks;
+  const glyph = sceneFor(scene).asks;
   if (glyph !== "fireflies") return `${glyph} ${words}`;
   const fir = div().relative().flex_none().w(12).h(12)
     .child(svg(TREE_SVG).absolute().left(0).top(0).w(8).h(12).text_color(t.accent))

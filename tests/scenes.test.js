@@ -176,3 +176,40 @@ test("scenes: each theme's own blocked and done colours are its scene's defaults
     }
   }
 });
+
+// An active scene set: a made-up scene stands in for an overlay's.
+const fixtureScene = {
+  label: "Fixture Scene",
+  theme: { light: "fixture-day", dark: "fixture-night" },
+  walls: { dark: "backgrounds/fixture.jpg", light: "backgrounds/fixture-day.jpg" },
+  panel: { dark: "#0f1726", light: "#f6f9fc" },
+  needs: { dark: "#ffe5de", light: "#d76549" },
+  asks: "*",
+  status: "trial",
+};
+
+test("setActiveScenes swaps the set the helpers read, and null restores it", (t) => {
+  t.after(() => scenes.setActiveScenes(null));
+  assert.equal(scenes.activeScenes(), scenes.SCENES);
+  assert.equal(scenes.defaultScene(), DEFAULT_SCENE);
+  scenes.setActiveScenes({ "fixture-scene": fixtureScene });
+  assert.equal(sceneFor("fixture-scene").label, "Fixture Scene");
+  assert.equal(sceneOfTree({ theme: { light: "fixture-day", dark: "fixture-night" } }), "fixture-scene");
+  assert.equal(sceneOfTheme("fixture-day"), "fixture-scene");
+  assert.notEqual(sceneFor("hoth").label, "Hoth");
+  assert.equal(scenes.defaultScene(), "fixture-scene");
+  assert.deepEqual(scenes.sceneList().map((s) => s.key), ["fixture-scene"]);
+  assert.equal(legacyView("hoth")?.scene, "hoth");
+  scenes.setActiveScenes(null);
+  assert.equal(sceneFor("hoth").label, "Hoth");
+});
+
+test("defaultScene prefers the first trial scene, else the first key", (t) => {
+  t.after(() => scenes.setActiveScenes(null));
+  scenes.setActiveScenes({ a: { ...fixtureScene, status: "declined" }, b: fixtureScene });
+  assert.equal(scenes.defaultScene(), "b");
+  scenes.setActiveScenes({ a: { ...fixtureScene, status: "declined" } });
+  assert.equal(scenes.defaultScene(), "a");
+  scenes.setActiveScenes({});
+  assert.equal(scenes.defaultScene(), null);
+});

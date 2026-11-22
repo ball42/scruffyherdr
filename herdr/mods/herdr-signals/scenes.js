@@ -173,6 +173,23 @@ export const SCENES = {
 };
 export const DEFAULT_SCENE = "tatooine";
 
+let active = SCENES;
+
+/** The scene set this mod copy shows: SCENES until setActiveScenes sets another. */
+export const activeScenes = () => active;
+
+/** Show `scenes` (an overlay's set, validated by extra-scenes.js) in place of SCENES; null restores SCENES. */
+export function setActiveScenes(scenes) {
+  active = scenes ?? SCENES;
+}
+
+/** The scene shown when none is named: the default for the core set, else the first trial scene, else the first, else null. */
+export function defaultScene() {
+  if (active === SCENES) return DEFAULT_SCENE;
+  const keys = Object.keys(active);
+  return keys.find((k) => active[k].status === "trial") ?? keys[0] ?? null;
+}
+
 /** The one kit layout; the scene and the view live inside it. */
 export const KIT_LAYOUT = "scruffy";
 
@@ -203,23 +220,23 @@ export const LEGACY_SCENES = ["tatooine", "endor", "hoth", "dagobah", "coruscant
 
 export const LEGACY_LAYOUTS = [...LEGACY_SCENES.flatMap((s) => [s, `${s}-grid`]), "kit", "kit-grid", OLD_KIT_LAYOUT];
 
-const known = (k) => typeof k === "string" && Object.prototype.hasOwnProperty.call(SCENES, k);
+const known = (k) => typeof k === "string" && Object.prototype.hasOwnProperty.call(active, k);
 
 /** { scene, view } an old scene layout name showed ("endor-grid" gives endor in grid), or null for any other name. */
 export function legacyView(name) {
   if (typeof name !== "string") return null;
   const grid = name.endsWith("-grid");
   const scene = grid ? name.slice(0, -5) : name;
-  return LEGACY_SCENES.includes(scene) && known(scene) ? { scene, view: grid ? "grid" : "focus" } : null;
+  return LEGACY_SCENES.includes(scene) && Object.hasOwn(SCENES, scene) ? { scene, view: grid ? "grid" : "focus" } : null;
 }
 
 /** The scene for a scene key; the default scene for anything else. */
-export const sceneFor = (scene) => SCENES[known(scene) ? scene : DEFAULT_SCENE];
+export const sceneFor = (scene) => active[known(scene) ? scene : defaultScene()];
 
 /** The scene a theme name belongs to ("endor-night" gives "endor"), or null. */
 export function sceneOfTheme(name) {
   if (typeof name !== "string") return null;
-  return Object.keys(SCENES).find((k) => SCENES[k].theme.light === name || SCENES[k].theme.dark === name) ?? null;
+  return Object.keys(active).find((k) => active[k].theme.light === name || active[k].theme.dark === name) ?? null;
 }
 
 /**
@@ -231,8 +248,8 @@ export function sceneOfTree(tree) {
   const t = tree?.theme;
   const light = t?.light;
   const dark = t?.dark;
-  const exact = Object.keys(SCENES).find((k) => SCENES[k].theme.light === light && SCENES[k].theme.dark === dark);
-  return exact ?? sceneOfTheme(light) ?? sceneOfTheme(dark) ?? DEFAULT_SCENE;
+  const exact = Object.keys(active).find((k) => active[k].theme.light === light && active[k].theme.dark === dark);
+  return exact ?? sceneOfTheme(light) ?? sceneOfTheme(dark) ?? defaultScene();
 }
 
 /**
@@ -250,12 +267,12 @@ export function isGridTree(tree) {
 }
 
 /** What a scene publishes for the picker: its thumbnails sit next to its pictures, under backgrounds/thumbs/. */
-export function sceneList(scenes = SCENES, alertColors = undefined) {
+export function sceneList(scenes = active, alertColors = undefined) {
   const thumb = (wall) => wall.replace(/^backgrounds\//, "backgrounds/thumbs/");
   return Object.entries(scenes).map(([key, s]) => {
     // The picker previews each scene's needs-you as the config resolves it.
     const { tones } = resolveAlerts(alertColors, key, s);
     const needs = { dark: tones.dark.orange, light: tones.light.orange };
-    return { key, label: s.label, thumbs: { dark: thumb(s.walls.dark), light: thumb(s.walls.light) }, needs, asks: s.asks, glyph: s.asks === "fireflies" ? "✦" : s.asks };
+    return { key, label: s.label, thumbs: { dark: thumb(s.walls.dark), light: thumb(s.walls.light) }, needs, asks: s.asks, glyph: s.asks === "fireflies" ? "✦" : s.asks, ...(typeof s.status === "string" ? { status: s.status } : {}) };
   });
 }

@@ -2,7 +2,7 @@
 // picture, see-through terminals, glass bars, Settings preview) and its kept
 // clicks. install and herdr-signals both call it. Pure.
 
-import { SCENES } from "./scenes.js";
+import { activeScenes } from "./scenes.js";
 import { wallFor } from "./wallpaper.js";
 import { GLASS_AREAS, glassStrength, glassTint } from "./glass.js";
 import { keepClicks } from "./clicks.js";
@@ -58,7 +58,7 @@ function find(n, id) {
  * beats any default. `look` is config `look`; an empty wallpaper keeps Herdr's own look.
  */
 export function dress(tree, { scene, light = false, look = {}, clicks = {} }) {
-  if (!SCENES[scene]) throw new Error(`unknown scene: ${scene}`);
+  if (!activeScenes()[scene]) throw new Error(`unknown scene: ${scene}`);
   const out = JSON.parse(JSON.stringify(tree));
   const wallpaper = wallFor(look, light, scene);
   if (wallpaper) {
@@ -72,8 +72,8 @@ export function dress(tree, { scene, light = false, look = {}, clicks = {} }) {
     const pane = find(out, "main")?.content?.pane;
     if (pane) delete pane.background;
   }
-  out.theme = { ...SCENES[scene].theme };
-  // The picture Herdr's settings show (herdr/layouts/scruffy.svg, linked by install.sh): one for every scene.
+  out.theme = { ...activeScenes()[scene].theme };
+  // The picture Herdr's settings show (herdr/layouts/scruffy.svg, linked by install.sh): one for every scene and every kit layout.
   out.preview = "layouts/scruffy.svg";
   const strength = glassStrength(look);
   if (wallpaper && strength !== 0) {

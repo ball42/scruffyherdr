@@ -288,7 +288,7 @@ function make(config, mods) {
   const r = spawnSync("node", [MAKE, join(dir, "main.json"), dir, join(kit, "config.json")], { encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
   const status = (f) => JSON.parse(readFileSync(f, "utf8")).children[1].children.find((c) => c.id === "status");
-  return { layout: status(join(dir, "scruffy.json")), focus: status(join(kit, "layout-focus.json")) };
+  return { layout: status(join(dir, "scruffy.json")), focus: status(join(kit, "layout-focus-scruffy.json")) };
 }
 
 test("make-layout places a listed, present add-on after the strip, in the layout and the focus tree", () => {

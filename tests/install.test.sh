@@ -116,10 +116,10 @@ echo '{"layout":"main"}' > "$HERDR_APP_HOME/shared.json"   # Herdr closed on mai
 if grep -q '"herdr-signals"' "$HERDR_APP_HOME/layouts/scruffy.json" 2>/dev/null \
   && grep -q '"tatooine-night"' "$HERDR_APP_HOME/layouts/scruffy.json" \
   && [ ! -e "$HERDR_APP_HOME/layouts/endor.json" ] && [ ! -e "$HERDR_APP_HOME/layouts/tatooine-grid.json" ] \
-  && [ -f "$HOME/.config/herdr-kit/layout-focus.json" ]; then
-  pass "generates the scruffy layout and layout-focus.json"
+  && [ -f "$HOME/.config/herdr-kit/layout-focus-scruffy.json" ]; then
+  pass "generates the scruffy layout and layout-focus-scruffy.json"
 else
-  fail "generates the scruffy layout and layout-focus.json"
+  fail "generates the scruffy layout and layout-focus-scruffy.json"
 fi
 if [ -e "$HERDR_APP_HOME/layouts/kit.json" ]; then fail "removes the old kit layout"; else pass "removes the old kit layout"; fi
 
@@ -603,11 +603,11 @@ if grep -q "name-hook" "$HOME/.claude/settings.json" || grep -q "layout:" "$HERD
 else
   pass "uninstall removes hooks and keys"
 fi
-if [ ! -e "$HERDR_APP_HOME/layouts/scruffy.json" ] && [ ! -e "$HOME/.config/herdr-kit/layout-focus.json" ] \
+if [ ! -e "$HERDR_APP_HOME/layouts/scruffy.json" ] && [ ! -e "$HOME/.config/herdr-kit/layout-focus-scruffy.json" ] \
   && [ ! -e "$HOME/.config/herdr-kit/sizes.json" ] && [ -f "$HOME/.config/herdr-kit/config.json" ]; then
-  pass "uninstall removes scruffy.json, layout-focus.json and sizes.json"
+  pass "uninstall removes scruffy.json, layout-focus-scruffy.json and sizes.json"
 else
-  fail "uninstall removes scruffy.json, layout-focus.json and sizes.json"
+  fail "uninstall removes scruffy.json, layout-focus-scruffy.json and sizes.json"
 fi
 if [ ! -e "$HOME/.config/herdr-kit/glyphs-seen" ]; then
   pass "uninstall removes the glyph record"
@@ -1123,7 +1123,7 @@ else
   fail "private: config keys added where absent, set ones kept"
 fi
 if grep -q '"addon-kit-private"' "$HERDR_APP_HOME/layouts/scruffy.json" \
-  && grep -q '"addon-kit-private"' "$HOME/.config/herdr-kit/layout-focus.json"; then
+  && grep -q '"addon-kit-private"' "$HOME/.config/herdr-kit/layout-focus-scruffy.json"; then
   pass "private: the kit layout gets the kit-private block"
 else
   fail "private: the kit layout gets the kit-private block"

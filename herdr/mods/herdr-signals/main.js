@@ -10,7 +10,7 @@
 import { View, div } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import {
-  agents, appHome, exec, focused, home, layout, layouts, nextCommand, closeOverlay, notify, openOverlay, panes, readTextFile, run, setAgentOrder, settings, setShared, shared, spaces, theme, watchFolder, writeTextFile,
+  agents, appHome, exec, focused, home, layout, layouts, nextCommand, closeOverlay, notify, openOverlay, panes, props, readTextFile, run, setAgentOrder, settings, setShared, shared, spaces, theme, watchFolder, writeTextFile,
 } from "herdr";
 import { deckApprove } from "./approve.js";
 import { deckAsks, deckUsage, fitDeck, summary } from "./policy.js";
@@ -31,9 +31,10 @@ import { readSizes, replaySizes, seedAside, sizesRecord, sizesText } from "./siz
 import { configChanged, reloadConfig, validArrowMode } from "./config.js";
 import { alertProblems, alertTheme, resolveAlerts } from "./alerts.js";
 import { hereTones } from "./colour.js";
-import { KIT_LAYOUT, SCENES, isGridTree, sceneList, sceneOfTree } from "./scenes.js";
+import { KIT_LAYOUT, SCENES, activeScenes, defaultScene, isGridTree, sceneList, sceneOfTheme, sceneOfTree, setActiveScenes } from "./scenes.js";
+import { loadSceneFile, themeNameOk } from "./extra-scenes.js";
 import { SCENES_DIALOG, buttonTexts, leftPx, leftTexts, signalsWidth, stripFit, usagePx } from "./strip-fit.js";
-import { NO_KIT_PROBLEM, SWITCH_PROBLEM, afterStep, findNode, pickFollow, pinFor, pinOf, readTree, recordTheme, stepPlan, switchStep, toggleWant, wantStep } from "./view.js";
+import { EMPTY_SET_PROBLEM, NO_KIT_PROBLEM, SWITCH_PROBLEM, afterStep, findNode, readFocus, leftSceneProblem, lookFor, missingScene, noSceneProblem, parseWant, pickFollow, pinFor, pinOf, readTree, recordTheme, stepPlan, switchStep, toggleWant, wantStep } from "./view.js";
 import { README_MOD, README_TAB, pickReadme, readmeMoves, readmeNeeds } from "./readme.js";
 import { gridAddresses, gridLanding, gridLeave, gridSignature, gridSpec, isLight, spotKey, spotNext } from "./grid.js";
 import { PR_FIELDS, parsePr, parsePrBatch, prMark, prQuery, prRef, repoOf } from "./prs.js";
@@ -105,11 +106,28 @@ const LAYOUT_CHECK_MS = 3_600_000; // Herdr updates are rare; an hour late is fi
 const RUNSTATE_KEEP_MIN = 7 * 24 * 60;
 
 export default class Signals extends View {
-  init(_props, cx) {
+  init(initProps, cx) {
+    // Which layout this copy dresses, and whose scenes: a scene file's path, or the core set.
+    // A layout block's props come from props(): Herdr hands init() no props for a layout block.
+    const blockProps = props() ?? initProps;
+    this.layoutName = typeof blockProps?.layout === "string" && blockProps.layout !== "" ? blockProps.layout : KIT_LAYOUT;
+    this.scenesProp = typeof blockProps?.scenes === "string" && blockProps.scenes !== "" ? blockProps.scenes : "core";
+    this.sceneSig = null; // the scene file's text and its themes', as last checked
+    this.sceneProblems = []; // the scene file's own problems
+    this.emptySet = false; // the scene file gave no scenes: nothing is dressed
+    this.sceneNote = null; // {text, at}: a scene request this layout lacks, shown briefly
+    this.lastScene = null; // the scene key last published
+    this.otherSceneKeys = null; // the other kit layouts' scene keys (kitLayoutNames), which config alert_colors may name too
     // Add-on data published before this start is a past session's (addons.js readAddon).
     this.started = Date.now();
+    // Module state outlives a copy and is shared by all of them: each copy sets its own scene set (useScenes), core's until a scene file loads.
+    this.sceneSet = null;
+    this.useScenes();
+    this.kits = new Set([this.layoutName, KIT_LAYOUT]); // kit layouts: KIT_LAYOUT, or a layout whose herdr-signals block has props.scenes naming a scene file (kitLayoutNames)
+    this.kitsAt = 0;
     // The scene picker (kit-scenes) can't import SCENES, so it reads them from here (again on each config change).
-    setShared("kit.scenes", sceneList(SCENES));
+    // A copy over a scene file waits for its file: core's list here would show the wrong scenes until then.
+    if (this.owns() && this.scenesProp === "core") setShared("kit.scenes", sceneList());
     this.cfg = null;
     this.problem = null;
     this.state = initialCardState();
@@ -124,7 +142,7 @@ export default class Signals extends View {
     this.applying = false;
     this.again = false; // a request came in while a pass ran: run one more
     this.clicksAside = { focus: {}, grid: {} }; // each shape's clicks the other shape lacks, and its rail
-    this.focusTree = null; // ~/.config/herdr-kit/layout-focus.json, the undressed focus shape
+    this.focusTree = null; // ~/.config/herdr-kit/layout-focus-<layout>.json, the undressed focus shape
     this.sizesPath = `${home()}/.config/herdr-kit/sizes.json`; // each view's sizes (sizes.js), for reloads and make-layout
     this.sizes = { focus: {}, grid: {} };
     this.sizesSaved = null; // the text last written (or read), so an unchanged record isn't rewritten
@@ -134,7 +152,7 @@ export default class Signals extends View {
     this.sizesLoaded = false;
     this.focusSource = undefined; // layout-source.json's text when focusTree was read
     this.mainNode = null; // Herdr's main.json `main` node: the fallback focus `main`
-    this.focusFallback = false; // focus was rebuilt without layout-focus.json
+    this.focusFallback = false; // focus was rebuilt without its focus file
     this.polls = 0;
     this.prs = {};
     this.prSig = "";
@@ -158,6 +176,7 @@ export default class Signals extends View {
     this.lastDeck = { body: "", at: 0 };
     this.failing = { discord: false, deck: false };
     cx.spawn(async (cx) => {
+      await this.kitLayoutNames(); // before the first config load, so owns() is right at the first kit.scenes publish
       await this.loadConfig();
       cx.notify();
       await this.checkLayout();
@@ -237,6 +256,7 @@ export default class Signals extends View {
 
   // One scene picker at a time: a second press replaces the first.
   openScenes() {
+    this.useScenes();
     if (this.scenesOverlay) {
       try { closeOverlay(this.scenesOverlay); } catch { /* already closed */ }
       this.scenesOverlay = null;
@@ -267,6 +287,8 @@ export default class Signals extends View {
 
   // Key commands from keys.json ("herdr-signals.<command>").
   command(c, cx = null) {
+    if (!this.owns()) return;
+    this.useScenes();
     // An add-on strip button or key (keys.json "herdr-signals.press-<id>"): Herdr
     // passes a mod command only as a string, so the id rides in the name.
     const press = pressCommand(c);
@@ -420,7 +442,7 @@ export default class Signals extends View {
     this.mainNode = findNode(readTree(a), "main");
     if (b !== this.focusSource || !this.focusTree) {
       this.focusSource = b;
-      this.focusTree = readTree(await readTextFile(`${dir}/layout-focus.json`).catch(() => null));
+      this.focusTree = await readFocus(this.layoutName, dir, readTextFile);
       if (this.focusTree) this.focusFallback = false;
     }
   }
@@ -462,11 +484,153 @@ export default class Signals extends View {
     this.usage = usageView(limits, this.pace, now);
   }
 
+  /**
+   * The scene file named by the block's props: read, checked (extra-scenes.js)
+   * and made the active set. A file that is missing, isn't JSON or has no good
+   * scene leaves the core set active and `emptySet` on, and apply() dresses nothing.
+   */
+  async loadScenes() {
+    this.useScenes();
+    if (this.scenesProp === "core") return false;
+    const text = await readTextFile(this.scenesProp).catch(() => null);
+    let names = [];
+    try {
+      const raw = JSON.parse(text);
+      names = [...new Set(Object.values(raw ?? {}).flatMap((e) => [e?.theme?.light, e?.theme?.dark]).filter(themeNameOk))];
+    } catch { names = []; }
+    const themes = {};
+    await Promise.all(names.map(async (n) => { themes[n] = await readTextFile(`${appHome()}/themes/${n}.json`).catch(() => null); }));
+    const sig = JSON.stringify([text, themes]);
+    if (sig === this.sceneSig) { this.useScenes(); return false; }
+    this.sceneSig = sig;
+    const readTheme = (n) => { try { return JSON.parse(themes[n]); } catch { return null; } };
+    const { scenes, problems } = loadSceneFile(text, readTheme);
+    this.sceneProblems = problems;
+    this.emptySet = Object.keys(scenes).length === 0;
+    this.sceneSet = this.emptySet ? null : scenes;
+    this.useScenes();
+    for (const p of problems) console.log(`herdr-signals: ${p}`);
+    this.checkAlerts(); // a scene key in alert_colors may have come or gone with the set
+    this.publishConfigKeys();
+    return true;
+  }
+
+  /**
+   * Whether this copy does the work now (scene and view keys, the poll, commands, toasts): the copy of the
+   * shown layout when that is a kit layout; otherwise (no kit layout shown, or not known yet) the KIT_LAYOUT copy,
+   * which then acts exactly as it always has.
+   */
+  owns() {
+    const shown = shared("layout");
+    if (typeof shown === "string" && this.kits.has(shown)) return shown === this.layoutName;
+    return this.layoutName === KIT_LAYOUT;
+  }
+
+  /** The config-derived kit.* keys (scene list, run-log pipe, alert arrow), set when they differ; owner only. */
+  publishConfigKeys() {
+    if (!this.owns() || !this.cfg) return;
+    {
+      this.useScenes();
+      const list = this.emptySet ? [] : sceneList(activeScenes(), this.cfg.alert_colors);
+      if (JSON.stringify(shared("kit.scenes") ?? null) !== JSON.stringify(list)) setShared("kit.scenes", list);
+      const cross = this.crossOffer();
+      if (JSON.stringify(shared("kit.cross") ?? null) !== JSON.stringify(cross)) setShared("kit.cross", cross);
+      const pipe = typeof this.cfg.run_log_pipe === "string" ? this.cfg.run_log_pipe.trim() : "";
+      if ((shared("kit.runLogPipe") ?? "") !== pipe) setShared("kit.runLogPipe", pipe);
+      const mode = validArrowMode(this.cfg.alert_arrow).mode;
+      if (shared("kit.alertArrow") !== mode) setShared("kit.alertArrow", mode);
+    }
+  }
+
+  /**
+   * The other kit layout the picker offers to cross to, or null when there is none: on KIT_LAYOUT, the first
+   * other kit layout by name ("<Name> →"); on any other kit layout, KIT_LAYOUT ("← Scruffy"). Names come from
+   * the layouts themselves, never a literal.
+   */
+  crossOffer() {
+    const present = layouts();
+    if (this.layoutName === KIT_LAYOUT) {
+      const other = [...this.kits].filter((n) => n !== KIT_LAYOUT && present.includes(n)).sort()[0];
+      return other ? { name: other, label: `${other.charAt(0).toUpperCase()}${other.slice(1)} →` } : null;
+    }
+    return { name: KIT_LAYOUT, label: "← Scruffy" };
+  }
+
+  /** Act on kit.layoutWant (the picker's cross button): switch to it when it is a kit layout, and clear it either way; owner only. */
+  layoutWantStep() {
+    const want = shared("kit.layoutWant") ?? null;
+    if (want === null) return;
+    setShared("kit.layoutWant", null);
+    if (typeof want === "string" && this.kits.has(want) && layouts().includes(want) && want !== shared("layout")) run("layout.switch", { name: want });
+  }
+
+  /**
+   * Make this copy's scene set the active one. Module state is shared by every
+   * copy and outlives them, so each entry point (and each resume after an
+   * await) calls this before it reads scenes. Core's set is the null one.
+   */
+  useScenes() {
+    setActiveScenes(this.sceneSet ?? null);
+  }
+
+  /** The kit layouts (KIT_LAYOUT, and layouts whose herdr-signals block names a scene file), kept 30 s; this copy's own layout always counts. */
+  async kitLayoutNames() {
+    const now = Date.now();
+    if (now - this.kitsAt < 30_000) return this.kits;
+    // A kit layout is KIT_LAYOUT, or one whose herdr-signals block names a scene file (props.scenes, not "core"); the old pre-install layout's bare block doesn't count.
+    const out = new Set([this.layoutName, KIT_LAYOUT]);
+    // The scene file a layout's herdr-signals block names, or null.
+    const fileOf = (n) => {
+      if (n === null || typeof n !== "object") return null;
+      const p = n.content?.mod === "herdr-signals" ? n.content.props?.scenes : null;
+      if (typeof p === "string" && p !== "" && p !== "core") return p;
+      return Array.isArray(n.children) ? n.children.map(fileOf).find((f) => f !== null) ?? null : null;
+    };
+    const files = new Set();
+    await Promise.all(layouts().map(async (n) => {
+      const text = await readTextFile(`${appHome()}/layouts/${n}.json`).catch(() => null);
+      try {
+        const f = fileOf(JSON.parse(text));
+        if (f !== null) { out.add(n); if (f !== this.scenesProp) files.add(f); }
+      } catch { /* not JSON, not a kit layout */ }
+    }));
+    // The other kit layouts' scene keys: config alert_colors is shared, so their keys aren't unknown here.
+    const keys = new Set();
+    await Promise.all([...files].map(async (f) => {
+      try { for (const k of Object.keys(JSON.parse(await readTextFile(f)) ?? {})) keys.add(k); } catch { /* unreadable: no keys */ }
+    }));
+    this.kits = out;
+    this.kitsAt = now;
+    this.useScenes();
+    if (JSON.stringify([...keys].sort()) !== JSON.stringify([...(this.otherSceneKeys ?? [])].sort())) {
+      this.otherSceneKeys = keys;
+      this.checkAlerts();
+    }
+    return out;
+  }
+
+  /** alert_colors: a bad value is skipped and named on the strip; a scene key of any kit layout counts. */
+  checkAlerts() {
+    if (!this.cfg) return;
+    this.useScenes();
+    this.alertProblem = alertProblems(this.cfg.alert_colors, this.otherSceneKeys ?? null)[0] ?? null;
+  }
+
+  /** The strip's problem for the scene file: the empty-set line with the file's problems, else its first problem. */
+  sceneProblem() {
+    const [first, ...rest] = this.sceneProblems;
+    const more = rest.length ? ` (+${rest.length} more)` : "";
+    if (this.emptySet) return first ? `${EMPTY_SET_PROBLEM}; ${first}${more}` : EMPTY_SET_PROBLEM;
+    return first ? `herdr-signals: ${first}${more}` : null;
+  }
+
   /** Reads config.json and applies it when its text changed; true when it did. */
   async loadConfig() {
+    const scenesChanged = await this.loadScenes();
     const path = `${home()}/.config/herdr-kit/config.json`;
     const text = await readTextFile(path).catch(() => null);
-    if (!configChanged(this.configText, text)) return false;
+    this.useScenes();
+    if (!configChanged(this.configText, text)) return scenesChanged;
     this.configText = text;
     // A reread that can't parse keeps the last good config; a later good read clears its problem.
     const { cfg, problem } = reloadConfig(this.cfg, text, DEFAULTS);
@@ -476,15 +640,11 @@ export default class Signals extends View {
     const v = validLook(this.cfg.look);
     this.look = v.look;
     this.lookProblem = v.problems[0] ?? null;
-    const pipe = typeof this.cfg.run_log_pipe === "string" ? this.cfg.run_log_pipe.trim() : "";
-    if ((shared("kit.runLogPipe") ?? "") !== pipe) setShared("kit.runLogPipe", pipe);
     // alert_colors: a bad value is skipped and named on the strip; the picker previews the resolved colours.
-    this.alertProblem = alertProblems(this.cfg.alert_colors)[0] ?? null;
-    setShared("kit.scenes", sceneList(SCENES, this.cfg.alert_colors));
+    this.checkAlerts();
     // alert_arrow: what clicking the rail's arrow does (kit-rail/arrow.js).
-    const arrow = validArrowMode(this.cfg.alert_arrow);
-    this.arrowProblem = arrow.problem;
-    if (shared("kit.alertArrow") !== arrow.mode) setShared("kit.alertArrow", arrow.mode);
+    this.arrowProblem = validArrowMode(this.cfg.alert_arrow).problem;
+    this.publishConfigKeys();
     return true;
   }
 
@@ -493,6 +653,7 @@ export default class Signals extends View {
   // and the shared keys it sets redraw the strip.
   kick(cx = null) {
     if (!this.cfg) return;
+    this.useScenes();
     if (cx) cx.spawn(async (cx) => { await this.apply(); cx.notify(); });
     else this.apply().catch((e) => console.log(`herdr-signals: apply failed (${e})`));
   }
@@ -528,11 +689,15 @@ export default class Signals extends View {
    * stays quiet until the layout, appearance, scene, view or tiling changes.
    */
   async applyStep() {
+    this.useScenes();
     const name = shared("layout");
-    const onKit = name === KIT_LAYOUT;
+    const kit = this.layoutName;
+    const onKit = name === kit;
     const text = onKit ? await readTextFile(`${appHome()}/layouts/.state/${name}.json`).catch(() => null) : null;
     // Once per run: the layout file itself, since layout() has a theme-list pick merged in.
     const fileText = onKit && !this.writtenTheme ? await readTextFile(`${appHome()}/layouts/${name}.json`).catch(() => null) : null;
+    const kits = await this.kitLayoutNames();
+    this.useScenes();
     // The layout switched while we read: these clicks belong to the old one. Try again.
     if (shared("layout") !== name) { this.again = true; return; }
     // From here to the end nothing awaits, so the tree read is the tree written over.
@@ -546,7 +711,31 @@ export default class Signals extends View {
     const fileTheme = has ? recordTheme({ written: this.writtenTheme, fileText, shown, stateTheme: clicks.theme }) : null;
     if (fileTheme) this.writtenTheme = fileTheme;
     const cur = { scene: has ? sceneOfTree({ theme: fileTheme }) : null, view: has ? (isGridTree(shown) ? "grid" : "focus") : null };
-    const want = wantStep({ shown: name, ...cur, sceneWant, viewWant, stateTheme: clicks.theme, fileTheme });
+    // A scene file with no scenes: nothing to dress; drop the requests and wait for a better file.
+    if (onKit && this.emptySet) {
+      if (sceneWant !== null) setShared("kit.sceneWant", null);
+      if (viewWant !== null) setShared("kit.viewWant", null);
+      // The way out stays open: kit.cross (and kit.scenes, empty) are published and a cross click is served.
+      this.publishConfigKeys();
+      if (this.owns()) this.layoutWantStep();
+      return;
+    }
+    this.publishConfigKeys();
+    const want = wantStep({ shown: name, kit, kits, ...cur, sceneWant, viewWant, stateTheme: clicks.theme, fileTheme });
+    // On a layout with its own scene file, a tree whose theme pair names no scene of the set is shown as the default, said so.
+    let left = null;
+    if (has && this.scenesProp !== "core" && sceneOfTheme(fileTheme?.light) === null && sceneOfTheme(fileTheme?.dark) === null) left = missingScene(null);
+    // Only the owning copy touches shared keys: the shown kit layout's, or the scruffy copy off every kit layout (v0.1.24's behaviour).
+    if (!this.owns()) return;
+    this.layoutWantStep();
+    if (left && !parseWant(sceneWant)) {
+      // Routed as a request, so the write takes the default scene's whole look: the departed theme halves aren't the user's own to keep.
+      this.sceneNote = { text: leftSceneProblem(this.lastScene ?? fileTheme?.dark ?? "?", left), at: Date.now() };
+      setShared("kit.sceneWant", left);
+      this.again = true;
+      return;
+    }
+    if (want.ignored) this.sceneNote = { text: noSceneProblem(want.ignored), at: Date.now() };
     this.follow = want.follow; // the theme-list follow runs only when no request is pending
     if (want.follow) {
       // A scene's theme picked in Herdr's list: ask for that scene; the write clears the pick. Any other pick is kept (stepPlan).
@@ -592,7 +781,7 @@ export default class Signals extends View {
     }
     const p = stepPlan({
       shown, cur, want, plan, clicks: clicks.nodes, focus: this.focusTree, main: this.mainNode, aside: this.clicksAside,
-      gridSig: this.gridSig, look: this.look, light, name, failedKey: this.applyFailed ?? null, stateTheme: clicks.theme, sceneWant, fileTheme, pin,
+      gridSig: this.gridSig, look: lookFor(this.look, this.scenesProp), light, name, failedKey: this.applyFailed ?? null, stateTheme: clicks.theme, sceneWant, fileTheme, pin,
     });
     let shownNow = shown;
     let retiled = false;
@@ -629,13 +818,19 @@ export default class Signals extends View {
 
   /** kit.scene and kit.view for the drawing mods, set only when they change. */
   publish(scene, view) {
-    if ((shared("kit.scene") ?? null) !== scene) setShared("kit.scene", scene);
+    if (!this.owns()) return;
+    this.useScenes();
+    this.lastScene = scene;
     if ((shared("kit.view") ?? null) !== view) setShared("kit.view", view);
     // The active card's bar and fill, for this theme; checked on every apply,
     // since a light/dark switch changes the theme without changing the scene.
     // kit.tones names its scene, so a render between the two writes keeps the new scene's own tones.
     const tones = { scene: this.sceneKey(scene), ...this.alerts(scene).tones };
+    // A scene outside core's set (an overlay's) carries its whole tone set, so the drawing mods never fall back to Tatooine.
+    const own = activeScenes()[tones.scene]?.tones;
+    if (!Object.hasOwn(SCENES, tones.scene) && own) tones.full = { glyph: "layered", dark: own.dark, light: own.light };
     if (JSON.stringify(shared("kit.tones") ?? null) !== JSON.stringify(tones)) setShared("kit.tones", tones);
+    if ((shared("kit.scene") ?? null) !== scene) setShared("kit.scene", scene);
     const pair = (k) => ({ dark: tones.dark[k], light: tones.light[k] });
     const here = hereTones(theme(), pair("orange"), pair("blue"));
     if (JSON.stringify(shared("kit.here") ?? null) !== JSON.stringify(here)) setShared("kit.here", here);
@@ -643,13 +838,15 @@ export default class Signals extends View {
 
   /** The shown scene's alert colours: config alert_colors over the scene defaults (alerts.js). */
   alerts(scene) {
+    this.useScenes();
     const key = this.sceneKey(scene);
-    return resolveAlerts(this.cfg?.alert_colors, key, SCENES[key]);
+    return resolveAlerts(this.cfg?.alert_colors, key, activeScenes()[key]);
   }
 
-  /** A scene key as look.js reads it: Tatooine for an unknown one or null. */
+  /** A scene key as look.js reads it: the active set's default scene (Tatooine for the core set) for an unknown one or null. */
   sceneKey(scene) {
-    return Object.hasOwn(SCENES, scene) ? scene : "tatooine";
+    this.useScenes();
+    return Object.hasOwn(activeScenes(), scene) ? scene : defaultScene();
   }
 
   /** kit.afterView ({view, address, argv?}): once `view` is shown, focus that Claude and maybe split under it. */
@@ -781,6 +978,8 @@ export default class Signals extends View {
   }
 
   poll(cx) {
+    if (!this.owns()) return;
+    this.useScenes();
     cx.spawn(async (cx) => {
       if (++this.polls % NAMES_RELOAD_POLLS === 0) await Promise.all([this.reloadNames(), this.reloadCtx(), this.reloadRunState()]);
       const raw = rawAgents();
@@ -1016,11 +1215,12 @@ export default class Signals extends View {
   }
 
   render(cx) {
+    this.useScenes();
     // A scene or view request, a spotlight click, or a rail click that opened
     // the grid shouldn't wait for the next poll: queue one apply pass when
     // they change (only then, so a request that can't land doesn't spin).
     const grid = shared("kit.view") === "grid";
-    const asks = [shared("kit.sceneWant") ?? null, shared("kit.viewWant") ?? null, shared("kit.afterView") ?? null];
+    const asks = [shared("kit.sceneWant") ?? null, shared("kit.viewWant") ?? null, shared("kit.afterView") ?? null, shared("kit.layoutWant") ?? null];
     const spot = grid ? [shared("kit.spotlight") ?? null, shared("kit.gridFocus") ?? null] : [null, null];
     const askSig = JSON.stringify([...asks, ...spot]);
     if (askSig !== this.askSig) {
@@ -1037,7 +1237,8 @@ export default class Signals extends View {
     const s = summary(this.model?.agents ?? agents());
     const parts = [];
     // A layout or scene-picker problem first; a bad config `look` stays until the config is fixed.
-    const problem = this.problem ?? this.configProblem ?? this.lookProblem ?? this.alertProblem ?? this.arrowProblem;
+    if (this.sceneNote && Date.now() - this.sceneNote.at > 8000) this.sceneNote = null;
+    const problem = this.problem ?? this.sceneNote?.text ?? this.sceneProblem() ?? this.configProblem ?? this.lookProblem ?? this.alertProblem ?? this.arrowProblem;
     if (problem) parts.push(div().text_color(t.muted).child(problem));
     // Clicking a count does what cmd-shift-u does.
     const focus = shared("kit.focus");
@@ -1050,12 +1251,12 @@ export default class Signals extends View {
     if (this.layoutNote) {
       parts.push(div().id("layout-note").text_color(t.muted).tooltip("Herdr changed its main layout, so the kit layout is out of date. Rerun ./install.sh from the main checkout.").child(this.layoutNote));
     } else if (this.focusFallback && !this.focusTree) {
-      parts.push(div().id("layout-note").text_color(t.muted).tooltip("The kit's focus layout (layout-focus.json) is missing, so focus was rebuilt from the grid. Rerun ./install.sh from the main checkout.").child(LAYOUT_NOTE));
+      parts.push(div().id("layout-note").text_color(t.muted).tooltip(`The kit's focus layout (layout-focus-${this.layoutName}.json) is missing, so focus was rebuilt from the grid. Rerun ./install.sh from the main checkout.`).child(LAYOUT_NOTE));
     }
 
     // The right-hand buttons keep their place: when the strip is short they lose words (strip-fit.js).
     const sceneKey = shared("kit.scene") ?? null;
-    const sceneName = Object.hasOwn(SCENES, sceneKey) ? SCENES[sceneKey].label : null;
+    const sceneName = Object.hasOwn(activeScenes(), sceneKey) ? activeScenes()[sceneKey].label : null;
     const width = this.stripPx ?? signalsWidth(null);
     const note = this.layoutNote || (this.focusFallback && !this.focusTree) ? LAYOUT_NOTE : null;
     const texts = leftTexts({

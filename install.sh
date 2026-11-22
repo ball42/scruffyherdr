@@ -189,7 +189,7 @@ if [ "$MODE" = "--uninstall" ]; then
     herdr-app do layout.switch --name main >/dev/null 2>&1 || true
   fi
   for name in $KIT_LAYOUTS $LEGACY_LAYOUTS; do rm -f "$APP_HOME/layouts/$name.json"; done
-  rm -f "$KIT_HOME/layout-focus.json" "$KIT_HOME/sizes.json" "$KIT_HOME/glyphs-seen"
+  rm -f "$KIT_HOME"/layout-focus*.json "$KIT_HOME/sizes.json" "$KIT_HOME/glyphs-seen"
   echo "removed the Claude name and card hooks, the kit keys and the kit layout (links and config stay; delete them by hand if you want)"
   exit 0
 fi

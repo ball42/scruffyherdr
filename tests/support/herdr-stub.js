@@ -17,6 +17,11 @@ export const host = {
   execs: [], // [command, args]
   exec: async () => ({ code: 0, stdout: "", stderr: "" }),
   openOverlay: null, // a function to replace the default
+  layout: null, // the shown layout's tree, for layout()
+  layouts: [], // layouts()
+  runs: [], // [action, args] for run()
+  themeJson: "{}", // theme()
+  props: {}, // props()
 };
 
 globalThis.__herdrHost = host;
@@ -33,16 +38,38 @@ export const readTextFile = async (p) => (p in h.files ? h.files[p] : null);
 export const writeTextFile = async (p, text) => { h.files[p] = text; h.writes.push(p); return null; };
 export const notify = (n) => { h.notes.push(n); return "n"; };
 export const openOverlay = (spec) => { if (h.openOverlay) return h.openOverlay(spec); h.overlays.push(spec); return "ov" + h.overlays.length; };
+export const appHome = () => "/app";
+export const layout = () => h.layout;
+export const layouts = () => h.layouts;
+export const run = (a, args) => { h.runs.push([a, args]); if (a === "layout.set") h.layout = args.layout; return null; };
+// nextCommand and watchFolder never resolve: main.js loops on them, so a resolving stub would spin. A test that needs a command or a folder event must not rely on them.
+export const nextCommand = () => new Promise(() => {});
+export const watchFolder = () => new Promise(() => {});
+export const focused = () => null;
+export const setAgentOrder = () => null;
+export const settings = () => ({});
+export const spaces = () => [];
+export const theme = () => JSON.parse(h.themeJson);
+export const props = () => h.props;
 export const closeOverlay = (id) => { h.closed.push(id); return null; };
 `;
 
 const GPUI = `
 export class View {}
+// Elements record their builder calls ([name, ...args]) in .calls; when runs its callback when the condition holds.
 function el() {
-  const p = new Proxy({}, { get: () => () => p });
+  const calls = [];
+  const p = new Proxy({}, { get: (_, k) => {
+    if (k === "calls") return calls;
+    if (k === "when") return (c, fn) => (c ? fn(p) : p);
+    return (...a) => { calls.push([k, ...a]); return p; };
+  } });
   return p;
 }
+export const image = el;
+export const ScrollHandle = { new: () => ({ scrolled: [], released: false, scroll_to_item(i) { this.scrolled.push(i); }, release() { this.released = true; return true; } }) };
 export const div = el;
+export const svg = el;
 export const h_flex = el;
 export const v_flex = el;
 `;
@@ -95,6 +122,6 @@ export function fakeCx() {
 export function resetHost() {
   Object.assign(host, {
     now: 1_000_000, shared: {}, sets: [], agents: [], panes: [], overlays: [], closed: [], notes: [], files: {}, writes: [], execs: [],
-    exec: async () => ({ code: 0, stdout: "", stderr: "" }), openOverlay: null,
+    exec: async () => ({ code: 0, stdout: "", stderr: "" }), openOverlay: null, layout: null, layouts: [], runs: [], themeJson: "{}",
   });
 }

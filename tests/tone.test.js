@@ -34,7 +34,7 @@ test("useTheme in the Endor scene swaps orange for moss lemon, keeps blue", () =
   assert.equal(look.ORANGE, "#8b8810");
   assert.equal(look.BLUE, "#0969da");
   look.useTheme({ background: "#0c1a18" }, "main");
-  assert.equal(look.ORANGE, "#fd9f01", "an unknown scene key gets Tatooine's");
+  assert.equal(look.ORANGE, "#8b8810", "an unknown scene key keeps the last tone, not Tatooine's");
   look.useTheme({ background: "#0c1a18" }, null);
   assert.equal(look.ORANGE, "#fd9f01", "no scene gets Tatooine's");
 });
@@ -263,4 +263,47 @@ test("useTheme ignores kit.tones resolved for another scene", () => {
   look.useTheme({ background: "#0f1726" }, "hoth", { scene: "hoth", dark: { orange: "#123456" } });
   assert.equal(look.ORANGE, "#123456");
   look.useTheme({ background: "#0f1726" }, "hoth", null);
+});
+
+test("useTheme draws a scene outside TONES from the full set kit.tones carries, with the layered glyph", () => {
+  const full = {
+    glyph: "layered",
+    dark: { orange: "#ffe5de", blue: "#58a6ff", ink: "#0d1117" },
+    light: { orange: "#d76549", blue: "#0969da", ink: "#ffffff" },
+  };
+  look.useTheme({ background: "#0d1117" }, "fixture-scene", { scene: "fixture-scene", full });
+  assert.equal(look.ORANGE, "#ffe5de");
+  assert.equal(look.INK, "#0d1117");
+  look.useTheme({ background: "#ffffff" }, "fixture-scene", { scene: "fixture-scene", full });
+  assert.equal(look.ORANGE, "#d76549");
+  const files = look.glyphLayers("fixture-scene");
+  const kids = look.mark("blocked", false).calls.filter((c) => c[0] === "child").map((c) => c[1]);
+  assert.equal(svgOf(kids[0]), files.body, "the layered glyph of fixture-scene, not a code-drawn Tatooine one");
+  assert.equal(svgOf(kids[2]), files.mover);
+  // The config's override still lays over it.
+  look.useTheme({ background: "#0d1117" }, "fixture-scene", { scene: "fixture-scene", full, dark: { orange: "#123456" } });
+  assert.equal(look.ORANGE, "#123456");
+});
+
+test("useTheme keeps the last tone and glyph for an outside key whose full set hasn't arrived, never Tatooine", () => {
+  const full = { glyph: "layered", dark: { orange: "#123abc", blue: "#58a6ff", ink: "#0d1117" }, light: { orange: "#d76549", blue: "#0969da", ink: "#ffffff" } };
+  const kidsOf = () => look.mark("blocked", false).calls.filter((c) => c[0] === "child").map((c) => c[1]);
+  look.useTheme({ background: "#0d1117" }, "fixture-scene", { scene: "fixture-scene", full });
+  // kit.scene written, kit.tones still naming another scene (or absent): no change.
+  look.useTheme({ background: "#0d1117" }, "fixture-scene", { scene: "other", full: { ...full, dark: { ...full.dark, orange: "#999999" } } });
+  assert.equal(look.ORANGE, "#123abc");
+  look.useTheme({ background: "#0d1117" }, "fixture-scene", null);
+  assert.equal(look.ORANGE, "#123abc");
+  assert.equal(svgOf(kidsOf()[0]), look.glyphLayers("fixture-scene").body, "still its layered glyph");
+  // A core key with a stray full set ignores it, with its own tones and glyph.
+  look.useTheme({ background: "#0d1117" }, "hoth", { scene: "hoth", full });
+  assert.equal(look.ORANGE, "#ffe5de");
+  assert.equal(look.INK, "#0d1117");
+  look.useTheme({ background: "#ffffff" }, "hoth", { scene: "hoth", full });
+  assert.equal(look.ORANGE, "#d76549");
+  assert.notEqual(look.BLUE, "#123abc");
+  assert.notEqual(svgOf(kidsOf()[0] ?? {}), look.glyphLayers("hoth").body, "Hoth's own glyph, not the layered one");
+  // No scene at all is still Tatooine.
+  look.useTheme(undefined);
+  assert.equal(look.ORANGE, "#fd9f01");
 });

@@ -104,7 +104,7 @@ The model, `shared("herdr-kit")`, gives each Claude in `agents[]`:
 - `session`: the Claude Code session id from the names file, or null;
 - `badge`: what the core drew from this add-on last poll.
 
-An add-on may also read `shared("kit.here")`, which herdr-signals writes for the current theme: `{ here, hereFill }`, the bar colour and card fill the rail gives the Claude in the focused terminal. Read it; never write it. `shared("kit.tones")` is the shown scene's alert colours, `{ scene, dark, light }`: `scene` is the scene key they were resolved for (a reader that pairs them with `kit.scene` ignores them while the two differ, as they can for one render after a switch), and each mode is `{ orange, blue, count, badge, ink }`: the needs-you colour (whatever its hue; the key keeps its old name), done, and the tones drawn with them, after config `alert_colors` (README, Config) is applied. Read-only too. `shared("kit.alertArrow")` is config `alert_arrow` after checking (`"scroll-switch"`, `"scroll"` or `"switch"`): what clicking the rail's alert arrow does. Read-only.
+An add-on may also read `shared("kit.here")`, which herdr-signals writes for the current theme: `{ here, hereFill }`, the bar colour and card fill the rail gives the Claude in the focused terminal. Read it; never write it. `shared("kit.tones")` is the shown scene's alert colours, `{ scene, dark, light }`: `scene` is the scene key they were resolved for (a reader that pairs them with `kit.scene` ignores them while the two differ, as they can for one render after a switch), and each mode is `{ orange, blue, count, badge, ink }`: the needs-you colour (whatever its hue; the key keeps its old name), done, and the tones drawn with them, after config `alert_colors` (README, Config) is applied. For a scene from an overlay's scene file (Overlays, Extra scenes), `kit.tones` also carries `full: { glyph: "layered", dark, light }`, that scene's whole tone set, so a drawing mod uses it instead of falling back to a core scene's. Read-only too. `shared("kit.alertArrow")` is config `alert_arrow` after checking (`"scroll-switch"`, `"scroll"` or `"switch"`): what clicking the rail's alert arrow does. Read-only.
 
 Compute badges from the model you read now. A saved agent list can name a terminal address that now belongs to a different Claude.
 
@@ -159,7 +159,45 @@ Paths are relative to the core's folder. Each one keeps `merge-config.js`'s cont
 - `node scripts/merge-config.js hooks <settings.json> <command> <events> [-- <command> <events>]...`: adds Claude Code hook commands to `~/.claude/settings.json`. `<events>` is a comma list, each event optionally `:async` (`SessionStart,Stop`).
 - `node scripts/merge-config.js unhooks <settings.json> <command> [-- <command>]...`: removes those commands from every event.
 - `node scripts/merge-config.js hooks-check <settings.json> <command> <events> [-- ...]`: writes nothing, and exits 0 when `hooks` would change nothing, else 1.
-- `node scripts/make-layout.js --list`: prints the generated layout's name (`scruffy`).
+- `node scripts/make-layout.js --list`: prints the core layout's name (`scruffy`).
 - `node scripts/make-layout.js <main.json> <layouts dir> <config.json>`: rebuilds that layout from Herdr's `main.json`, keeping its scene and panel sizes, with a block for each add-on listed in `addons` and present under `mods/`. Run it after linking add-on mods.
+
+- `node scripts/make-layout.js <main.json> <layouts dir> <config.json> --name <layout> --scenes <scene file>`: builds a second kit layout, `<layout>.json`, over the overlay's scene file (below). `--name` takes `[A-Za-z0-9_-]` and must not be `scruffy`; `--scenes` takes the scene file's path, resolved to an absolute path for the props, and needs `--name`, and `--name` without `--scenes` is a usage error (exit 2). The layout is dressed with the file's scenes and their own pictures, so the config's `look` wallpaper keys don't apply to it. It shows the same Settings preview as scruffy, `layouts/scruffy.svg`. Its undressed focus tree goes to `layout-focus-<layout>.json` beside the config. A file with no good scene writes nothing and exits 1. Run it after the plain build, once per overlay layout.
+
+### Extra scenes
+
+An overlay can give the kit a second layout with its own scenes. The scene file is one JSON object, scene key to entry. A key can't be empty, contain `:` or clash with a core scene. The entry is a core `SCENES` entry (`label`, `theme`, `walls`, `panel`, `needs`, `asks`, each of `theme`, `walls`, `panel` and `needs` a `{dark, light}` pair) plus two fields:
+
+- `status`: `"trial"` or `"declined"`. A declined scene stays in the picker, after the others, with a `declined` tag on its picture.
+- `tones`: `{ glyph?, dark, light }`, where each mode has `orange`, `blue` and `ink` as `#rrggbb`. `orange` is the needs-you colour, whatever its hue, and must equal `needs` for that mode. `blue` and `ink` are checked as colours but drawn from the resolved alert colours (`kit.tones`: done, and the ink derived from needs-you, after config `alert_colors`), so they only record the scene's intent. `glyph` may be left out; when set it must be `"layered"`: an extra scene draws its glyph from layer files only, `glyphs/<scene>-body.svg`, `-edge.svg`, `-light.svg` and `-mover.svg`.
+
+```json
+{
+  "example-dusk": {
+    "label": "Example Dusk",
+    "theme": { "dark": "example-dusk-night", "light": "example-dusk-day" },
+    "walls": { "dark": "backgrounds/example-dusk.jpg", "light": "backgrounds/example-dusk-day.jpg" },
+    "panel": { "dark": "#10161f", "light": "#f4f7fb" },
+    "needs": { "dark": "#ffb86b", "light": "#a24b00" },
+    "asks": "*",
+    "status": "trial",
+    "tones": {
+      "glyph": "layered",
+      "dark": { "orange": "#ffb86b", "blue": "#58a6ff", "ink": "#0d1117" },
+      "light": { "orange": "#a24b00", "blue": "#0969da", "ink": "#ffffff" }
+    }
+  }
+}
+```
+
+`herdr-signals/extra-scenes.js` checks each entry and drops a bad one with a named problem (shown on the strip and logged); the rest still load. Each named theme must exist, its `blocked` colour must equal `needs` and its `done` colour core's done blue, and `needs` must pass the same deuteranopia check as a core scene. A file that is missing, isn't JSON or has no good scene leaves the layout dressing nothing: the strip says so, the picker is empty and its cross button stays open. `kit.scene` and `kit.tones` keep the last scene published (publishing null would draw a core scene's colours), until a good file comes back. A theme name must be a plain file name (letters, digits, `_`, `.` and `-`); any other drops its scene, and nothing outside `themes/` is read.
+
+**Themes** are an overlay path like the overrides: a theme is read from `<scene file's folder>/themes/<name>.json` by `make-layout.js`, and from `<Herdr home>/themes/<name>.json` at runtime, so the overlay links its themes there itself. Pictures and glyph layers are the overlay's own files, linked the same way as overrides.
+
+**How a kit layout is recognised.** `scruffy` is a kit layout by name. Any other layout is one when its `herdr-signals` block has props `{ layout, scenes }`, with `scenes` the scene file's path (`make-layout.js --scenes` writes them); a bare block or `scenes: "core"` doesn't count. Each copy of `herdr-signals` keeps its own scene set, and only the copy on the shown kit layout writes the shared keys. With no kit layout shown, the `scruffy` copy acts as it always has, and a scene request switches back to it.
+
+**Crossing between layouts.** While another kit layout exists, `herdr-signals` publishes `kit.cross`: `{ name, label }` or null. On scruffy it names the first other kit layout by name (label `<Name> →`); on any other kit layout it names scruffy (`← Scruffy`). The scene picker draws a button for it and binds the `c` key to it; a press writes the layout's name to `kit.layoutWant` and closes the picker. `herdr-signals` switches to a kit layout named there and clears the key, and ignores any other value. Both keys are written by `herdr-signals` and the picker only, never an add-on. A scene request the shown layout lacks is dropped and named on the strip (a request for a scene it has with a bad suffix, such as `<scene>:dusk`, is named whole). A tree whose scene left the set is shown as the set's default scene (its first trial scene, else its first) with that scene's own theme pair, and the strip says so once.
+
+**Config is shared.** Both layouts read the one `config.json`. A key under `alert_colors.scenes` may name a core scene or a scene of any kit layout's file; only a key in none of them is named on the strip.
 
 An overlay that imports or copies a core file (`claude/ctx-tap.mjs`, `claude/cards.js`, the mods' `look.js`, `herdr-signals/addons.js`) should guard the copy with a test, since those files aren't part of this contract.

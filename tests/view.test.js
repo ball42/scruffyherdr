@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { afterStep, findNode, readTree, switchClicks, toggleWant, treeClicks, viewTree, wantStep } from "../herdr/mods/herdr-signals/view.js";
+import { afterStep, findNode, focusFiles, readFocus, readTree, switchClicks, toggleWant, treeClicks, viewTree, wantStep } from "../herdr/mods/herdr-signals/view.js";
 import { gridLayout, gridSpec } from "../herdr/mods/herdr-signals/grid.js";
 import { KIT_LAYOUT, isGridTree } from "../herdr/mods/herdr-signals/scenes.js";
 
@@ -69,7 +69,7 @@ test("wantStep: a sceneWant on the kit layout keeps the view and waits the follo
 
 test("wantStep: unknown wants are ignored", () => {
   const s = wantStep(onKit({ sceneWant: "alderaan", viewWant: "sideways" }));
-  assert.deepEqual(s, { switchTo: null, scene: "naboo", look: null, view: "focus", follow: false });
+  assert.deepEqual(s, { switchTo: null, scene: "naboo", look: null, view: "focus", follow: false, ignored: "alderaan" });
   assert.equal(wantStep(onKit({ sceneWant: "__proto__" })).scene, "naboo");
 });
 
@@ -499,4 +499,107 @@ test("on scruffyherdr (mods reloaded before ./install.sh), a scene request says 
   assert.match(NO_KIT_PROBLEM, /no scruffy layout, run \.\/install\.sh/);
   assert.equal(switchStep({ present: ["main", "scruffyherdr", "scruffy"].includes(want.switchTo), tried: null, want: "endor", now: 0 }), "switch");
   assert.equal(wantStep({ shown: "scruffyherdr", scene: null, view: null, sceneWant: null, viewWant: "grid" }).switchTo, null, "a view request alone does nothing there");
+});
+
+import { EMPTY_SET_PROBLEM, leftSceneProblem, lookFor, missingScene, noSceneProblem } from "../herdr/mods/herdr-signals/view.js";
+import { setActiveScenes, activeScenes } from "../herdr/mods/herdr-signals/scenes.js";
+
+const FIXTURE_SET = {
+  "fixture-scene": { ...activeScenes().naboo, label: "Fixture Scene", status: "trial" },
+  "fixture-other": { ...activeScenes().endor, label: "Fixture Other", status: "declined" },
+};
+const withSet = (fn) => { setActiveScenes(FIXTURE_SET); try { fn(); } finally { setActiveScenes(null); } };
+
+test("wantStep: on a second kit layout a scene outside its set is ignored, not switched to", () => {
+  withSet(() => {
+    const s = wantStep({ shown: "fixture-layout", kit: "fixture-layout", scene: "fixture-scene", view: "focus", sceneWant: "hoth", fileTheme: NABOO });
+    assert.equal(s.switchTo, null);
+    assert.equal(s.ignored, "hoth");
+    assert.equal(s.scene, "fixture-scene");
+  });
+});
+
+test("wantStep: a scene in the set is taken on a second kit layout; a look suffix keeps the key", () => {
+  withSet(() => {
+    const s = wantStep({ shown: "fixture-layout", kit: "fixture-layout", scene: "fixture-scene", view: "focus", sceneWant: "fixture-other:day", fileTheme: NABOO });
+    assert.equal(s.scene, "fixture-other");
+    assert.equal(s.ignored, undefined);
+  });
+});
+
+test("wantStep: off every kit layout only the scruffy copy switches to it", () => {
+  const kits = new Set([KIT_LAYOUT, "fixture-layout"]);
+  assert.equal(wantStep({ shown: "main", kit: KIT_LAYOUT, kits, sceneWant: "hoth" }).switchTo, KIT_LAYOUT);
+  assert.equal(wantStep({ shown: "main", kit: "fixture-layout", kits, sceneWant: "hoth" }).switchTo, null);
+});
+
+test("wantStep: shown on another kit layout, nothing happens and nothing is ignored", () => {
+  const kits = new Set([KIT_LAYOUT, "fixture-layout"]);
+  for (const [kit, shown] of [[KIT_LAYOUT, "fixture-layout"], ["fixture-layout", KIT_LAYOUT]]) {
+    const s = wantStep({ shown, kit, kits, scene: "naboo", view: "focus", sceneWant: "hoth", viewWant: "grid" });
+    assert.equal(s.switchTo, null);
+    assert.equal(s.ignored, undefined);
+    assert.equal(s.scene, "naboo");
+    assert.equal(s.view, "focus");
+  }
+});
+
+test("wantStep: with no kit given it is today's behaviour; an unknown key on scruffy is named too", () => {
+  assert.equal(wantStep(onKit({ sceneWant: "naboo" })).ignored, undefined);
+  assert.equal(wantStep(onKit({ sceneWant: "nowhere" })).ignored, "nowhere");
+  assert.equal(wantStep(onKit({ sceneWant: "nowhere" })).scene, "naboo");
+});
+
+test("wantStep: a known scene with a bad suffix names the whole request, not the scene", () => {
+  assert.equal(wantStep(onKit({ sceneWant: "endor:dusk" })).ignored, "endor:dusk");
+  assert.equal(wantStep(onKit({ sceneWant: "endor:day:x" })).ignored, "endor:day:x");
+  assert.equal(wantStep(onKit({ sceneWant: "nowhere:day" })).ignored, "nowhere");
+  assert.equal(noSceneProblem("endor:dusk"), 'herdr-signals: bad scene request "endor:dusk"');
+});
+
+test("missingScene: the first trial key when the tree's scene left the set", () => {
+  withSet(() => {
+    assert.equal(missingScene("hoth"), "fixture-scene");
+    assert.equal(missingScene("fixture-other"), null);
+  });
+  assert.equal(missingScene("fixture-scene"), "tatooine");
+  assert.equal(missingScene("naboo"), null);
+});
+
+test("strip problems name the key and the fallback", () => {
+  assert.equal(noSceneProblem("hoth"), 'herdr-signals: no scene "hoth" in this layout');
+  assert.equal(leftSceneProblem("hoth", "fixture-scene"), 'herdr-signals: "hoth" left this layout\'s scenes; showing "fixture-scene"');
+  assert.equal(EMPTY_SET_PROBLEM, "herdr-signals: this layout's scene file has no scenes");
+});
+
+test("lookFor: a layout with a scene file drops the wallpaper keys; core keeps them", () => {
+  const look = { wallpaper: "/x.jpg", wallpaper_light: "/y.jpg", wallpaper_dark: "/z.jpg", strength: 3 };
+  assert.deepEqual(lookFor(look, "/some/scenes.json"), { strength: 3 });
+  assert.deepEqual(lookFor(look, "core"), look);
+  assert.deepEqual(lookFor(look, undefined), look);
+});
+
+test("stepPlan: the alt layout's look gives each scene its own picture, not the user's wallpaper", () => {
+  const look = { wallpaper: "/x.jpg", wallpaper_light: "/y.jpg" };
+  const own = stepPlan({ shown: focusTree(), cur: { scene: "naboo", view: "focus" }, want: { scene: "naboo", view: "focus", look: null }, look: lookFor(look, "/s.json"), light: false });
+  assert.equal(own.next.background.image, activeScenes().naboo.walls.dark);
+  const core = stepPlan({ shown: focusTree(), cur: { scene: "naboo", view: "focus" }, want: { scene: "naboo", view: "focus", look: null }, look: lookFor(look, "core"), light: false });
+  assert.equal(core.next.background.image, "/x.jpg");
+});
+
+test("focusFiles: a layout's own file; scruffy falls back once to the old shared name", () => {
+  assert.deepEqual(focusFiles("alt"), ["layout-focus-alt.json"]);
+  assert.deepEqual(focusFiles(KIT_LAYOUT), [`layout-focus-${KIT_LAYOUT}.json`, "layout-focus.json"]);
+});
+
+test("readFocus: own file first, scruffy falls back to the old name, alt never reads scruffy's", async () => {
+  const tree = (scenes) => JSON.stringify({ id: "root", type: "row", children: [{ id: "strip", type: "block", content: { mod: "herdr-signals", props: { scenes } } }] });
+  const reader = (store, log = []) => async (path) => { log.push(path); const k = path.split("/").pop(); if (k in store) return store[k]; throw new Error("ENOENT"); };
+  const scruffy = `layout-focus-${KIT_LAYOUT}.json`;
+  assert.equal(findNode(await readFocus(KIT_LAYOUT, "/d", reader({ [scruffy]: tree("new"), "layout-focus.json": tree("old") })), "strip").content.props.scenes, "new");
+  assert.equal(findNode(await readFocus(KIT_LAYOUT, "/d", reader({ "layout-focus.json": tree("old") })), "strip").content.props.scenes, "old");
+  const log = [];
+  assert.equal(await readFocus("alt", "/d", reader({ [scruffy]: tree("core"), "layout-focus.json": tree("old") }, log)), null);
+  assert.deepEqual(log, ["/d/layout-focus-alt.json"]);
+  assert.equal(findNode(await readFocus("alt", "/d", reader({ "layout-focus-alt.json": tree("fixture.json"), [scruffy]: tree("core") })), "strip").content.props.scenes, "fixture.json");
 });
