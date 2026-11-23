@@ -1701,6 +1701,12 @@ mkdir -p "$HOME/.claude"
 HOOK="node \"$REPO/claude/name-hook.mjs\""
 "$REPO/install.sh" --hooks </dev/null >/dev/null 2>&1
 node -e 'const f=process.argv[1];const s=JSON.parse(require("fs").readFileSync(f,"utf8"));s.enabledPlugins={"scruffyherdr@scruffyherdr":true};require("fs").writeFileSync(f,JSON.stringify(s))' "$HOME/.claude/settings.json"
+TWICE="$("$REPO/install.sh" --check </dev/null 2>&1)"; TRC=$?
+if [ $TRC -ne 0 ] && echo "$TWICE" | grep -qF "the name hook runs twice"; then
+  pass "an enabled plugin beside install's old name hook: --check calls it drift"
+else
+  fail "an enabled plugin beside install's old name hook: --check calls it drift (rc $TRC)"
+fi
 OUT="$("$REPO/install.sh" --hooks </dev/null 2>&1)"; RC=$?
 CHK="$("$REPO/install.sh" --check --verbose </dev/null 2>&1)"; CRC=$?
 if [ $RC -eq 0 ] && ! grep -qF "name-hook.mjs" "$HOME/.claude/settings.json" \

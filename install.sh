@@ -271,7 +271,8 @@ if [ "$MODE" = "--check" ]; then
   settings_name="$(short_name "$CLAUDE_SETTINGS")"
   if [ "$(name_plugin_on)" = "yes" ]; then
     # The plugin runs the name hook: a copy of install's beside it would run twice.
-    if grep -qF "$HOOK_CMD" "$CLAUDE_SETTINGS"; then
+    # settings.json holds the command JSON-escaped, so look for its path, not its quotes.
+    if grep -qF "$REPO/claude/name-hook.mjs" "$CLAUDE_SETTINGS"; then
       drift_line "$settings_name" "$CLAUDE_SETTINGS (the name hook runs twice: the scruffyherdr plugin's and install's; rerun ./install.sh)"
     elif [ "$(cards_hook_on)" = "yes" ] && ! node "$REPO/scripts/merge-config.js" hooks-check "$CLAUDE_SETTINGS" "$CARD_CMD" "$CARD_EVENTS" 2>/dev/null; then
       drift_line "$settings_name" "$CLAUDE_SETTINGS (card hook missing or out of date: rerun ./install.sh)"
