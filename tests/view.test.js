@@ -256,6 +256,16 @@ test("stepPlan: the key that just failed is skipped; a dress error comes back, n
   assert.equal(bad.write, null);
 });
 
+test("stepPlan: the link mods on the shown layout survive both view switches", () => {
+  const shown = { ...dressed(), link_handlers: ["viewer", "browser"] };
+  const g = pass(shown, { viewWant: "grid" });
+  assert.deepEqual(g.write.link_handlers, ["viewer", "browser"], "focus to grid");
+  const f = pass(g.write, { viewWant: "focus" });
+  assert.equal(isGridTree(f.write), false);
+  assert.deepEqual(f.write.link_handlers, ["viewer", "browser"], "grid back to the install-time focus tree");
+  assert.equal(pass({ ...g.write, link_handlers: [1] }, { viewWant: "focus" }).write.link_handlers, undefined, "a malformed one drops");
+});
+
 test("stepPlan: focus without a focus tree is a fallback the caller notes", () => {
   const shown = dress(gridLayout(focusTree(), spec()), { scene: "naboo" });
   const p = pass(shown, { viewWant: "focus" }, { focus: null, main: MAIN_NODE });

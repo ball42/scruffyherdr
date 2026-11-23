@@ -417,3 +417,25 @@ test("the owner mirrors kit.runsDismissed to runs-dismissed.json, only when it c
   assert.equal(host.writes.filter((p) => p === FILE).length, n, "no rewrite while it stays the same");
   setActiveScenes(null);
 });
+
+test("dock_badge: a copy taking over sets the badge afresh, whatever another copy set meanwhile", async () => {
+  host.now = 1_000_000; // past the kit layout list's 30 s cache, so each copy reads the other's layout
+  const { alt, scruffy, trees } = await twoCopies();
+  host.files["/home/test/.config/herdr-kit/config.json"] = JSON.stringify({ dock_badge: true });
+  const blocked = (n) => { host.agents = ["a", "b"].map((x, i) => ({ address: x, status: i < n ? "blocked" : "working", focused: false, tab: `t-${x}`, tab_name: x, space: "s1", space_name: "s1", pane: `p-${x}` })); };
+  const both = async (ms) => { await quiet(scruffy.cx, ms); await quiet(alt.cx, 0); };
+  show("scruffy", trees.scruffy);
+  blocked(2);
+  host.badges = [];
+  await both(15_000);
+  assert.equal(host.badges.at(-1), "2", "scruffy set it");
+  show("alt", trees.alt);
+  blocked(1);
+  await both(6_000);
+  assert.equal(host.badges.at(-1), "1", "alt set it");
+  show("scruffy", trees.scruffy);
+  blocked(2);
+  await both(6_000);
+  assert.equal(host.badges.at(-1), "2", "scruffy's old text isn't taken as still showing");
+  setActiveScenes(null);
+});

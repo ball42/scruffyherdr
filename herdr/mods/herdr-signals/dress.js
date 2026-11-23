@@ -86,6 +86,25 @@ export function dress(tree, { scene, light = false, look = {}, clicks = {} }) {
   return keepClicks(out, clicks);
 }
 
+/** A layout's root `link_handlers` (the mods that take Cmd-clicks on terminal links, in order) when it is an array of strings, else null. */
+export function linkHandlers(tree) {
+  const v = tree !== null && typeof tree === "object" ? tree.link_handlers : undefined;
+  return Array.isArray(v) && v.every((x) => typeof x === "string") ? [...v] : null;
+}
+
+/**
+ * A copy of `tree` with `from`'s root `link_handlers`, so a rebuilt kit layout
+ * keeps the link mods Herdr added to the file (or the user ordered). Without a
+ * good one in `from`, `tree`'s own good one stays; a malformed one drops.
+ */
+export function withLinkHandlers(tree, from) {
+  const out = { ...tree };
+  const keep = linkHandlers(from) ?? linkHandlers(tree);
+  delete out.link_handlers;
+  if (keep) out.link_handlers = keep;
+  return out;
+}
+
 /** `want` when it differs from the `shown` tree in content (key order aside), else null: no layout.set needed. */
 export function applyPlan(shown, want) {
   return canonical(rounded(shown)) === canonical(rounded(want)) ? null : want;

@@ -10,7 +10,7 @@
 import { View, div } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import {
-  agents, appHome, exec, focused, home, layout, layouts, nextCommand, closeOverlay, notify, openOverlay, panes, props, readTextFile, run, setAgentOrder, settings, setShared, shared, spaces, theme, watchFolder, writeTextFile,
+  agents, appHome, checking, exec, focused, home, layout, layouts, nextCommand, closeOverlay, notify, openOverlay, panes, props, readTextFile, run, setAgentOrder, setBadge, settings, setShared, shared, spaces, theme, watchFolder, writeTextFile,
 } from "herdr";
 import { deckApprove } from "./approve.js";
 import { deckAsks, deckUsage, fitDeck, summary } from "./policy.js";
@@ -38,6 +38,7 @@ import { EMPTY_SET_PROBLEM, NO_KIT_PROBLEM, SWITCH_PROBLEM, afterStep, findNode,
 import { README_MOD, README_TAB, pickReadme, readmeMoves, readmeNeeds } from "./readme.js";
 import { gridAddresses, gridLanding, gridLeave, gridSignature, gridSpec, isLight, spotKey, spotNext } from "./grid.js";
 import { PR_FIELDS, findGh, ghCandidates, parsePr, parsePrBatch, prMark, prQuery, prRef, repoOf } from "./prs.js";
+import { badgeStep } from "./badge.js";
 import { ADDON_KEYS, cardName, deckBadge, pressCommand, readAddon, withBadges } from "./addons.js";
 
 const DEFAULTS = {
@@ -56,6 +57,7 @@ const DEFAULTS = {
   deck: false,
   readme_tabs: false,
   usage_meter: false,
+  dock_badge: false,
   run_cards: false,
   pr_status: false,
   run_log_pipe: "",
@@ -129,6 +131,7 @@ export default class Signals extends View {
     // A copy over a scene file waits for its file: core's list here would show the wrong scenes until then.
     if (this.owns() && this.scenesProp === "core") setShared("kit.scenes", sceneList());
     this.cfg = null;
+    this.badge = undefined; // the Dock badge text last set (badge.js); undefined until the first poll sets or clears it
     this.problem = null;
     this.state = initialCardState();
     this.namesMemo = initialNamesMemo();
@@ -999,8 +1002,18 @@ export default class Signals extends View {
     }
   }
 
+  // config dock_badge: the blocked count on the Dock icon, set only when it changes; off clears it once.
+  syncBadge(blocked) {
+    if (checking()) return;
+    const step = badgeStep(this.badge, this.cfg.dock_badge, blocked);
+    if (!step.call) return;
+    this.badge = step.text;
+    setBadge(step.text);
+  }
+
   poll(cx) {
-    if (!this.owns()) return;
+    // Another copy may set the badge while this one isn't shown, so set it afresh on taking over.
+    if (!this.owns()) { this.badge = undefined; return; }
     this.useScenes();
     cx.spawn(async (cx) => {
       if (++this.polls % NAMES_RELOAD_POLLS === 0) await Promise.all([this.reloadNames(), this.reloadCtx(), this.reloadRunState()]);
@@ -1052,8 +1065,10 @@ export default class Signals extends View {
       this.saveDismissed().catch(() => null);
       await this.apply();
       // The strip's "· 14m" ages without the model changing, so redraw when its text does.
-      const label = blockedLabel(summary(model.agents), now) + focusLabel(shared("kit.focus"), now);
+      const counts = summary(model.agents);
+      const label = blockedLabel(counts, now) + focusLabel(shared("kit.focus"), now);
       if (label !== this.stripLabel) { this.stripLabel = label; cx.notify(); }
+      this.syncBadge(counts.blocked);
       await this.reloadUsage(now);
       const usageSig = JSON.stringify(this.usage);
       if (usageSig !== this.usageSig) { this.usageSig = usageSig; cx.notify(); }

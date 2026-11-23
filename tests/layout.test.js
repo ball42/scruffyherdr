@@ -496,3 +496,30 @@ test("--scenes without --name is a usage error", () => {
   assert.notEqual(build(h, "--scenes", SCENE_FILE).status, 0);
   assert.ok(!existsSync(join(h.dir, "scruffy.json")));
 });
+
+test("make-layout keeps the existing file's link_handlers, for scruffy and --name layouts", () => {
+  const h = homes();
+  for (const [name, extra] of [["scruffy", []], ["alt", ["--name", "alt", "--scenes", SCENE_FILE]]]) {
+    assert.equal(build(h, ...extra).status, 0);
+    const f = join(h.dir, `${name}.json`);
+    writeFileSync(f, JSON.stringify({ ...read(f), link_handlers: ["viewer", "browser"] }));
+    const r = build(h, ...extra);
+    assert.equal(r.status, 0, r.stderr);
+    assert.deepEqual(read(f).link_handlers, ["viewer", "browser"], `${name}: a rewrite keeps the order`);
+    writeFileSync(f, JSON.stringify({ ...read(f), link_handlers: [] }));
+    build(h, ...extra);
+    assert.deepEqual(read(f).link_handlers, [], `${name}: an emptied list stays empty`);
+    assert.equal(read(join(h.kit, `layout-focus-${name}.json`)).link_handlers, undefined, "the focus file stays Herdr's main shape");
+  }
+});
+
+test("make-layout drops a malformed link_handlers", () => {
+  for (const bad of ["viewer", ["viewer", 3], { viewer: true }, null]) {
+    const h = homes();
+    build(h);
+    const f = join(h.dir, "scruffy.json");
+    writeFileSync(f, JSON.stringify({ ...read(f), link_handlers: bad }));
+    assert.equal(build(h).status, 0);
+    assert.equal("link_handlers" in read(f), false, JSON.stringify(bad));
+  }
+});

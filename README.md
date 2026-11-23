@@ -126,6 +126,7 @@ Everything here is off by default. The ones marked "coming soon" aren't in this 
 | `readme_tabs` | Keep a README tab first in every space whose repo has one | available |
 | `auto_spotlight` | Spotlight a Claude in the grid when it newly needs you | available |
 | `addons: ["kit-jira"]` | Jira status on each Claude named after a ticket (see Add-ons) | available |
+| `dock_badge` | How many Claudes need you, on Herdr's Dock icon | available |
 | `pr_status` | Show each Claude's PR state on its rail card | coming soon |
 | `usage_meter` | A 5-hour and weekly usage meter on the strip | coming soon |
 | `run_cards` | Run buttons for the commands a Claude asks you to run | coming soon |
@@ -152,6 +153,7 @@ Everything here is off by default. The ones marked "coming soon" aren't in this 
 | `gh` | `""` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). GitHub CLI for PR state (`pr_status`). Unset, it tries `/opt/homebrew/bin/gh` (Apple silicon), then `/usr/local/bin/gh` (Intel). |
 | `focus_max_minutes` | `120` | Minutes after which focus mode turns itself off. |
 | `readme_tabs` | `false` | Keep a README tab first in every space whose repo has a README. |
+| `dock_badge` | `false` | Put the number of blocked Claudes (snoozed ones aside) on Herdr's Dock icon badge, cleared when none is blocked. Turning it off clears the badge. macOS only; edits apply within 10 s. |
 | `usage_meter` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Show the 5-hour and weekly usage meter on the strip and the deck. With it on, the kit's status line keeps the readings in `~/.cache/herdr-chat/claude-limits.json`, never lowering one within the same 5-hour or weekly window. |
 | `pr_status` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Look up each Claude's PR with `gh` and show its state in the hint line. |
 | `run_cards` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Draw the Run rows a Claude's cards leave on the rail. Read when Herdr starts. |

@@ -25,6 +25,7 @@
 // file and its .state instead. Until scruffy.json exists, the layout's old
 // name's file (scruffyherdr.json, OLD_KIT_LAYOUT) and its .state stand in as
 // the existing file, with or without --from scruffyherdr.
+// The existing file's root link_handlers carries over when it is an array of strings.
 // The config's optional "look" key overrides the defaults in herdr-signals/dress.js.
 // Its optional "addons" list names add-on mods (docs/addons.md): each one
 // present under <layouts dir>/../mods gets a 0-px block beside the strip.
@@ -32,7 +33,7 @@ import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } fr
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_SCENE, KIT_LAYOUT, LEGACY_LAYOUTS, OLD_KIT_LAYOUT, SCENES, activeScenes, defaultScene, isGridTree, kitLayouts, legacyView, sceneOfTree, setActiveScenes } from "../herdr/mods/herdr-signals/scenes.js";
-import { dress, validLook } from "../herdr/mods/herdr-signals/dress.js";
+import { dress, validLook, withLinkHandlers } from "../herdr/mods/herdr-signals/dress.js";
 import { lookFor } from "../herdr/mods/herdr-signals/view.js";
 import { loadSceneFile, themeNameOk } from "../herdr/mods/herdr-signals/extra-scenes.js";
 import { readClicks } from "../herdr/mods/herdr-signals/clicks.js";
@@ -328,7 +329,8 @@ if (MAIN_SCRIPT && !OPS.includes(process.argv[2])) {
     const sibling = from === "kit-grid" ? "kit" : grid ? old.scene : null;
     clicks = mergeClicks(saved, sibling ? fileClicks(sibling, false) : {}, fileClicks(from, grid));
   }
-  writeFileSync(dst, JSON.stringify(dress(base, { scene, light: false, look, clicks }), null, 2) + "\n");
+  // Herdr's root link_handlers (the link mods it added, in the user's order) survive the rewrite.
+  writeFileSync(dst, JSON.stringify(dress(withLinkHandlers(base, existing), { scene, light: false, look, clicks }), null, 2) + "\n");
   console.log(`wrote ${dst} (${activeScenes()[scene].label})`);
   setActiveScenes(null);
   if (cfg) {
