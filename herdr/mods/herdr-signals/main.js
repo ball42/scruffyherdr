@@ -1165,7 +1165,8 @@ export default class Signals extends View {
   async ghPath() {
     const want = this.cfg.gh ?? "";
     if (this.gh && this.gh.want === want) return this.gh.path;
-    const exists = (p) => exec("/bin/test", ["-x", p]).then((r) => r.code === 0);
+    // A bare name ("gh") is exec's to find, as before: only a path is probed.
+    const exists = (p) => (p.includes("/") ? exec("/bin/test", ["-x", p]).then((r) => r.code === 0) : Promise.resolve(true));
     const path = await findGh(ghCandidates(want), exists);
     this.gh = path ? { want, path } : null;
     return path;

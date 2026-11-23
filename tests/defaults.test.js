@@ -37,6 +37,7 @@ test("gh is unset by default, and the PR calls go through the found path", () =>
   assert.strictEqual(ex.gh, "", "the example config leaves gh to the fallback list");
   assert.doesNotMatch(MAIN, /exec\(this\.cfg\.gh\b/);
   assert.match(method("refreshPrs"), /await this\.ghPath\(\)/);
+  assert.match(method("ghPath"), /p\.includes\("\/"\)/, "a bare gh name is used as is, not probed as a file");
 });
 
 test("config.example.json has every DEFAULTS key", () => {
