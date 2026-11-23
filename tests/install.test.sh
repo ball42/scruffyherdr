@@ -1692,5 +1692,32 @@ else
   fail "without an overlay, the late failure doesn't mention one"
 fi
 
+# the scruffyherdr Claude Code plugin (a gallery install) carries the name hook, so
+# install adds no second copy: an enabled plugin keeps install's name hook out (and takes
+# out one it added before), --check says the plugin has it, and the status line is still
+# wrapped, since a plugin can't feed it. A disabled plugin is as good as none.
+fresh
+mkdir -p "$HOME/.claude"
+HOOK="node \"$REPO/claude/name-hook.mjs\""
+"$REPO/install.sh" --hooks </dev/null >/dev/null 2>&1
+node -e 'const f=process.argv[1];const s=JSON.parse(require("fs").readFileSync(f,"utf8"));s.enabledPlugins={"scruffyherdr@scruffyherdr":true};require("fs").writeFileSync(f,JSON.stringify(s))' "$HOME/.claude/settings.json"
+OUT="$("$REPO/install.sh" --hooks </dev/null 2>&1)"; RC=$?
+CHK="$("$REPO/install.sh" --check --verbose </dev/null 2>&1)"; CRC=$?
+if [ $RC -eq 0 ] && ! grep -qF "name-hook.mjs" "$HOME/.claude/settings.json" \
+  && echo "$OUT" | grep -qF "the scruffyherdr plugin carries the name hook" \
+  && [ "$(jget "$HOME/.claude/settings.json" statusLine.command)" != "" ] \
+  && [ $CRC -eq 0 ] && echo "$CHK" | grep -qF "name hook from the scruffyherdr plugin"; then
+  pass "an enabled scruffyherdr plugin: no second name hook, an old one goes, the status line still wrapped, check clean"
+else
+  fail "an enabled scruffyherdr plugin: no second name hook, an old one goes, the status line still wrapped, check clean (rc $RC, check $CRC)"; echo "$OUT" | tail -5
+fi
+node -e 'const f=process.argv[1];const s=JSON.parse(require("fs").readFileSync(f,"utf8"));s.enabledPlugins={"scruffyherdr@scruffyherdr":false};require("fs").writeFileSync(f,JSON.stringify(s))' "$HOME/.claude/settings.json"
+"$REPO/install.sh" --hooks </dev/null >/dev/null 2>&1
+if grep -qF "name-hook.mjs" "$HOME/.claude/settings.json"; then
+  pass "a disabled scruffyherdr plugin: install adds its own name hook"
+else
+  fail "a disabled scruffyherdr plugin: install adds its own name hook"
+fi
+
 echo
 if [ $FAILS -eq 0 ]; then echo "all passed"; exit 0; else echo "$FAILS failed"; exit 1; fi

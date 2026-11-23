@@ -99,6 +99,13 @@ run_cards_on() {
   node -e 'try{console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).run_cards===true?"yes":"no")}catch{console.log("no")}' "$KIT_HOME/config.json" 2>/dev/null || true
 }
 
+# "yes" when ~/.claude/settings.json enables the scruffyherdr Claude Code plugin
+# (.claude-plugin/, a gallery install's way in), which carries the name hook itself.
+name_plugin_on() {
+  command -v node >/dev/null 2>&1 || return 0
+  node -e 'try{const p=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).enabledPlugins??{};console.log(Object.entries(p).some(([k,v])=>v===true&&k.split("@")[0]==="scruffyherdr")?"yes":"no")}catch{console.log("no")}' "$CLAUDE_SETTINGS" 2>/dev/null || true
+}
+
 # The card hook ships only where Run cards do (not yet in the public cut).
 CARD_HOOK_FILE="$REPO/claude/card-hook.mjs"
 
@@ -262,7 +269,16 @@ if [ "$MODE" = "--check" ]; then
   # The card hook only when run_cards is on. A settings file with no kit hook at all
   # means the hooks were declined: not drift.
   settings_name="$(short_name "$CLAUDE_SETTINGS")"
-  if [ ! -f "$CLAUDE_SETTINGS" ] || ! grep -q "name-hook.mjs" "$CLAUDE_SETTINGS"; then
+  if [ "$(name_plugin_on)" = "yes" ]; then
+    # The plugin runs the name hook: a copy of install's beside it would run twice.
+    if grep -qF "$HOOK_CMD" "$CLAUDE_SETTINGS"; then
+      drift_line "$settings_name" "$CLAUDE_SETTINGS (the name hook runs twice: the scruffyherdr plugin's and install's; rerun ./install.sh)"
+    elif [ "$(cards_hook_on)" = "yes" ] && ! node "$REPO/scripts/merge-config.js" hooks-check "$CLAUDE_SETTINGS" "$CARD_CMD" "$CARD_EVENTS" 2>/dev/null; then
+      drift_line "$settings_name" "$CLAUDE_SETTINGS (card hook missing or out of date: rerun ./install.sh)"
+    else
+      ok_line "$CLAUDE_SETTINGS (name hook from the scruffyherdr plugin)"
+    fi
+  elif [ ! -f "$CLAUDE_SETTINGS" ] || ! grep -q "name-hook.mjs" "$CLAUDE_SETTINGS"; then
     echo "skip  $CLAUDE_SETTINGS (no kit hooks: ./install.sh --hooks adds them)"
   elif [ "$(cards_hook_on)" = "yes" ]; then
     if node "$REPO/scripts/merge-config.js" hooks-check "$CLAUDE_SETTINGS" "$HOOK_CMD" "$NAME_EVENTS" -- "$CARD_CMD" "$CARD_EVENTS" 2>/dev/null; then
@@ -659,7 +675,20 @@ if [ "$HOOKS" = "yes" ]; then
   if [ ! -f "$PRIVATE" ] && [ "$(run_cards_on)" = "yes" ] && [ ! -f "$CARD_HOOK_FILE" ]; then
     echo "note: run_cards is on, but this checkout has no claude/card-hook.mjs: skipped the card hook"
   fi
-  if [ "$(cards_hook_on)" = "yes" ]; then
+  if [ "$(name_plugin_on)" = "yes" ]; then
+    # The plugin runs the name hook, so install adds no second copy and takes out one it
+    # added before. The card hook still rides on run_cards.
+    if node "$REPO/scripts/merge-config.js" unhooks "$CLAUDE_SETTINGS" "$HOOK_CMD" \
+      && if [ "$(cards_hook_on)" = "yes" ]; then
+        node "$REPO/scripts/merge-config.js" hooks "$CLAUDE_SETTINGS" "$CARD_CMD" "$CARD_EVENTS"
+      else
+        node "$REPO/scripts/merge-config.js" unhooks "$CLAUDE_SETTINGS" "$CARD_CMD"
+      fi; then
+      echo "the scruffyherdr plugin carries the name hook, so install adds none to $CLAUDE_SETTINGS"
+    else
+      echo "skipped the Claude hooks: fix $CLAUDE_SETTINGS and run install.sh again"
+    fi
+  elif [ "$(cards_hook_on)" = "yes" ]; then
     if node "$REPO/scripts/merge-config.js" hooks "$CLAUDE_SETTINGS" "$HOOK_CMD" "$NAME_EVENTS" -- "$CARD_CMD" "$CARD_EVENTS"; then
       echo "Claude name and card hooks are in $CLAUDE_SETTINGS (restart Claude sessions to load them)"
     else

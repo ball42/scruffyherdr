@@ -4,13 +4,14 @@
 // I/O; the functions above it only draw, from the OpenCard passed as `rail`.
 import { div } from "gpui-kit";
 import { h_flex, v_flex, Input, InputState, Scrollbar, Textarea, TextareaState, VirtualListScrollHandle, v_virtual_list } from "gpui-base";
-import { exec, focused, run, shared } from "herdr";
+import { checking, exec, focused, home, readTextFile, run, shared, writeTextFile } from "herdr";
 import { BLUE, INK, ORANGE, canCompact, copyCommand, outline, pill, replyBlock } from "./look.js";
 import { HERE_PAD } from "./here.js";
 import {
   blockKind, canAnswer, canAutoOpen, dropEnter, freshPicks, isRemote, kindLabel, menuSteps, nextToOpen,
   parsePermission, permissionSteps, pickOption, promptKey, replySteps, saidLines, sendAnswer, sendCompact, staleShown, tailLines,
 } from "./answer.js";
+import { decisionOf, recordDecision } from "./decisions.js";
 
 const TAIL_EVERY = 2000; // ms between screen reads while a card is open
 const READ_LINES = "40";
@@ -20,6 +21,12 @@ const NOT_SENT = "didn't go through, ↗ open to finish";
 /** hc without HC_TERMINAL_ID, so a reply arrives as typed, not wrapped in <hc from=…>. Never rejects. */
 export function hcPlain(args) {
   return exec("env", ["-u", "HC_TERMINAL_ID", "hc", ...args]).catch((e) => ({ code: -1, stdout: "", stderr: String(e) }));
+}
+
+/** Writes one answer the rail sent to the day's decisions log; not during a check. */
+export function logDecision(d, name) {
+  if (!d || checking()) return;
+  recordDecision(d, name, Date.now(), { home: home(), exec, readTextFile, writeTextFile }).catch(() => {});
 }
 
 /** Herdr's status for the "same prompt" check: {state, kind, msg}, or null. */
@@ -534,17 +541,22 @@ export class OpenCard {
     const kind = blockKind(a, o.shown);
     if (!canAnswer(kind, a, o.perm)) return;
     let steps = null;
+    let typed = "";
     if (kind === "permission") {
       if (o.permPick === null) return;
+      typed = o.permPick === o.perm.deny && o.denyOpen ? this.inputs.deny.value() : "";
       steps = o.permPick === o.perm.deny
-        ? permissionSteps(o.perm, { deny: o.denyOpen ? this.inputs.deny.value() : "" })
+        ? permissionSteps(o.perm, { deny: typed })
         : permissionSteps(o.perm, { n: o.permPick });
     } else if (kind === "menu") steps = menuSteps(a.menu, o.answers);
     else if (kind === "reply") {
-      const text = this.replyText();
-      steps = text ? replySteps(text) : null;
+      typed = this.replyText();
+      steps = typed ? replySteps(typed) : null;
     }
     if (!steps?.length) return;
+    // What was asked and answered, read now: the card moves on once it's sent.
+    const decided = decisionOf(kind, a, o, typed);
+    const who = a.name;
     o.sending = true;
     o.error = null;
     o.moved = false;
@@ -554,6 +566,7 @@ export class OpenCard {
       const h = { hc: hcPlain, sleep: (ms) => new Promise((done) => acx.timer.after(ms, () => done())) };
       let res;
       try { res = await sendAnswer(address, steps, shown, h); } catch { res = "failed"; }
+      if (res === "sent") { logDecision(decided, who); }
       if (this.open !== o) return;
       o.sending = false;
       if (res === "sent") this.afterSent(address, acx);

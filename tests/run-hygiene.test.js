@@ -341,3 +341,12 @@ test("the rail draws the hidden count with a Show pill, on the card and the quie
   assert.match(rail, /runs-show-\$\{a\.address\}/);
   assert.match(rail, /quiet-show-\$\{a\.address\}/);
 });
+
+// The pane header hid dismissed cards with no count; it says how many, like the rail.
+test("the pane header draws its Claude's hidden count with a Show pill", () => {
+  const pane = readFileSync(join(HERE, "..", "herdr", "mods", "kit-pane", "main.js"), "utf8");
+  assert.match(pane, /hiddenRuns\(kit, shared\("kit\.runsDismissed"\)\)/);
+  assert.match(pane, /showRuns\(shared\("kit\.runsDismissed"\), p\.terminal\)/);
+  assert.match(pane, /kp-show-\$\{pane\}/);
+  assert.match(pane, /`▶ \$\{hiddenText\(hidden\)\}`/);
+});
