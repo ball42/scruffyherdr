@@ -5,7 +5,8 @@
 // line you had before, saved in ~/.config/herdr-kit/statusline-prev.json, with
 // the same stdin, and passes its stdout through unchanged. With no old status
 // line it prints nothing. An old command still running after 5 s is stopped
-// and nothing more is printed. It always exits 0.
+// and nothing more is printed, even when the wrapper itself was SIGKILLed (a
+// watchdog outlives it). It always exits 0.
 //
 // The old line runs with HERDR_STATUSLINE_DEPTH set, and a wrapper that starts
 // with it set does nothing at all: an old line that leads back to a herdr
@@ -59,12 +60,22 @@ if (!command) process.exit(0);
 // stdout writes are queued (never a busy loop on a full pipe), so a reader that
 // stops reading can't hold the wrapper past it.
 let child;
+let watchdog;
+// The watchdog's own group (it is detached): its sh and its sleep go together.
+const stopWatchdog = () => {
+  try {
+    if (watchdog?.pid) process.kill(-watchdog.pid, "SIGKILL");
+  } catch {
+    // already gone
+  }
+};
 const stop = () => {
   try {
     if (child?.pid) process.kill(-child.pid, "SIGKILL");
   } catch {
     // already gone
   }
+  stopWatchdog();
   process.exit(0);
 };
 setTimeout(stop, TIMEOUT_MS);
@@ -76,6 +87,8 @@ let done = false;
 const finish = () => {
   if (done) return;
   done = true;
+  // A line that finished keeps what it started in the background, as before the watchdog.
+  stopWatchdog();
   if (process.stdout.writableLength === 0) process.exit(0);
   process.stdout.once("drain", () => process.exit(0));
 };
@@ -84,6 +97,19 @@ try {
   child = spawn("/bin/sh", ["-c", command], { stdio: ["pipe", "pipe", "inherit"], detached: true, env: { ...process.env, [DEPTH]: "1" } });
 } catch {
   process.exit(0);
+}
+// SIGKILL can't be caught, so a wrapper killed that way takes its timer and handlers
+// with it, and the old line's group would run on with no deadline. A watchdog in a
+// group of its own outlives the wrapper: at the deadline, if the wrapper is gone without
+// stopping it, it kills the old line's group. Once the group exists its id can't be
+// reused while any member lives.
+try {
+  const secs = (TIMEOUT_MS / 1000).toFixed(3);
+  watchdog = spawn("/bin/sh", ["-c", `sleep ${secs}; kill -0 ${process.pid} 2>/dev/null || kill -KILL -- -${child.pid} 2>/dev/null`], { stdio: "ignore", detached: true });
+  watchdog.on("error", () => {});
+  watchdog.unref();
+} catch {
+  // no watchdog: the timer and the signal handlers still stop the old line
 }
 child.on("error", finish);
 child.stdout.on("data", (d) => process.stdout.write(d));
