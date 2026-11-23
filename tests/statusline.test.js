@@ -202,6 +202,48 @@ test("SIGTERM on the wrapper kills the old command's process group", async () =>
   assert.ok(await until(() => !alive()), "the grandchild is gone");
 });
 
+// SIGKILL can't be caught: the wrapper's timer and signal handlers die with it, and its
+// detached old line used to run on for good (ppid 1). A watchdog outside both stops it.
+test("SIGKILL on the wrapper: the old command's process group is gone by the deadline", { timeout: 2 * SLOW }, async () => {
+  const h = home();
+  const pidFile = join(h, "pid");
+  mkdirSync(join(h, ".config", "herdr-kit"), { recursive: true });
+  writeFileSync(join(h, ".config", "herdr-kit", "statusline-prev.json"),
+    JSON.stringify({ statusLine: { type: "command", command: `sleep 30 & echo $! > '${pidFile}'; wait` } }));
+  const w = spawn(process.execPath, [WRAPPER], {
+    env: { ...process.env, HOME: h, HC_TERMINAL_ID: "t1", HERDR_KIT_STATUSLINE_TIMEOUT_MS: "1500" },
+    stdio: ["pipe", "ignore", "ignore"],
+  });
+  w.stdin.end("{}");
+  const until = async (ok, ms = SLOW) => {
+    for (const end = Date.now() + ms; Date.now() < end; await new Promise((r) => setTimeout(r, 50))) if (ok()) return true;
+    return false;
+  };
+  assert.ok(await until(() => existsSync(pidFile) && readFileSync(pidFile, "utf8").trim()), "the old command started");
+  const sleeper = Number(readFileSync(pidFile, "utf8").trim());
+  const exited = new Promise((r) => w.on("exit", (_code, sig) => r(sig)));
+  w.kill("SIGKILL");
+  assert.equal(await exited, "SIGKILL");
+  const alive = () => { try { process.kill(sleeper, 0); return true; } catch { return false; } };
+  // The deadline is 1.5 s; the sleeper would run 30 s. Polls give a loaded machine slack.
+  assert.ok(await until(() => !alive(), 10_000), "the old command's child outlived the SIGKILLed wrapper's deadline");
+});
+
+test("an old command that finishes keeps what it started in the background, and leaves no watchdog", async () => {
+  const h = home();
+  const pidFile = join(h, "pid");
+  const r = run(h, { type: "command", command: `(sleep 4.321 </dev/null >/dev/null 2>&1 & echo $! > '${pidFile}'); printf done` }, "{}", { HERDR_KIT_STATUSLINE_TIMEOUT_MS: "1000" });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, "done");
+  const bg = Number(readFileSync(pidFile, "utf8").trim());
+  await new Promise((res) => setTimeout(res, 2000));
+  const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  assert.ok(alive(bg), "a finished line's own background work was killed");
+  process.kill(bg, "SIGKILL");
+  const dog = spawnSync("pgrep", ["-f", `kill -0 ${r.pid} `], { encoding: "utf8" });
+  assert.equal(dog.stdout.trim(), "", "the watchdog outlived a wrapper that finished");
+});
+
 test("a reader that stops reading can't hold the wrapper past the timeout", { timeout: 2 * SLOW }, async () => {
   const h = home();
   mkdirSync(join(h, ".config", "herdr-kit"), { recursive: true });
