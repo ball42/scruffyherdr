@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { backupTo, rewrapStatusLine, shouldWrap, statusLineState, unwrapStatusLine, wrapStatusLine, wrapperCommand, wrapperDir } from "../scripts/merge-config.js";
+import { WRAPPER_MARK, backupTo, rewrapStatusLine, shouldWrap, statusLineState, unwrapStatusLine, wrapStatusLine, wrapperCommand, wrapperDir } from "../scripts/merge-config.js";
 
 const KIT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const WRAPPER = join(KIT, "claude", "statusline.mjs");
@@ -106,6 +106,27 @@ test("statusLineState and shouldWrap: only the exact wrapper command is the kit'
     assert.equal(shouldWrap({ statusLine: line, ctxFresh: false, wrapper }), false, JSON.stringify(line));
   }
   assert.equal(shouldWrap({ statusLine: cmd("~/.claude/line.sh"), ctxFresh: true, wrapper }), false);
+});
+
+test("statusLineState: with a saved line, a user's own <dir>/claude/statusline.mjs isn't a moved kit wrapper", () => {
+  const cmd = (command) => ({ type: "command", command });
+  const wrapper = wrapperCommand("node", "/kit");
+  const st = (command) => statusLineState({ statusLine: cmd(command), ctxFresh: false, wrapper, saved: true });
+  const dir = mkdtempSync(join(tmpdir(), "kit-own-"));
+  mkdirSync(join(dir, "claude"));
+  const file = join(dir, "claude", "statusline.mjs");
+  // The user's own script, in the wrapper's shape, live: theirs, already wired.
+  writeFileSync(file, "#!/usr/bin/env node\nprocess.stdout.write('my line');\n");
+  assert.equal(st(`node "${dir}/claude/statusline.mjs"`), "wired");
+  // The kit's wrapper carries its marker: another checkout's copy is moved.
+  writeFileSync(file, readFileSync(join(KIT, "claude", "statusline.mjs")));
+  assert.equal(st(`node "${dir}/claude/statusline.mjs"`), "moved");
+  // An older kit copy, from before the marker, still reads as the kit's.
+  writeFileSync(file, '// Claude Code status line installed by the kit.\n// saved in ~/.config/herdr-kit/statusline-prev.json\nimport { writeCtx } from "./ctx.js";\n');
+  assert.equal(st(`node "${dir}/claude/statusline.mjs"`), "moved");
+  // A checkout that is gone (moved, re-cloned): the kit's, as before.
+  assert.equal(st(`node "${dir}/gone/claude/statusline.mjs"`), "moved");
+  assert.ok(readFileSync(join(KIT, "claude", "statusline.mjs"), "utf8").includes(WRAPPER_MARK), "the wrapper carries the marker");
 });
 
 test("wrapperDir and rewrapStatusLine: a moved wrapper points at this checkout, keeping padding", () => {

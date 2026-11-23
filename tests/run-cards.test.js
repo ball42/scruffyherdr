@@ -183,9 +183,10 @@ test("shellQuote and runArgv: the folder is quoted, the steps run under script, 
  * Runs runArgv's script in zsh with a fake hc that records what it sends and
  * a fake repro that files the output under $HOME/relics/<slug>.log.
  */
-function runScript(steps, note = { claude: "t9", pipe: "repro --screen" }, fakeOpen = null) {
+function runScript(steps, note = { claude: "t9", pipe: "repro --screen" }, fakeOpen = null, tools = {}) {
   const home = mkdtempSync(join(tmpdir(), "kit-run-"));
   if (fakeOpen) writeFileSync(join(home, "open"), fakeOpen, { mode: 0o755 });
+  for (const [name, body] of Object.entries(tools)) writeFileSync(join(home, name), body, { mode: 0o755 });
   const log = join(home, "sent.log");
   writeFileSync(join(home, "hc"), `#!/bin/sh\nprintf '%s\\t%s\\t%s\\n' "$1" "$2" "$3" >> '${log}'\n`, { mode: 0o755 });
   // Options before the slug are recorded in relics/flags.
@@ -250,6 +251,25 @@ test("runArgv: a sequence that passes runs every step", { skip: !HAS_ZSH }, () =
   assert.match(relics["run-p1-all.log"], /step-1[\s\S]*step-2/);
   assert.equal(states["t9-p2.json"].exit, 0);
   assert.match(sent[0][2], /1\/2 "p1" exit 0; 2\/2 "p2" exit 0\. Output: /);
+});
+
+test("runArgv: the log name reaches run_log_pipe as one plain argument, whatever the label holds", { skip: !HAS_ZSH }, () => {
+  const label = `it's "x" $(touch PWNED) \`touch PWNED2\`; touch PWNED3 & * ~ \\ | > end`;
+  for (const steps of [
+    [{ id: "h1", label, command: "echo out" }],
+    [1, 2].map((n) => ({ id: `h${n}`, label: n === 1 ? label : "two", command: "echo out", step: n, of: 2 })),
+  ]) {
+    const { r, home } = runScript(steps, { claude: "t9", pipe: "rec --screen" }, null, {
+      // rec: records how many arguments it got and each one, then files the log.
+      rec: `#!/bin/sh\nprintf '%s\\n' "$#" "$@" > "$HOME/rec-args"\ncat > "$HOME/rec.log"\necho "$HOME/rec.log"\n`,
+    });
+    assert.equal(r.status, 0, r.stderr);
+    const [argc, ...args] = readFileSync(join(home, "rec-args"), "utf8").trimEnd().split("\n");
+    assert.equal(argc, "2", `--screen and the name, one argument: ${args.join(" | ")}`);
+    assert.equal(args[0], "--screen");
+    assert.match(args[1], /^run(-[a-z0-9]+)*$/, "the name is a plain slug");
+    for (const f of ["PWNED", "PWNED2", "PWNED3"]) assert.ok(!existsSync(join(home, f)), `${f}: nothing in the label ran`);
+  }
 });
 
 test("runArgv: no hc or repro on PATH still runs the command and keeps its output", { skip: !HAS_ZSH }, () => {

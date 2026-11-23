@@ -13,6 +13,10 @@
 // status line (this file, another checkout's copy, or Herdr Chat's
 // statusline-herdr.py chained to one) stops there instead of looping
 // (one such chain once spawned hundreds of processes).
+//
+// scruffyherdr: the kit's status line wrapper
+// (That line is the mark install looks for: a <dir>/claude/statusline.mjs
+// without it is someone's own script, never rewrapped. Keep it.)
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";

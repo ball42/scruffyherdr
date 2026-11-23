@@ -305,23 +305,46 @@ export function wrapperDir(command) {
   return m ? m[1] : null;
 }
 
+/** The line only the kit's own claude/statusline.mjs carries. */
+export const WRAPPER_MARK = "scruffyherdr: the kit's status line wrapper";
+
+/**
+ * Whether `<dir>/claude/statusline.mjs` is a kit wrapper: it is gone (a moved or
+ * re-cloned checkout), or it carries WRAPPER_MARK, or it is a copy from before
+ * the mark (it names statusline-prev.json and imports ./ctx.js, as every kit
+ * wrapper has). A user's own script there is none of these.
+ */
+export function kitWrapperAt(dir) {
+  let text;
+  try {
+    text = readFileSync(join(dir, "claude", "statusline.mjs"), "utf8");
+  } catch (e) {
+    return e?.code === "ENOENT" || e?.code === "ENOTDIR";
+  }
+  if (text.includes(WRAPPER_MARK)) return true;
+  return text.includes("herdr-kit/statusline-prev.json") && /from "\.\/ctx\.js"/.test(text);
+}
+
 /**
  * "wrapped": the command is exactly `wrapper` (wrapperCommand's).
  * "moved": a kit wrapper from another checkout (moved, re-cloned): still the kit's.
  *   Only when `saved` (statusline-prev.json exists, so the kit wrapped this machine
  *   before; the caller checks): without it, a line in that shape is the user's own.
+ *   And only when `isKit` says the file it names is the kit's (kitWrapperAt): a
+ *   user's own <dir>/claude/statusline.mjs stays theirs, a saved line or not.
  * "notcommand": a status line that isn't a command one, so it can't feed ctx-tap.
  * "wired": the line names ctx-tap or a claude/statusline.mjs (someone else's
  *   wrapper, ~/.claude/statusline.mjs too), or ctx files were written in the
  *   last day (the caller checks and passes ctxFresh).
  * "unwrapped": anything else, including no status line.
  */
-export function statusLineState({ statusLine, ctxFresh, wrapper, saved = false, chain = null }) {
+export function statusLineState({ statusLine, ctxFresh, wrapper, saved = false, chain = null, isKit = kitWrapperAt }) {
   const has = statusLine !== undefined && statusLine !== null;
   if (has && (typeof statusLine !== "object" || statusLine.type !== "command" || typeof statusLine.command !== "string")) return "notcommand";
   const command = has ? statusLine.command : "";
   if (wrapper && command === wrapper) return "wrapped";
-  if (saved && wrapperDir(command) !== null) return "moved";
+  const dir = saved ? wrapperDir(command) : null;
+  if (dir !== null && isKit(dir)) return "moved";
   // Herdr Chat's statusline-herdr.py runs the line in its own chain; one that is a
   // wrapper already feeds ctx-tap, and saving it as ours would loop.
   const chained = isHerdrChat(command) && typeof chain === "string" ? chain : "";

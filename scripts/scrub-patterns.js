@@ -6,13 +6,15 @@
 // Built from pieces so this file passes its own scan: a macOS home folder,
 // account and domain names, a LAN address, notes and recall tools, an
 // employer and its ticket keys, a first name, project names, machine names and
-// a tracker. The account name is allowed only as the public repo's own path
+// a tracker. A first name counts with anything but a letter beside it (an
+// underscore, a digit), and with the last name run on; a login counts bare
+// (user@host). The account name is allowed only as the public repo's own path
 // (the README's clone URL). Jira itself is fair game (the kit-jira add-on); a
 // site name isn't.
 export const PERSONAL = new RegExp(
   [
     "\\/Us" + "ers\\/", "ball" + "42(?!\\/scruffyherdr(?![\\w-]))", "reli" + "quary", "claude-" + "recall", "ja" + "mf",
-    "ball" + "\\.works", "192" + "\\.168\\.", "\\bH" + "AL-\\d", "\\bch" + "ris\\b",
+    "ball" + "\\.works", "192" + "\\.168\\.", "\\bH" + "AL-\\d", "(?<![a-z])ch" + "ris(?:ball|(?![a-z]))", "\\bball" + "@",
     "plex" + "-hub", "green" + "-thumb", "roll" + "-call", "pick" + "-ems", "Pycharm" + "Projects",
     "click" + "up", "sonic" + "book", "\\bnew" + "mini\\b",
   ].join("|"),

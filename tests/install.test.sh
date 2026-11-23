@@ -1069,6 +1069,26 @@ mv "$HOME/prev-keep.json" "$PREVF"
 echo '{"statusLine":{"type":"command","command":"node \"/gone/herdr-kit/claude/statusline.mjs\""}}' > "$S"
 HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --uninstall </dev/null >/dev/null 2>&1
 if [ "$(jget "$S" statusLine.command)" = "orig.sh" ] && [ ! -e "$PREVF" ]; then pass "uninstall restores over a moved wrapper"; else fail "uninstall restores over a moved wrapper"; fi
+# a user's own $HOME/claude/statusline.mjs with a saved line present: still theirs, not rewrapped,
+# and uninstall doesn't restore the saved line over it
+fresh
+S="$HOME/.claude/settings.json"; PREVF="$HOME/.config/herdr-kit/statusline-prev.json"
+mkdir -p "$HOME/.claude" "$HOME/.config/herdr-kit" "$HOME/claude"
+printf '#!/usr/bin/env node\nprocess.stdout.write("mine");\n' > "$HOME/claude/statusline.mjs"
+echo "{\"statusLine\":{\"type\":\"command\",\"command\":\"node \\\"$HOME/claude/statusline.mjs\\\"\"}}" > "$S"
+echo '{"statusLine":{"type":"command","command":"orig.sh"}}' > "$PREVF"
+OUT="$(HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --hooks </dev/null 2>&1)"
+if [ "$(jget "$S" statusLine.command)" = "node \"$HOME/claude/statusline.mjs\"" ] && ! echo "$OUT" | grep -q "moved to this checkout"; then
+  pass "a user's own claude/statusline.mjs with a saved line present is not rewrapped"
+else
+  fail "a user's own claude/statusline.mjs with a saved line present is not rewrapped"
+fi
+HERDR_KIT_PRIVATE=$NOPRIV "$REPO/install.sh" --uninstall </dev/null >/dev/null 2>&1
+if [ "$(jget "$S" statusLine.command)" = "node \"$HOME/claude/statusline.mjs\"" ] && [ -f "$PREVF" ]; then
+  pass "uninstall leaves a user's own claude/statusline.mjs, keeping the saved line"
+else
+  fail "uninstall leaves a user's own claude/statusline.mjs, keeping the saved line"
+fi
 # a user's own $HOME/claude/statusline.mjs (the kit wrapper's shape) with no saved line: left alone, nothing saved
 fresh
 S="$HOME/.claude/settings.json"; PREVF="$HOME/.config/herdr-kit/statusline-prev.json"
