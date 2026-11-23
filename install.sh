@@ -365,6 +365,11 @@ if (listed) console.log(acliPlaces(cfg).join("\n"));
           fi
           drift_line "$(short_name "${rest%% (*}")" "$rest"
           ;;
+        "warn "*)
+          rest="${line#warn}"
+          rest="${rest#"${rest%%[! ]*}"}"
+          warn_line "$rest"
+          ;;
         *) printf '%s\n' "$line" ;;
       esac
     done

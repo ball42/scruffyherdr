@@ -1501,6 +1501,10 @@ case "$1" in
     echo "note  an overlay remark"
     [ -f "$HOME/overlay-drift" ] && echo "DRIFT $HOME/.config/herdr-kit/config.json (overlay says so)"
     [ -f "$HOME/overlay-same" ] && echo "DRIFT $HERDR_APP_HOME/mods/kit-tabs"
+    if [ -f "$HOME/overlay-warn" ]; then
+      echo "warn  the overlay's checkout is 3 commits behind"
+      echo "warn  the overlay's pin is old"
+    fi
     [ -f "$HOME/overlay-fail" ] && exit 1
     [ ! -f "$HOME/overlay-drift" ]
     ;;
@@ -1519,6 +1523,19 @@ if [ $RC -eq 0 ] && [ "$(echo "$VOUT" | grep -c 'backgrounds/bespin.jpg')" = "1"
 else
   fail "overlay check: its ok lines counted, an override listed once, other lines pass through"
 fi
+# Its warn lines print once each and count in the summary, beside any of the core's own.
+warns_in() { echo "$1" | tail -n 1 | sed -n 's/.* · \([0-9][0-9]*\) warnings*$/\1/p'; }
+n_warn_before="$(warns_in "$OUT")"
+touch "$HOME/overlay-warn"
+OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --check </dev/null 2>&1)"; RC=$?
+if [ $RC -eq 0 ] && [ "$(echo "$OUT" | grep -cxF "warn  the overlay's checkout is 3 commits behind")" = "1" ] \
+  && [ "$(echo "$OUT" | grep -cxF "warn  the overlay's pin is old")" = "1" ] \
+  && [ "$(warns_in "$OUT")" = "$(( ${n_warn_before:-0} + 2 ))" ]; then
+  pass "overlay check: its warn lines are counted in the summary"
+else
+  fail "overlay check: its warn lines are counted in the summary"
+fi
+rm "$HOME/overlay-warn"
 touch "$HOME/overlay-drift"
 OUT="$(HERDR_KIT_PRIVATE="$OV/install.sh" "$REPO/install.sh" --check </dev/null 2>&1)"; RC=$?
 if [ $RC -eq 1 ] && echo "$OUT" | grep -qxF "DRIFT $HOME/.config/herdr-kit/config.json (overlay says so)" \
