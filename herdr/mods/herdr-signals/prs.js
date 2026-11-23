@@ -4,6 +4,19 @@
 const TRUNK = new Set(["main", "master", "develop"]);
 export const PR_FIELDS = "number,url,state,isDraft,reviewDecision,statusCheckRollup";
 
+// Where Homebrew puts gh: Apple silicon, then Intel. The mod's exec has no PATH
+// lookup for it, so an unset `gh` tries these in order.
+export const GH_PATHS = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh"];
+
+/** The paths to try for config `gh`: the one it names, else GH_PATHS. */
+export const ghCandidates = (gh) => (typeof gh === "string" && gh.trim() ? [gh.trim()] : GH_PATHS);
+
+/** The first candidate `exists` says is there (an async probe), or null. A probe that throws is a no. */
+export async function findGh(candidates, exists) {
+  for (const p of candidates) if (await exists(p).catch(() => false)) return p;
+  return null;
+}
+
 /** What to hand `gh pr view`: the name's #number, else a non-trunk branch, else null. */
 export function prRef(name, branch) {
   const m = String(name ?? "").match(/#(\d+)\b/);

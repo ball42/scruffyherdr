@@ -37,7 +37,7 @@ import { SCENES_DIALOG, buttonTexts, leftPx, leftTexts, signalsWidth, stripFit, 
 import { EMPTY_SET_PROBLEM, NO_KIT_PROBLEM, SWITCH_PROBLEM, afterStep, findNode, readFocus, leftSceneProblem, lookFor, missingScene, noSceneProblem, parseWant, pickFollow, pinFor, pinOf, readTree, recordTheme, stepPlan, switchStep, toggleWant, wantStep } from "./view.js";
 import { README_MOD, README_TAB, pickReadme, readmeMoves, readmeNeeds } from "./readme.js";
 import { gridAddresses, gridLanding, gridLeave, gridSignature, gridSpec, isLight, spotKey, spotNext } from "./grid.js";
-import { PR_FIELDS, parsePr, parsePrBatch, prMark, prQuery, prRef, repoOf } from "./prs.js";
+import { PR_FIELDS, findGh, ghCandidates, parsePr, parsePrBatch, prMark, prQuery, prRef, repoOf } from "./prs.js";
 import { ADDON_KEYS, cardName, deckBadge, pressCommand, readAddon, withBadges } from "./addons.js";
 
 const DEFAULTS = {
@@ -49,7 +49,7 @@ const DEFAULTS = {
   grace_seconds: 60,
   poll_ms: 2000,
   deck_port: 47651,
-  gh: "/opt/homebrew/bin/gh",
+  gh: "", // unset: GH_PATHS, Apple silicon's Homebrew then Intel's
   auto_spotlight: false,
   away_toast: true,
   // The extras are opt-in: each is a switch, off until the config turns it on.
@@ -1127,6 +1127,8 @@ export default class Signals extends View {
     this.prBusy = true;
     cx.spawn(async () => {
       try {
+        const gh = await this.ghPath();
+        if (!gh) return;
         const items = [];
         const rest = [];
         for (const k of keys) {
@@ -1138,7 +1140,7 @@ export default class Signals extends View {
         let next = {};
         const { query, aliases } = prQuery(items);
         if (query) {
-          const r = await exec(this.cfg.gh, ["api", "graphql", "-f", `query=${query}`]).catch(() => null);
+          const r = await exec(gh, ["api", "graphql", "-f", `query=${query}`]).catch(() => null);
           next = r ? parsePrBatch(r.stdout, aliases) : {};
           // A failed call (offline, an unknown PR number) keeps what it did return
           // and asks gh pr view for the rest; a branch with no PR isn't a failure.
@@ -1146,7 +1148,7 @@ export default class Signals extends View {
         }
         for (const k of rest) {
           const [cwd, ref] = k.split("|");
-          const r = await exec(this.cfg.gh, ["pr", "view", ref, "--json", PR_FIELDS], { cwd }).catch(() => null);
+          const r = await exec(gh, ["pr", "view", ref, "--json", PR_FIELDS], { cwd }).catch(() => null);
           const pr = r && parsePr(r.stdout);
           if (pr) next[k] = pr;
         }
@@ -1156,6 +1158,17 @@ export default class Signals extends View {
         this.prBusy = false;
       }
     });
+  }
+
+  // The gh to run: config `gh`, else the first of GH_PATHS that is there. A found
+  // path is kept until config `gh` changes; none found is asked again next refresh.
+  async ghPath() {
+    const want = this.cfg.gh ?? "";
+    if (this.gh && this.gh.want === want) return this.gh.path;
+    const exists = (p) => exec("/bin/test", ["-x", p]).then((r) => r.code === 0);
+    const path = await findGh(ghCandidates(want), exists);
+    this.gh = path ? { want, path } : null;
+    return path;
   }
 
   // A folder's GitHub owner/name, from its origin; cached, since remotes rarely move.

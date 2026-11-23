@@ -31,6 +31,14 @@ test("DEFAULTS: every extra is off", () => {
   assert.strictEqual(d.discord_webhook, "");
 });
 
+test("gh is unset by default, and the PR calls go through the found path", () => {
+  assert.strictEqual(defaults().gh, "");
+  const ex = JSON.parse(readFileSync(join(ROOT, "config.example.json"), "utf8"));
+  assert.strictEqual(ex.gh, "", "the example config leaves gh to the fallback list");
+  assert.doesNotMatch(MAIN, /exec\(this\.cfg\.gh\b/);
+  assert.match(method("refreshPrs"), /await this\.ghPath\(\)/);
+});
+
 test("config.example.json has every DEFAULTS key", () => {
   const ex = JSON.parse(readFileSync(join(ROOT, "config.example.json"), "utf8"));
   for (const k of Object.keys(defaults())) assert.ok(k in ex, k);
