@@ -479,8 +479,27 @@ if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "DRIFT .*main layout chan
 else
   fail "check flags a changed main layout"
 fi
-"$REPO/install.sh" >/dev/null 2>&1
-if "$REPO/install.sh" --check --verbose 2>&1 | grep -q "main layout changed"; then fail "reinstall clears the layout drift"; else pass "reinstall clears the layout drift"; fi
+REINSTALL="$("$REPO/install.sh" 2>&1)" || { fail "reinstall after a main layout change exits 0"; echo "$REINSTALL"; }
+CHECK="$("$REPO/install.sh" --check --verbose 2>&1)"
+if echo "$CHECK" | grep -q "main layout changed"; then
+  fail "reinstall clears the layout drift"; echo "$CHECK" | grep "main layout"
+  diff <(node -e 'console.log(JSON.stringify(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"))))' "$HERDR_APP_HOME/layouts/main.json") "$SRC_COPY"
+else
+  pass "reinstall clears the layout drift"
+fi
+# A node that dies while comparing (killed or out of memory on a loaded Mac) isn't a
+# changed layout: --check warns that it couldn't compare, and calls nothing drift.
+NODESHIM="$(mktemp -d)"
+REALNODE="$(command -v node)"
+printf '#!/bin/sh\nfor a in "$@"; do [ "$a" = "--changed" ] && exit 137; done\nexec "%s" "$@"\n' "$REALNODE" > "$NODESHIM/node"
+chmod +x "$NODESHIM/node"
+CHECK="$(PATH="$NODESHIM:$PATH" "$REPO/install.sh" --check --verbose 2>&1)"
+if ! echo "$CHECK" | grep -q "main layout changed" && echo "$CHECK" | grep -q "^warn  .*couldn't compare Herdr's main layout"; then
+  pass "check warns, not drift, when the main layout compare fails"
+else
+  fail "check warns, not drift, when the main layout compare fails"; echo "$CHECK" | grep -i "main layout"
+fi
+rm -rf "$NODESHIM"
 
 # links the bundled wallpaper and puts it in the kit layout
 fresh

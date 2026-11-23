@@ -202,11 +202,14 @@ if (MAIN_SCRIPT && process.argv[2] === "--gallery") {
 }
 if (MAIN_SCRIPT && process.argv[2] === "--gallery-keys") process.stdout.write(JSON.stringify(kitKeys(), null, 2) + "\n");
 
-// make-layout.js --changed <main.json> <layout-source.json>: exit 1 when Herdr's
-// main layout no longer matches what the kit layout was built from (install.sh --check).
+// make-layout.js --changed <main.json> <layout-source.json>: prints "changed" and exits 1 when
+// Herdr's main layout no longer matches what the kit layout was built from (install.sh --check).
+// The word is the answer: a node that dies exits non-zero too, and that isn't a change.
 if (MAIN_SCRIPT && process.argv[2] === "--changed") {
   const read = (f) => (f && existsSync(f) ? readFileSync(f, "utf8") : null);
-  process.exit(layoutChanged(read(process.argv[3]), read(process.argv[4])) ? 1 : 0);
+  const changed = layoutChanged(read(process.argv[3]), read(process.argv[4]));
+  if (changed) console.log("changed");
+  process.exit(changed ? 1 : 0);
 }
 
 // --list: the kit layout names (install.sh's KIT_LAYOUTS); --legacy: the old ones install removes.

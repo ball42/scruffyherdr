@@ -261,9 +261,15 @@ if [ "$MODE" = "--check" ]; then
     fi
   done
   # Herdr can rewrite main.json after install (an update); the kit layouts are built from it.
-  if [ -f "$APP_HOME/layouts/main.json" ] && command -v node >/dev/null 2>&1 \
-    && ! node "$REPO/scripts/make-layout.js" --changed "$APP_HOME/layouts/main.json" "$KIT_HOME/layout-source.json"; then
-    drift_line "layouts/main.json" "$APP_HOME/layouts (Herdr's main layout changed since install: rerun ./install.sh)"
+  # Only the script's "changed" is drift: a node killed mid-compare on a loaded Mac is a warning.
+  if [ -f "$APP_HOME/layouts/main.json" ] && command -v node >/dev/null 2>&1; then
+    cmp_rc=0
+    cmp_out="$(node "$REPO/scripts/make-layout.js" --changed "$APP_HOME/layouts/main.json" "$KIT_HOME/layout-source.json" 2>/dev/null)" || cmp_rc=$?
+    if [ "$cmp_out" = "changed" ]; then
+      drift_line "layouts/main.json" "$APP_HOME/layouts (Herdr's main layout changed since install: rerun ./install.sh)"
+    elif [ "$cmp_rc" -ne 0 ]; then
+      warn_line "couldn't compare Herdr's main layout with the one install built from (node exit $cmp_rc): rerun ./install.sh --check"
+    fi
   fi
   # Exactly what install would write: every event, and async where it belongs.
   # The card hook only when run_cards is on. A settings file with no kit hook at all
