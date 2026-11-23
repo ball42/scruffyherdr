@@ -14,6 +14,7 @@
   "focus_max_minutes": 120,
   "addons": [],
   "usage_meter": false,
+  "dock_badge": false,
   "run_cards": false,
   "pr_status": false,
   "run_log_pipe": "",

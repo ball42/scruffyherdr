@@ -5,7 +5,7 @@
 import { GRID_NODE, KIT_LAYOUT, activeScenes, defaultScene, isGridTree, sceneOfTheme, sceneOfTree } from "./scenes.js";
 import { gridLayout } from "./grid.js";
 import { missingIds } from "./clicks.js";
-import { applyPlan, dress } from "./dress.js";
+import { applyPlan, dress, withLinkHandlers } from "./dress.js";
 
 const VIEWS = ["focus", "grid"];
 const clone = (x) => JSON.parse(JSON.stringify(x));
@@ -323,6 +323,8 @@ export function stepPlan({ shown, cur, want, plan = null, clicks = {}, focus = n
       nodes = sw.carry;
       out.aside = sw.aside;
       out.retiled = view === "grid";
+      // The focus file is from install time: keep the link mods the shown layout has now.
+      if (isObj(tree)) tree = withLinkHandlers(tree, shown);
     } else if (plan && plan.sig !== gridSig) {
       tree = gridLayout(shown, plan.spec);
       out.retiled = true;

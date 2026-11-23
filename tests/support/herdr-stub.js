@@ -22,6 +22,8 @@ export const host = {
   runs: [], // [action, args] for run()
   themeJson: "{}", // theme()
   props: {}, // props()
+  badges: [], // each setBadge() text, in call order
+  checking: false, // checking()
 };
 
 globalThis.__herdrHost = host;
@@ -52,6 +54,8 @@ export const spaces = () => [];
 export const theme = () => JSON.parse(h.themeJson);
 export const props = () => h.props;
 export const closeOverlay = (id) => { h.closed.push(id); return null; };
+export const setBadge = (text) => { h.badges.push(text); return null; };
+export const checking = () => h.checking;
 `;
 
 const GPUI = `
@@ -122,6 +126,6 @@ export function fakeCx() {
 export function resetHost() {
   Object.assign(host, {
     now: 1_000_000, shared: {}, sets: [], agents: [], panes: [], overlays: [], closed: [], notes: [], files: {}, writes: [], execs: [],
-    exec: async () => ({ code: 0, stdout: "", stderr: "" }), openOverlay: null, layout: null, layouts: [], runs: [], themeJson: "{}",
+    exec: async () => ({ code: 0, stdout: "", stderr: "" }), openOverlay: null, layout: null, layouts: [], runs: [], themeJson: "{}", badges: [], checking: false,
   });
 }

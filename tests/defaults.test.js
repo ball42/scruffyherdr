@@ -25,7 +25,7 @@ function method(name) {
 
 test("DEFAULTS: every extra is off", () => {
   const d = defaults();
-  for (const k of ["deck", "readme_tabs", "usage_meter", "run_cards", "pr_status"]) assert.strictEqual(d[k], false, k);
+  for (const k of ["deck", "readme_tabs", "usage_meter", "dock_badge", "run_cards", "pr_status"]) assert.strictEqual(d[k], false, k);
   assert.deepEqual(d.addons, []);
   assert.strictEqual(d.run_log_pipe, "");
   assert.strictEqual(d.discord_webhook, "");
