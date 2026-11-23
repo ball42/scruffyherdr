@@ -1,0 +1,14 @@
+{
+  "name": "scruffyherdr",
+  "owner": {
+    "name": "scruffyherdr"
+  },
+  "description": "Claude Code hooks for the scruffy Herdr layout, for a gallery install.",
+  "plugins": [
+    {
+      "name": "scruffyherdr",
+      "source": "./",
+      "description": "Gives the scruffy rail each Claude's /rename name, its question or permission prompt, and its Run cards."
+    }
+  ]
+}

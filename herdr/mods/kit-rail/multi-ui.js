@@ -2,7 +2,8 @@
 // kit.multi), the reply field and the in-flight run. Pure parts: multi.js.
 import { Input, InputState } from "gpui-base";
 import { setShared, shared } from "herdr";
-import { hcPlain } from "./expand.js";
+import { hcPlain, logDecision } from "./expand.js";
+import { decisionOf } from "./decisions.js";
 import { promptKey, sendReply } from "./answer.js";
 import { buildQueue, canTick, multiBar, pruneSelection, resultChip, runQueue, tickBox, toggleSelection } from "./multi.js";
 
@@ -98,7 +99,14 @@ export class MultiReply {
     cx.spawn(async (acx) => {
       const h = { hc: hcPlain, sleep: (ms) => new Promise((done) => acx.timer.after(ms, () => done())) };
       await runQueue({
-        queue, text, agents: () => this.agents(), send: (address) => sendReply(address, text, h),
+        queue, text, agents: () => this.agents(),
+        send: async (address) => {
+          // The question it answers, read before the send moves the Claude on.
+          const a = this.agents().find((x) => x.address === address);
+          const res = await sendReply(address, text, h);
+          if (res === "sent" && a) logDecision(decisionOf("reply", a, {}, text), a.name);
+          return res;
+        },
         onResult: (r) => {
           this.results = r;
           this.running = { done: Object.values(r).filter((v) => v !== "sending").length, total: queue.length };

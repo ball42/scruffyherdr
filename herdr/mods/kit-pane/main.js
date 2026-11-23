@@ -7,7 +7,7 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { panes, props, run, setShared, shared, theme, home } from "herdr";
-import { BLUE, Flares, ORANGE, useTheme, RunGate, cardMark, copyCommand, dismissRun, goLabel, mark, openRunLog, paneRun, pill, planRuns, pressRun, runCard, runStatus, runningText, runTick, SNOOZE_CHOICES, snoozeLabel, snoozeSet, visibleRuns, waited, withCard } from "./look.js";
+import { BLUE, Flares, ORANGE, useTheme, RunGate, cardMark, copyCommand, dismissRun, goLabel, hiddenRuns, hiddenText, mark, openRunLog, paneRun, pill, planRuns, pressRun, runCard, runStatus, runningText, runTick, showRuns, SNOOZE_CHOICES, snoozeLabel, snoozeSet, visibleRuns, waited, withCard } from "./look.js";
 
 function icon(p, size, color) {
   if (!p?.icon) return null;
@@ -87,6 +87,9 @@ export default class KitPane extends View {
     const st0 = r0 ? runStatus(r0.state) : null;
     const seq0 = pick?.all ?? null;
     const wait0 = pick?.wait ?? null;
+    // Cards hidden with ✕ (here or on the rail) are counted, with Show, as on the rail.
+    const hidden = hiddenRuns(kit, shared("kit.runsDismissed"));
+    const showHidden = () => setShared("kit.runsDismissed", showRuns(shared("kit.runsDismissed"), p.terminal));
     const live = runs.find((r) => r.state?.state === "running");
     const going = Boolean(live);
     runTick(this, going, cx);
@@ -123,6 +126,9 @@ export default class KitPane extends View {
         .child(pill(t, `kp-cp-${pane}`, this.copied === pane ? "✓ Copied" : "Copy", (_e, cx2) => copyCommand(this, pane, r0.command, cx2)))
         .child(pill(t, `kp-x-run-${pane}`, "✕", () => setShared("kit.runsDismissed", dismissRun(shared("kit.runsDismissed"), shared("herdr-kit")?.agents, p.terminal, r0)), t.dim))
         .when(runs.length > 1, (e) => e.child(div().flex_none().text_size(11).text_color(t.dim).child(`+${runs.length - 1} on the rail`))))
+      .when(hidden > 0, (el) => el
+        .child(div().id(`kp-hidden-${pane}`).flex_none().text_size(11).text_color(t.dim).child(`▶ ${hiddenText(hidden)}`))
+        .child(pill(t, `kp-show-${pane}`, "Show", showHidden, t.dim)))
       .when(snoozed, (el) => el.child(div().flex_none().text_size(11).font_semibold().text_color(t.dim).child(snoozeLabel(kit))))
       .when(kind === "done", (el) => el.child(mark("done", false)).when(Boolean(kit.card), (e) => e.child(cardMark(kit.card, BLUE)))
         .when(Boolean(kit.attention.since), (e) => e.child(div().flex_none().text_size(10.5).text_color(t.muted).child(`done ${waited(kit.attention.since)} ago`))))

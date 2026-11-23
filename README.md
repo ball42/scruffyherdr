@@ -46,7 +46,7 @@ Unofficial fan project, not affiliated with Lucasfilm or Disney. The pictures ar
 ## What you get
 
 - **A strip** along the bottom: how many Claudes need you, how many are done, and buttons for focus mode, the scene picker and the grid.
-- **An urgency rail** on the right: every Claude by name, grouped by space, in Herdr's own order so cards stay put; the one you're in is marked with a bar. A card shows the question or permission prompt a blocked Claude is asking, how long it has waited, and how much context it has left. Click a card to answer from the rail.
+- **An urgency rail** on the right: every Claude by name, grouped by space, in Herdr's own order so cards stay put; the one you're in is marked with a bar. A card shows the question or permission prompt a blocked Claude is asking, how long it has waited, and how much context it has left. Click a card to answer from the rail. Each answer the rail sends is written to a day's decisions log, `~/.config/herdr-kit/decisions/<date>.jsonl`: one JSON line with the time, the Claude's name, the question and the answer.
 - **A grid view** (`cmd-shift-g`): the current space's Claudes tiled, with a spotlight for one at a time.
 - **Eighteen scenes**: Tatooine, Endor, Hoth, Dagobah, Coruscant, Bespin, Naboo, Scarif, Kamino, Mustafar, the Asteroid Belt, Small Moon, Lothal, Crait, Yavin 4, Hyperspace, Kessel and Utapau. Each has a night and a day picture, a theme pair, glass panels, and its own needs-you colour and glyph. The scene follows macOS light and dark. Pick one with `cmd-shift-s`.
 - **Colour-blind safe**: needs-you is orange (or the scene's own warm hue), done is blue, never red against green, and every state also carries a glyph or a word.
@@ -79,6 +79,15 @@ Then quit and reopen Herdr: new mods, themes and glyph art load only at start. I
 Install links the files under `herdr/` into `~/.config/herdr-app/`, builds the `scruffy` layout from Herdr's own main layout, and adds its key bindings to Herdr's `keys.json`, touching only its own entries and backing the file up first.
 
 **Claude Code hooks.** The rail learns each Claude's name, question and tool from a hook in `~/.claude/settings.json`. On a terminal, install asks once before adding it and wrapping your status line (below); Enter adds both. `./install.sh --hooks` adds it without asking and `./install.sh --no-hooks` skips it. With no terminal and no flag, install skips it and tells you how to add it later. Restart running Claude sessions to load the hook.
+
+**The plugin (a gallery install).** Installed the layout from Herdr's gallery, without this repo's `./install.sh`? The name hook also ships as a Claude Code plugin. In Claude Code run:
+
+```
+/plugin marketplace add ball42/scruffyherdr
+/plugin install scruffyherdr@scruffyherdr
+```
+
+Then restart your Claude sessions. The plugin brings the name hook only: a plugin can't change the status line, so the context meters still need `./install.sh --hooks` (or your status line command piping its JSON to `claude/ctx-tap.mjs`). When the plugin is enabled, `./install.sh` adds no second copy of the name hook, takes out one it added before, and `--check` says the plugin has it.
 
 **Context meters.** Claude Code tells only the status line how much context a session has used. With the hooks, install wraps your status line so the rail can read it: your old command still runs and its output still shows, and your old line is saved in `~/.config/herdr-kit/statusline-prev.json`. If your status line already feeds the meters (Herdr Chat's line too, when its chain runs the kit's wrapper), or isn't a command, install leaves it alone and says so. An old line that leads back to the wrapper runs once and stops there, never in a loop.
 

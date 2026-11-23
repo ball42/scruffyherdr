@@ -1,0 +1,7 @@
+{
+  "name": "scruffyherdr",
+  "description": "Gives the scruffy Herdr layout's rail each Claude's /rename name, its question or permission prompt, and its Run cards (the name hook). A gallery install gets these without ./install.sh.",
+  "homepage": "https://github.com/ball42/scruffyherdr",
+  "repository": "https://github.com/ball42/scruffyherdr",
+  "license": "MIT"
+}
