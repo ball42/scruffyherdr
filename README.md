@@ -140,7 +140,7 @@ Everything here is off by default. The ones marked "coming soon" aren't in this 
 | `deck` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Post to the Stream Deck plugin. |
 | `auto_spotlight` | `false` | Spotlight a Claude when it newly needs you. |
 | `away_toast` | `true` | Show the "while you were away" toast on return. |
-| `gh` | `/opt/homebrew/bin/gh` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). GitHub CLI for PR state (`pr_status`). |
+| `gh` | `""` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). GitHub CLI for PR state (`pr_status`). Unset, it tries `/opt/homebrew/bin/gh` (Apple silicon), then `/usr/local/bin/gh` (Intel). |
 | `focus_max_minutes` | `120` | Minutes after which focus mode turns itself off. |
 | `readme_tabs` | `false` | Keep a README tab first in every space whose repo has a README. |
 | `usage_meter` | `false` | Coming soon: an opt-in extra, not in this repo yet (see Opt-in extras). Show the 5-hour and weekly usage meter on the strip and the deck. With it on, the kit's status line keeps the readings in `~/.cache/herdr-chat/claude-limits.json`, never lowering one within the same 5-hour or weekly window. |

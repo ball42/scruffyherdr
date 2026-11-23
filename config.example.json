@@ -17,7 +17,7 @@
   "run_cards": false,
   "pr_status": false,
   "run_log_pipe": "",
-  "gh": "/opt/homebrew/bin/gh",
+  "gh": "",
   "jira_url": "",
   "acli": "",
   "jira_projects": [],

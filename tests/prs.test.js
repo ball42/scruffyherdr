@@ -84,3 +84,18 @@ test("the graphql batch asks for and keeps the url", () => {
   assert.match(query, /\burl\b/);
   assert.equal(parsePrBatch(JSON.stringify({ data: { r0: { p0: { number: 9, url, state: "OPEN" } } } }), { k: ["r0", "p0"] }).k.url, url);
 });
+
+test("gh unset: Apple silicon's Homebrew path first, then Intel's", async () => {
+  const { GH_PATHS, ghCandidates, findGh } = await import("../herdr/mods/herdr-signals/prs.js");
+  assert.deepEqual(GH_PATHS, ["/opt/homebrew/bin/gh", "/usr/local/bin/gh"]);
+  for (const unset of [undefined, null, "", "  "]) assert.deepEqual(ghCandidates(unset), GH_PATHS);
+  assert.deepEqual(ghCandidates(" /some/gh "), ["/some/gh"]);
+  // An Intel Mac: only /usr/local/bin/gh is there.
+  const tried = [];
+  const intel = async (p) => (tried.push(p), p === "/usr/local/bin/gh");
+  assert.equal(await findGh(ghCandidates(""), intel), "/usr/local/bin/gh");
+  assert.deepEqual(tried, GH_PATHS);
+  assert.equal(await findGh(ghCandidates(""), async (p) => p === "/opt/homebrew/bin/gh"), "/opt/homebrew/bin/gh");
+  assert.equal(await findGh(ghCandidates(""), async () => false), null);
+  assert.equal(await findGh(ghCandidates(""), async () => { throw new Error("spawn"); }), null);
+});
