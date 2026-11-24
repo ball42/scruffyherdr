@@ -41,6 +41,7 @@ import { readSizes } from "../herdr/mods/herdr-signals/sizes.js";
 import { canonical, layoutChanged } from "../herdr/mods/herdr-signals/layout.js";
 import { addonBlocks, withAddons } from "../herdr/mods/herdr-signals/addons.js";
 import { kitKeys } from "./merge-config.js";
+import { signalsId } from "../herdr/mods/herdr-signals/strip-id.js";
 
 export const SIGNALS_PROPS = (layout, scenes) => ({ layout, scenes });
 const SIGNALS = { id: "signals", type: "block", size: { px: 300 }, content: { mod: "herdr-signals" } };
@@ -64,7 +65,11 @@ export function withSignals(layout, props = null) {
   for (const k of Object.keys(status)) if (!["id", "size"].includes(k)) delete status[k];
   status.type = "row";
   const signals = structuredClone(SIGNALS);
-  if (props) signals.content.props = props;
+  if (props) {
+    signals.content.props = props;
+    // Its own id, so Herdr runs a separate herdr-signals copy here (strip-id.js).
+    signals.id = signalsId(props.layout);
+  }
   status.children = [bar, signals];
   return out;
 }

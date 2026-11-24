@@ -405,7 +405,13 @@ test("make-layout leaves another layout's focus file alone", () => {
 
 // ---- --name and --scenes: a second kit layout over a scene file ----
 const SCENE_FILE = fileURLToPath(new URL("./fixtures/extra-scenes/scenes.json", import.meta.url));
-const signalsProps = (tree) => node(tree, "signals").content.props;
+// The herdr-signals strip, found by its mod: its id is the layout's own (strip-id.js).
+const strip = (tree) => {
+  if (tree?.content?.mod === "herdr-signals") return tree;
+  for (const c of tree?.children ?? []) { const hit = strip(c); if (hit) return hit; }
+  return null;
+};
+const signalsProps = (tree) => strip(tree).content.props;
 
 test("make-layout without --name or --scenes writes the same layout as before", () => {
   const h = homes();
@@ -413,6 +419,7 @@ test("make-layout without --name or --scenes writes the same layout as before", 
   const golden = fileURLToPath(new URL("./fixtures/scruffy-default-layout.json", import.meta.url));
   assert.equal(readFileSync(join(h.dir, "scruffy.json"), "utf8"), readFileSync(golden, "utf8"));
   assert.equal(signalsProps(read(join(h.dir, "scruffy.json"))), undefined);
+  assert.equal(strip(read(join(h.dir, "scruffy.json"))).id, "signals");
 });
 
 test("make-layout --name alt --scenes builds alt.json over the scene file, beside scruffy", () => {
@@ -422,6 +429,8 @@ test("make-layout --name alt --scenes builds alt.json over the scene file, besid
   assert.deepEqual(readdirSync(h.dir).filter((f) => f.endsWith(".json")).sort(), ["main.json", "alt.json"].sort());
   const out = read(join(h.dir, "alt.json"));
   assert.deepEqual(signalsProps(out), { layout: "alt", scenes: SCENE_FILE });
+  // Its own strip id, or Herdr runs one herdr-signals copy for both layouts and it disowns one of them.
+  assert.equal(strip(out).id, "signals-alt");
   assert.deepEqual(out.theme, { light: "fixture-day", dark: "fixture-night" });
   assert.equal(out.preview, "layouts/scruffy.svg", "one Settings preview for every kit layout");
   assert.equal(out.background.image, "backgrounds/fixture.jpg");
