@@ -73,6 +73,9 @@ export function wantStep({ shown, scene = null, view = null, sceneWant = null, v
   return out;
 }
 
+/** Strip problem: the tree's scene left the scene set (its file went bad or missing). */
+export const leftSceneProblem = (key, fallback) => `herdr-signals: "${key}" left this layout's scenes; showing "${fallback}"`;
+
 /** Strip problem: a scene was asked for that this layout doesn't have, or a request for one it has with a bad suffix (the whole request is named). */
 export const noSceneProblem = (key) => (key.includes(":") ? `herdr-signals: bad scene request "${key}"` : `herdr-signals: no scene "${key}" in this layout`);
 /**

@@ -41,7 +41,8 @@ import { canonical, layoutChanged } from "../herdr/mods/herdr-signals/layout.js"
 import { addonBlocks, withAddons } from "../herdr/mods/herdr-signals/addons.js";
 import { kitKeys } from "./merge-config.js";
 
-export const SIGNALS_PROPS = (layout, scenes) => ({ layout, scenes });
+export const SIGNALS_PROPS = (scenes) => ({ layout: KIT_LAYOUT, scenes });
+const findSignals = (n) => (n?.content?.mod === "herdr-signals" ? n : (n?.children ?? []).map(findSignals).find(Boolean) ?? null);
 const SIGNALS = { id: "signals", type: "block", size: { px: 300 }, content: { mod: "herdr-signals" } };
 
 function find(node, id) {
@@ -237,6 +238,7 @@ if (MAIN_SCRIPT && !OPS.includes(process.argv[2])) {
   let want = flag("--scene");
   let from = flag("--from");
   const scenesFile = flag("--scenes");
+  if (flag("--name") !== null) console.error("warning: --name is gone (there is one kit layout, scruffy); ignored");
   if (from !== null && !LEGACY_LAYOUTS.includes(from)) {
     console.error(`warning: --from ${JSON.stringify(from)} isn't an old kit layout; ignored`);
     from = null;
@@ -262,7 +264,7 @@ if (MAIN_SCRIPT && !OPS.includes(process.argv[2])) {
   const { look, problems } = validLook(isObj(config) ? config.look : undefined);
   for (const p of problems) console.error(`warning: ${p}`);
   const main = JSON.parse(readFileSync(src, "utf8"));
-  let base = withSignals(main, scenesPath ? SIGNALS_PROPS(KIT_LAYOUT, scenesPath) : null);
+  let base = withSignals(main, scenesPath ? SIGNALS_PROPS(scenesPath) : null);
   try {
     base = withKitChrome(base);
   } catch (e) {
@@ -285,6 +287,14 @@ if (MAIN_SCRIPT && !OPS.includes(process.argv[2])) {
     if (isObj(prev)) {
       existing = prev;
       existingName = OLD_KIT_LAYOUT;
+    }
+  }
+  // A plain rebuild (no --scenes) still reads the scene file the existing layout names, so the scene it is dressed as keeps its theme.
+  if (extra === null && isObj(existing)) {
+    const props = findSignals(existing)?.content?.props;
+    if (typeof props?.scenes === "string" && props.scenes !== "" && props.scenes !== "core") {
+      const file = resolve(props.scenes);
+      extra = loadSceneFile(readText(file), (n) => (themeNameOk(n) ? readJson(join(dirname(file), "themes", `${n}.json`)) : null)).scenes;
     }
   }
   setActiveScenes(extra);

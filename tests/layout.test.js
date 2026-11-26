@@ -502,12 +502,26 @@ test("make-layout warns about a dropped scene but keeps the good ones", () => {
   assert.deepEqual(read(join(h.dir, "scruffy.json")).theme, { light: "fixture-day", dark: "fixture-night" });
 });
 
-test("--name is gone: a second kit layout isn't built", () => {
+test("--name is gone: it warns and is ignored; no second layout is built", () => {
   const h = homes();
   const r = build(h, "--name", "alt", "--scenes", SCENE_FILE);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /--name is gone/);
   assert.ok(!existsSync(join(h.dir, "alt.json")));
   assert.ok(!existsSync(join(h.kit, "layout-focus-alt.json")));
-  assert.ok(r.status === 0 || r.status === 2);
+  assert.equal(signalsProps(read(join(h.dir, "scruffy.json"))).scenes, SCENE_FILE);
+});
+
+test("a plain rebuild keeps an extra scene's theme by reading the file the existing layout names, and drops the props", () => {
+  const h = homes();
+  assert.equal(build(h, "--scenes", SCENE_FILE, "--scene", "fixture-scene").status, 0);
+  const r = build(h);
+  assert.equal(r.status, 0, r.stderr);
+  const out = read(join(h.dir, "scruffy.json"));
+  assert.deepEqual(out.theme, { light: "fixture-day", dark: "fixture-night" });
+  assert.equal(signalsProps(out), undefined);
+  assert.equal(build(h, "--scenes", SCENE_FILE).status, 0);
+  assert.deepEqual(read(join(h.dir, "scruffy.json")).theme, { light: "fixture-day", dark: "fixture-night" }, "and the overlay's build after it keeps it too");
 });
 
 test("--list still prints only scruffy", () => {

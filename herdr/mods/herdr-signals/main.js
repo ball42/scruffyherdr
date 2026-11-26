@@ -31,10 +31,10 @@ import { readSizes, replaySizes, seedAside, sizesRecord, sizesText } from "./siz
 import { configChanged, reloadConfig, validArrowMode } from "./config.js";
 import { alertProblems, alertTheme, resolveAlerts } from "./alerts.js";
 import { hereTones } from "./colour.js";
-import { KIT_LAYOUT, SCENES, activeScenes, defaultScene, isGridTree, sceneList, sceneOfTree, setActiveScenes } from "./scenes.js";
+import { KIT_LAYOUT, SCENES, activeScenes, defaultScene, isGridTree, sceneList, sceneOfTheme, sceneOfTree, setActiveScenes } from "./scenes.js";
 import { loadSceneFile, themeNameOk } from "./extra-scenes.js";
 import { SCENES_DIALOG, buttonTexts, leftPx, leftTexts, signalsWidth, stripFit, usagePx } from "./strip-fit.js";
-import { NO_KIT_PROBLEM, SWITCH_PROBLEM, afterStep, findNode, readFocus, noSceneProblem, pickFollow, pinFor, pinOf, readTree, recordTheme, stepPlan, switchStep, toggleWant, wantStep } from "./view.js";
+import { NO_KIT_PROBLEM, SWITCH_PROBLEM, afterStep, findNode, readFocus, leftSceneProblem, noSceneProblem, parseWant, pickFollow, pinFor, pinOf, readTree, recordTheme, stepPlan, switchStep, toggleWant, wantStep } from "./view.js";
 import { README_MOD, README_TAB, pickReadme, readmeMoves, readmeNeeds } from "./readme.js";
 import { gridAddresses, gridLanding, gridLeave, gridSignature, gridSpec, isLight, spotKey, spotNext } from "./grid.js";
 import { PR_FIELDS, findGh, ghCandidates, parsePr, parsePrBatch, prMark, prQuery, prRef, repoOf } from "./prs.js";
@@ -117,6 +117,8 @@ export default class Signals extends View {
     // A copy started by an old second kit layout (its props name a layout other than KIT_LAYOUT) is retired:
     // it publishes and writes nothing, so it can't disown or undress the one layout.
     this.retired = typeof blockProps?.layout === "string" && blockProps.layout !== "" && blockProps.layout !== KIT_LAYOUT;
+    this.retiredLayout = this.retired ? blockProps.layout : null;
+    this.retiredAsked = false;
     this.sceneSig = null; // the scene file's text and its themes', as last checked
     this.sceneProblems = []; // the scene file's own problems; the core scenes work without it
     this.sceneNote = null; // {text, at}: a scene request this layout lacks, shown briefly
@@ -190,11 +192,12 @@ export default class Signals extends View {
       await this.reloadNames();
       if (this.cfg.run_cards) {
         await exec("mkdir", ["-p", this.runDir]).catch(() => null);
-        await this.pruneRunState();
+        if (!this.retired) await this.pruneRunState();
         await this.reloadRunState();
       }
       cx.timer.every(this.cfg.poll_ms, (cx) => this.poll(cx));
       cx.timer.every(RUNSTATE_PRUNE_MS, (cx) => cx.spawn(async () => {
+        if (this.retired) return;
         await this.pruneRunState();
         await this.pruneCtx();
       }));
@@ -278,6 +281,7 @@ export default class Signals extends View {
 
   // Tells add-ons a button of theirs was pressed: they watch kit.addon.press.
   press(id) {
+    if (!this.owns()) return;
     setShared(ADDON_KEYS.press, { id, at: Date.now() });
   }
 
@@ -538,6 +542,18 @@ export default class Signals extends View {
     return true;
   }
 
+  /**
+   * A retired copy whose layout is the one shown has nothing to offer, so it asks Herdr for scruffy once
+   * (and again only if the window comes back to it), when scruffy exists.
+   */
+  leaveRetired() {
+    this.badge = undefined;
+    if (shared("layout") !== this.retiredLayout) { this.retiredAsked = false; return; }
+    if (this.retiredAsked || !layouts().includes(KIT_LAYOUT)) return;
+    this.retiredAsked = true;
+    run("layout.switch", { name: KIT_LAYOUT });
+  }
+
   /** Whether this copy does the work now (scene and view keys, the poll, commands, toasts): every copy but a retired one. */
   owns() {
     return !this.retired;
@@ -565,7 +581,7 @@ export default class Signals extends View {
     if (!this.retired) setActiveScenes(this.sceneSet);
   }
 
-  /** alert_colors: a bad value is skipped and named on the strip; a scene key of any kit layout counts. */
+  /** alert_colors: a bad value is skipped and named on the strip; a scene key of the scene file counts. */
   checkAlerts() {
     if (!this.cfg) return;
     this.useScenes();
@@ -666,8 +682,19 @@ export default class Signals extends View {
     const cur = { scene: has ? sceneOfTree({ theme: fileTheme }) : null, view: has ? (isGridTree(shown) ? "grid" : "focus") : null };
     this.publishConfigKeys();
     const want = wantStep({ shown: name, ...cur, sceneWant, viewWant, stateTheme: clicks.theme, fileTheme });
+    // The scene file is named but gave no scene (missing, bad, or gone since a scene of it was shown): a tree
+    // dressed in a theme of no scene is shown as the default scene, said so, rather than half one look and half another.
+    let left = null;
+    if (has && this.scenesProp !== "core" && this.sceneSet === null && sceneOfTheme(fileTheme?.light) === null && sceneOfTheme(fileTheme?.dark) === null) left = defaultScene();
     // Only the owning copy touches shared keys.
     if (!this.owns()) return;
+    if (left && !parseWant(sceneWant)) {
+      // Routed as a request, so the write takes the default scene's whole look: the departed theme halves aren't the user's own to keep.
+      this.sceneNote = { text: leftSceneProblem(this.lastScene ?? fileTheme?.dark ?? "?", left), at: Date.now() };
+      setShared("kit.sceneWant", left);
+      this.again = true;
+      return;
+    }
     if (want.ignored) this.sceneNote = { text: noSceneProblem(want.ignored), at: Date.now() };
     this.follow = want.follow; // the theme-list follow runs only when no request is pending
     if (want.follow) {
@@ -921,7 +948,7 @@ export default class Signals extends View {
 
   poll(cx) {
     // Another copy may set the badge while this one isn't shown, so set it afresh on taking over.
-    if (!this.owns()) { this.badge = undefined; return; }
+    if (this.retired) { this.leaveRetired(); return; }
     this.useScenes();
     cx.spawn(async (cx) => {
       if (++this.polls % NAMES_RELOAD_POLLS === 0) await Promise.all([this.reloadNames(), this.reloadCtx(), this.reloadRunState()]);

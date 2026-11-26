@@ -174,6 +174,20 @@ test("a file that turns bad after it loaded drops the second page; the core scen
   setActiveScenes(null);
 });
 
+test("a file that goes bad while one of its scenes is shown puts the layout back on the default scene, and says so", async () => {
+  const files = { [SCENE_FILE]: sceneFile(["fixture-scene"]) };
+  const { cx, view } = await start(FILE_BLOCK, { tree: coreTree(), files, sceneWant: "fixture-scene:night" });
+  assert.equal(host.shared["kit.scene"], "fixture-scene");
+  host.files[SCENE_FILE] = "{nope";
+  const n = sets().length;
+  await quiet(cx, 22_000);
+  const written = sets().slice(n).map((r) => r[1].layout.theme);
+  assert.deepEqual(written.at(-1), { light: SCENES.tatooine.theme.light, dark: SCENES.tatooine.theme.dark }, "the default scene's own pair");
+  assert.equal(host.shared["kit.scene"], "tatooine");
+  assert.match(view.sceneNote?.text ?? view.sceneProblem(), /left this layout's scenes|isn't JSON/);
+  setActiveScenes(null);
+});
+
 test("alert_colors.scenes may name a scene of the file, and a key in neither is named", async () => {
   const config = JSON.stringify({ alert_colors: { scenes: { naboo: { needs: "#ffd84d" }, "fixture-scene": { needs: "#ffd84d" }, nowhere: { needs: "#ffd84d" } } } });
   const files = { [SCENE_FILE]: sceneFile(["fixture-scene"]), "/home/test/.config/herdr-kit/config.json": config };
@@ -211,12 +225,24 @@ test("a retired layout's copy writes no shared key, sets no layout, and leaves t
   assert.equal(old.view.owns(), false);
   assert.equal(host.sets.filter(([k]) => k === "kit.scenes").length, 0, "no kit.scenes from a retired copy");
   assert.equal(sets().length, 0);
-  assert.equal(host.runs.length, 0);
+  assert.equal(host.runs.length, 0, "no scruffy layout to switch to yet");
   assert.deepEqual(Object.keys(activeScenes()), [...CORE, "fixture-scene"], "a retired copy never resets the module's scenes");
   old.view.command("view-grid", old.cx);
+  old.view.press("x");
   assert.equal(host.shared["kit.viewWant"] ?? null, null, "its commands do nothing");
+  assert.equal(host.shared["kit.addon.press"] ?? null, null);
   live.view.render(live.cx);
   assert.deepEqual(Object.keys(activeScenes()), [...CORE, "fixture-scene"]);
+  setActiveScenes(null);
+});
+
+test("a retired copy on its own layout asks for scruffy once, when scruffy exists", async () => {
+  const lab = withBlock({ layout: "lab", scenes: SCENE_FILE });
+  const { cx } = await start({ layout: "lab", scenes: SCENE_FILE }, { layoutName: "lab", tree: lab });
+  host.layouts = ["lab", "scruffy"];
+  host.runs = [];
+  await quiet(cx, 11_000);
+  assert.deepEqual(host.runs.filter(([a]) => a === "layout.switch"), [["layout.switch", { name: "scruffy" }]]);
   setActiveScenes(null);
 });
 
