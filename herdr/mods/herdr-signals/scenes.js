@@ -175,19 +175,22 @@ export const DEFAULT_SCENE = "tatooine";
 
 let active = SCENES;
 
-/** The scene set this mod copy shows: SCENES until setActiveScenes sets another. */
+/** The scene set this mod copy shows: the core set, plus an overlay's extras once setActiveScenes has them. */
 export const activeScenes = () => active;
 
-/** Show `scenes` (an overlay's set, validated by extra-scenes.js) in place of SCENES; null restores SCENES. */
-export function setActiveScenes(scenes) {
-  active = scenes ?? SCENES;
+/**
+ * Show the core set plus `extras` (an overlay's scenes, validated by
+ * extra-scenes.js; a key that clashes with a core scene is dropped there, and
+ * the core entry wins here too); null or none restores the core set.
+ */
+export function setActiveScenes(extras) {
+  const own = Object.entries(extras ?? {}).filter(([k]) => !Object.hasOwn(SCENES, k));
+  active = own.length ? { ...SCENES, ...Object.fromEntries(own) } : SCENES;
 }
 
-/** The scene shown when none is named: the default for the core set, else the first trial scene, else the first, else null. */
+/** The scene shown when none is named: always the core default, so a bad extras file never leaves the layout without one. */
 export function defaultScene() {
-  if (active === SCENES) return DEFAULT_SCENE;
-  const keys = Object.keys(active);
-  return keys.find((k) => active[k].status === "trial") ?? keys[0] ?? null;
+  return DEFAULT_SCENE;
 }
 
 /** The one kit layout; the scene and the view live inside it. */

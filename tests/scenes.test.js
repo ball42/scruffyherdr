@@ -188,28 +188,38 @@ const fixtureScene = {
   status: "trial",
 };
 
-test("setActiveScenes swaps the set the helpers read, and null restores it", (t) => {
+test("setActiveScenes adds an overlay's scenes after the core set, and null restores it", (t) => {
   t.after(() => scenes.setActiveScenes(null));
   assert.equal(scenes.activeScenes(), scenes.SCENES);
-  assert.equal(scenes.defaultScene(), DEFAULT_SCENE);
   scenes.setActiveScenes({ "fixture-scene": fixtureScene });
   assert.equal(sceneFor("fixture-scene").label, "Fixture Scene");
   assert.equal(sceneOfTree({ theme: { light: "fixture-day", dark: "fixture-night" } }), "fixture-scene");
   assert.equal(sceneOfTheme("fixture-day"), "fixture-scene");
-  assert.notEqual(sceneFor("hoth").label, "Hoth");
-  assert.equal(scenes.defaultScene(), "fixture-scene");
-  assert.deepEqual(scenes.sceneList().map((s) => s.key), ["fixture-scene"]);
+  assert.equal(sceneFor("hoth").label, "Hoth", "the core scenes stay");
+  assert.equal(scenes.defaultScene(), DEFAULT_SCENE);
+  assert.deepEqual(scenes.sceneList().map((s) => s.key), [...Object.keys(scenes.SCENES), "fixture-scene"]);
+  assert.equal(scenes.sceneList().at(-1).status, "trial");
   assert.equal(legacyView("hoth")?.scene, "hoth");
   scenes.setActiveScenes(null);
+  assert.equal(scenes.activeScenes(), scenes.SCENES);
   assert.equal(sceneFor("hoth").label, "Hoth");
+  assert.equal(sceneOfTheme("fixture-day"), null);
 });
 
-test("defaultScene prefers the first trial scene, else the first key", (t) => {
+test("setActiveScenes: a key that clashes with a core scene never replaces it; an empty set is the core set", (t) => {
+  t.after(() => scenes.setActiveScenes(null));
+  scenes.setActiveScenes({ hoth: fixtureScene });
+  assert.equal(scenes.activeScenes(), scenes.SCENES);
+  scenes.setActiveScenes({ hoth: fixtureScene, b: fixtureScene });
+  assert.equal(sceneFor("hoth").label, "Hoth");
+  assert.equal(sceneFor("b").label, "Fixture Scene");
+  scenes.setActiveScenes({});
+  assert.equal(scenes.activeScenes(), scenes.SCENES);
+});
+
+test("defaultScene is always the core default, whatever the extras hold", (t) => {
   t.after(() => scenes.setActiveScenes(null));
   scenes.setActiveScenes({ a: { ...fixtureScene, status: "declined" }, b: fixtureScene });
-  assert.equal(scenes.defaultScene(), "b");
-  scenes.setActiveScenes({ a: { ...fixtureScene, status: "declined" } });
-  assert.equal(scenes.defaultScene(), "a");
-  scenes.setActiveScenes({});
-  assert.equal(scenes.defaultScene(), null);
+  assert.equal(scenes.defaultScene(), DEFAULT_SCENE);
+  assert.equal(sceneFor("nope").label, scenes.SCENES[DEFAULT_SCENE].label);
 });

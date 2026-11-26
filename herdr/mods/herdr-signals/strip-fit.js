@@ -1,7 +1,6 @@
 // Fitting the bottom strip. The right-hand buttons (focus, any add-on
 // buttons, scene, view) must stay visible next to the counts and the usage meter, so when the width
 // is short they lose words before anything is clipped. Pure.
-import { isSignalsId } from "./strip-id.js";
 
 /** Pixel estimates, one object so they can be retuned against a live strip. */
 export const METRICS = {
@@ -19,7 +18,7 @@ export const DEFAULT_STRIP_PX = 300;
 export function signalsWidth(tree) {
   const find = (n) => {
     if (!n || typeof n !== "object") return null;
-    if (isSignalsId(n.id)) return n;
+    if (n.id === "signals") return n;
     for (const c of Array.isArray(n.children) ? n.children : []) { const f = find(c); if (f) return f; }
     return null;
   };
