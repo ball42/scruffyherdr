@@ -1,4 +1,4 @@
-// kit-scenes' main.js under a stubbed Herdr: the cross button, the c key, the declined tag.
+// kit-scenes' main.js under a stubbed Herdr: the second page, its button and keys, the declined tag.
 import { host, fakeCx, resetHost } from "./support/herdr-stub.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -8,13 +8,12 @@ const { default: KitScenes } = await import("../herdr/mods/kit-scenes/main.js");
 const tile = (key, status) => ({ key, label: key, thumbs: { dark: "d.png", light: "l.png" }, needs: { dark: "#ffe5de", light: "#aa3300" }, asks: "x", ...(status ? { status } : {}) });
 const THEME = JSON.stringify({ background: "#101010", foreground: "#eeeeee", muted: "#999999", border: "#333333", hover: "#222222", dim: "#777777" });
 
-function start({ cross, scenes = [tile("a"), tile("b", "declined")], scene = "a" } = {}) {
+function start({ scenes = [tile("a"), tile("b", "declined")], scene = "a" } = {}) {
   resetHost();
   host.themeJson = THEME;
   host.props = { overlay: "ov1" };
   host.shared["kit.scenes"] = scenes;
   host.shared["kit.scene"] = scene;
-  if (cross !== undefined) host.shared["kit.cross"] = cross;
   const cx = fakeCx();
   cx.focus_handle = () => ({ focus() {} });
   const view = new KitScenes();
@@ -32,43 +31,79 @@ function walk(el, out = []) {
 const byId = (root, id) => walk(root).find((e) => e.calls.some(([k, v]) => k === "id" && v === id));
 const texts = (root) => walk(root).flatMap((e) => e.calls.filter(([k]) => k === "child").map(([, c]) => c)).filter((c) => typeof c === "string");
 
-const CROSS = { name: "fixture-alt", label: "Fixture-alt →" };
+const call = (el, name) => el.calls.find(([k]) => k === name);
+const TWO = [tile("a"), tile("c"), tile("t1", "trial"), tile("d1", "declined")];
 
-test("kit-scenes: no cross button without kit.cross, and the hint omits it", () => {
-  const { view, cx } = start();
+test("kit-scenes: with no extra scenes there is one page: no page button, and the hint omits it", () => {
+  const { view, cx } = start({ scenes: [tile("a"), tile("c")] });
   const root = view.render(cx);
-  assert.equal(byId(root, "scene-cross"), undefined);
+  assert.equal(byId(root, "scene-page"), undefined);
   assert.ok(texts(root).includes("arrows move · enter picks · esc closes"));
-});
-
-test("kit-scenes: the cross button is named, writes kit.layoutWant and closes", () => {
-  const { view, cx } = start({ cross: CROSS });
-  const root = view.render(cx);
-  const btn = byId(root, "scene-cross");
-  assert.ok(btn, "a button with an id");
-  assert.ok(texts(root).includes("Fixture-alt →"), "named by its label");
-  assert.ok(texts(root).some((t) => t.includes("c crosses")));
-  btn.calls.find(([k]) => k === "on_click")[1]({}, cx);
-  assert.equal(host.shared["kit.layoutWant"], "fixture-alt");
-  assert.deepEqual(host.closed, ["ov1"]);
-});
-
-test("kit-scenes: the c key does the same, and only while a cross is offered", () => {
-  const a = start({ cross: CROSS });
+  // p changes nothing, and the key handler leaves it alone.
   let stopped = 0;
-  a.view.key({ keystroke: "c" }, { ...a.cx, stop_propagation() { stopped++; } });
-  assert.equal(host.shared["kit.layoutWant"], "fixture-alt");
-  assert.deepEqual(host.closed, ["ov1"]);
+  view.key({ keystroke: "p" }, { ...cx, stop_propagation() { stopped++; } });
+  assert.equal(view.state.page, 0);
+  assert.equal(stopped, 0);
+});
+
+test("kit-scenes: page 1 shows the core scenes; the page button is named, a Tab stop with a focus ring", () => {
+  const { view, cx } = start({ scenes: TWO });
+  const root = view.render(cx);
+  assert.deepEqual(view.tiles.map((t) => t.key), ["a", "c"]);
+  assert.ok(byId(root, "scene-a") && byId(root, "scene-c"));
+  assert.equal(byId(root, "scene-t1"), undefined);
+  const btn = byId(root, "scene-page");
+  assert.ok(btn, "a button with an id");
+  assert.ok(call(btn, "role") && call(btn, "role")[1] === "button");
+  assert.equal(call(btn, "accessibility_label")[1], "Scenes page 1 of 2: show more scenes");
+  assert.equal(call(btn, "tab_index")[1], 0);
+  assert.ok(call(btn, "focus"), "a focus ring");
+  assert.ok(texts(root).includes("page 1 of 2"));
+  assert.ok(texts(root).some((t) => t.includes("more scenes")));
+  assert.ok(texts(root).some((t) => t.includes("p page")));
+});
+
+test("kit-scenes: the page button shows page 2, trial before declined, and back again", () => {
+  const { view, cx } = start({ scenes: TWO });
+  call(byId(view.render(cx), "scene-page"), "on_click")[1]({}, cx);
+  assert.equal(view.state.page, 1);
+  assert.deepEqual(view.tiles.map((t) => t.key), ["t1", "d1"]);
+  const root = view.render(cx);
+  assert.ok(byId(root, "scene-t1") && byId(root, "scene-d1-declined"));
+  assert.equal(byId(root, "scene-a"), undefined);
+  assert.ok(texts(root).includes("page 2 of 2"));
+  assert.equal(call(byId(root, "scene-page"), "accessibility_label")[1], "Scenes page 2 of 2: show core scenes");
+  call(byId(root, "scene-page"), "on_click")[1]({}, cx);
+  assert.equal(view.state.page, 0);
+});
+
+test("kit-scenes: p, pagedown and pageup flip the page; enter on page 2 picks that page's scene", () => {
+  const { view, cx } = start({ scenes: TWO });
+  let stopped = 0;
+  const kcx = { ...cx, stop_propagation() { stopped++; } };
+  view.key({ keystroke: "p" }, kcx);
+  assert.equal(view.state.page, 1);
   assert.equal(stopped, 1);
-  const b = start();
-  b.view.key({ keystroke: "c" }, { ...b.cx, stop_propagation() { stopped++; } });
-  assert.equal(host.shared["kit.layoutWant"], undefined);
-  assert.deepEqual(host.closed, []);
+  view.key({ keystroke: "pageup" }, kcx);
+  assert.equal(view.state.page, 0);
+  view.key({ keystroke: "pagedown" }, kcx);
+  view.key({ keystroke: "down" }, kcx);
+  assert.equal(view.state.index, 0, "page 2 has one row");
+  view.key({ keystroke: "right" }, kcx);
+  view.key({ keystroke: "enter" }, kcx);
+  assert.equal(host.shared["kit.sceneWant"], "d1:night");
+  assert.deepEqual(host.closed, ["ov1"]);
+});
+
+test("kit-scenes: it opens on the page of the shown scene", () => {
+  const { view } = start({ scenes: TWO, scene: "d1" });
+  assert.equal(view.state.page, 1);
+  assert.equal(view.state.index, 1);
 });
 
 test("kit-scenes: a declined tile says declined in words, last in order; a shown declined tile keeps both words", () => {
   const { view, cx } = start({ scenes: [tile("d1", "declined"), tile("t1", "trial"), tile("s", "declined")], scene: "s" });
-  assert.deepEqual(view.keys, ["t1", "d1", "s"]);
+  assert.deepEqual(view.tiles.map((t) => t.key), ["t1", "d1", "s"]);
   const root = view.render(cx);
   assert.ok(byId(root, "scene-d1-declined"));
   assert.ok(byId(root, "scene-s-declined"));

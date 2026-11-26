@@ -1,14 +1,43 @@
 // kit-scenes' pure logic: the picker's cursor and the tiles' inputs. No herdr
 // globals here; main.js draws and wires it.
 
-// Eighteen scenes in a 6 by 3 grid of small tiles, 834 px wide: it fits a
+// A page holds eighteen scenes in a 6 by 3 grid of small tiles, 834 px wide: it fits a
 // half-screen window on a 1728 px wide screen (mods can't read the window's width).
 export const COLS = 6;
 
-/** The picker's starting state: the cursor on `current` (a scene key) when it is listed, else the first tile. */
-export function pickerStart(scenes, current, light = false) {
-  const i = Array.isArray(scenes) ? scenes.findIndex((s) => s.key === current) : -1;
-  return { index: i < 0 ? 0 : i, day: !!light, count: Array.isArray(scenes) ? scenes.length : 0, cols: COLS };
+/**
+ * The tiles in pages: the core scenes first, then (when an overlay adds any)
+ * its extra scenes on a second page, trial ones before declined. An extra
+ * scene is the one that carries a `status`; no empty page is returned.
+ */
+export function splitPages(tiles) {
+  if (!Array.isArray(tiles)) return [];
+  const ours = (t) => t.status === undefined;
+  return [tiles.filter(ours), tiles.filter((t) => !ours(t))].filter((p) => p.length > 0);
+}
+
+/**
+ * The picker's starting state: the cursor on `current` (a scene key) when it
+ * is listed, else the first tile of the first page. `index` and `count` are
+ * the page's own; `page` is 0-based and `pages` how many there are.
+ */
+export function pickerStart(tiles, current, light = false) {
+  const pages = splitPages(tiles);
+  const page = Math.max(0, pages.findIndex((p) => p.some((t) => t.key === current)));
+  const i = pages[page]?.findIndex((t) => t.key === current) ?? -1;
+  return { index: i < 0 ? 0 : i, day: !!light, count: pages[page]?.length ?? 0, cols: COLS, page, pages: pages.length };
+}
+
+/**
+ * The page keys: `p` and `pagedown` go to the next page, `pageup` to the
+ * previous one, wrapping; the cursor lands on the page's first tile. `pages`
+ * is splitPages' result. One page (or none) changes nothing.
+ */
+export function pageStep(state, key, pages) {
+  const n = Array.isArray(pages) ? pages.length : 0;
+  if (n < 2 || !["p", "pagedown", "pageup"].includes(key)) return state;
+  const page = (state.page + (key === "pageup" ? n - 1 : 1)) % n;
+  return { ...state, page, index: 0, count: pages[page].length };
 }
 
 /**
@@ -62,18 +91,6 @@ export function tileInputs(scenes) {
 /** Declined tiles after the rest (core's and trial ones), each group in its own order. */
 export function orderTiles(tiles) {
   return [...tiles.filter((t) => t.status !== "declined"), ...tiles.filter((t) => t.status === "declined")];
-}
-
-/** The cross button's input from kit.cross: { name, label } or null. */
-export function crossInput(cross) {
-  if (!cross || typeof cross.name !== "string" || cross.name === "" || typeof cross.label !== "string" || cross.label === "") return null;
-  return { name: cross.name, label: cross.label };
-}
-
-/** What a press of the cross button does: write kit.layoutWant to the name, and close. */
-export function crossPress(cross) {
-  const c = crossInput(cross);
-  return c ? { want: c.name, close: true } : { want: null, close: false };
 }
 
 /** The grid row a tile index sits in: the picker scrolls to it past ROWS rows. */

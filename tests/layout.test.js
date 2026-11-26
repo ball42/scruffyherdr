@@ -388,24 +388,13 @@ test("make-layout --from scruffyherdr in the grid keeps the grid's rail to itsel
   assert.equal(node(out, "kit-grid"), null, "built in focus");
 });
 
-test("focusPath names one file per layout", () => {
-  assert.ok(focusPath("/x/kit/config.json", "alt").endsWith("/x/kit/layout-focus-alt.json"));
-  assert.ok(focusPath("/x/kit/config.json", "scruffy").endsWith("/x/kit/layout-focus-scruffy.json"));
+test("focusPath names the layout's one file", () => {
+  assert.ok(focusPath("/x/kit/config.json").endsWith("/x/kit/layout-focus-scruffy.json"));
 });
 
-test("make-layout leaves another layout's focus file alone", () => {
-  const h = homes();
-  writeFileSync(join(h.kit, "layout-focus-alt.json"), '{"alt":true}');
-  const r = build(h);
-  assert.equal(r.status, 0, r.stderr);
-  assert.equal(readFileSync(join(h.kit, "layout-focus-alt.json"), "utf8"), '{"alt":true}');
-  assert.ok(existsSync(join(h.kit, "layout-focus-scruffy.json")));
-  assert.ok(!existsSync(join(h.kit, "layout-focus.json")));
-});
-
-// ---- --name and --scenes: a second kit layout over a scene file ----
+// ---- --scenes: a scene file's scenes added to scruffy's own ----
 const SCENE_FILE = fileURLToPath(new URL("./fixtures/extra-scenes/scenes.json", import.meta.url));
-// The herdr-signals strip, found by its mod: its id is the layout's own (strip-id.js).
+// The herdr-signals strip, found by its mod.
 const strip = (tree) => {
   if (tree?.content?.mod === "herdr-signals") return tree;
   for (const c of tree?.children ?? []) { const hit = strip(c); if (hit) return hit; }
@@ -413,7 +402,7 @@ const strip = (tree) => {
 };
 const signalsProps = (tree) => strip(tree).content.props;
 
-test("make-layout without --name or --scenes writes the same layout as before", () => {
+test("make-layout without --scenes writes the same layout as before", () => {
   const h = homes();
   assert.equal(build(h).status, 0);
   const golden = fileURLToPath(new URL("./fixtures/scruffy-default-layout.json", import.meta.url));
@@ -422,103 +411,136 @@ test("make-layout without --name or --scenes writes the same layout as before", 
   assert.equal(strip(read(join(h.dir, "scruffy.json"))).id, "signals");
 });
 
-test("make-layout --name alt --scenes builds alt.json over the scene file, beside scruffy", () => {
+test("make-layout --scenes adds the file to scruffy: the props name it, the core scenes stay, no second layout", () => {
   const h = homes();
-  const r = build(h, "--name", "alt", "--scenes", SCENE_FILE);
+  const r = build(h, "--scenes", SCENE_FILE);
   assert.equal(r.status, 0, r.stderr);
-  assert.deepEqual(readdirSync(h.dir).filter((f) => f.endsWith(".json")).sort(), ["main.json", "alt.json"].sort());
-  const out = read(join(h.dir, "alt.json"));
-  assert.deepEqual(signalsProps(out), { layout: "alt", scenes: SCENE_FILE });
-  // Its own strip id, or Herdr runs one herdr-signals copy for both layouts and it disowns one of them.
-  assert.equal(strip(out).id, "signals-alt");
+  assert.deepEqual(readdirSync(h.dir).filter((f) => f.endsWith(".json")).sort(), ["main.json", "scruffy.json"]);
+  const out = read(join(h.dir, "scruffy.json"));
+  assert.deepEqual(signalsProps(out), { layout: "scruffy", scenes: SCENE_FILE });
+  assert.equal(strip(out).id, "signals");
+  assert.deepEqual(out.theme, { light: "tatooine-day", dark: "tatooine-night" }, "still the core default scene");
+  assert.ok(existsSync(join(h.kit, "layout-focus-scruffy.json")));
+  assert.deepEqual(readdirSync(h.kit).filter((f) => f.startsWith("layout-focus")), ["layout-focus-scruffy.json"]);
+  assert.equal(signalsProps(read(join(h.kit, "layout-focus-scruffy.json"))).scenes, SCENE_FILE);
+});
+
+test("--scene names a scene of the file or a core scene; an unknown one keeps the layout's own with a warning", () => {
+  const h = homes();
+  const r = build(h, "--scenes", SCENE_FILE, "--scene", "fixture-scene");
+  assert.equal(r.status, 0, r.stderr);
+  const out = read(join(h.dir, "scruffy.json"));
   assert.deepEqual(out.theme, { light: "fixture-day", dark: "fixture-night" });
-  assert.equal(out.preview, "layouts/scruffy.svg", "one Settings preview for every kit layout");
   assert.equal(out.background.image, "backgrounds/fixture.jpg");
-  assert.ok(existsSync(join(h.kit, "layout-focus-alt.json")));
-  assert.ok(!existsSync(join(h.kit, "layout-focus-scruffy.json")));
-  assert.equal(signalsProps(read(join(h.kit, "layout-focus-alt.json"))).layout, "alt");
+  // The next rebuild keeps it, whether or not the flag is repeated.
+  assert.equal(build(h, "--scenes", SCENE_FILE).status, 0);
+  assert.equal(read(join(h.dir, "scruffy.json")).theme.dark, "fixture-night");
+  const u = build(h, "--scenes", SCENE_FILE, "--scene", "nope");
+  assert.match(u.stderr, /unknown scene "nope"/);
+  assert.equal(read(join(h.dir, "scruffy.json")).theme.dark, "fixture-night");
+  assert.equal(build(h, "--scenes", SCENE_FILE, "--scene", "hoth").status, 0);
+  assert.equal(read(join(h.dir, "scruffy.json")).theme.dark, "hoth-night");
 });
 
-test("an alt layout shows the scene's own walls whatever the config's wallpaper", () => {
-  const h = homes({ look: { wallpaper: "/custom/wall.jpg", wallpaper_light: "/custom/wall-day.jpg" } });
-  assert.equal(build(h, "--name", "alt", "--scenes", SCENE_FILE).status, 0);
-  assert.equal(read(join(h.dir, "alt.json")).background.image, "backgrounds/fixture.jpg");
-  const s = homes({ look: { wallpaper: "/custom/wall.jpg" } });
-  assert.equal(build(s).status, 0);
-  assert.equal(read(join(s.dir, "scruffy.json")).background.image, "/custom/wall.jpg");
-});
-
-test("--scene names a scene of the file; an unknown one keeps the default with a warning", () => {
+test("a scene of the file is unknown without the file", () => {
   const h = homes();
-  const r = build(h, "--name", "alt", "--scenes", SCENE_FILE, "--scene", "tatooine");
-  assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stderr, /unknown scene "tatooine"/);
-  assert.equal(read(join(h.dir, "alt.json")).theme.dark, "fixture-night");
+  const r = build(h, "--scene", "fixture-scene");
+  assert.match(r.stderr, /unknown scene "fixture-scene"/);
+  assert.equal(read(join(h.dir, "scruffy.json")).theme.dark, "tatooine-night");
 });
 
-test("a scene file with no good scene exits non-zero, names the problems and writes nothing", () => {
+test("the config's wallpaper keys apply to the file's scenes as they do to the core ones", () => {
+  const h = homes({ look: { wallpaper: "/custom/wall.jpg" } });
+  assert.equal(build(h, "--scenes", SCENE_FILE, "--scene", "fixture-scene").status, 0);
+  assert.equal(read(join(h.dir, "scruffy.json")).background.image, "/custom/wall.jpg");
+});
+
+test("a scene file with no good scene still builds scruffy with the core scenes, names the problems and keeps the props", () => {
   const h = homes();
   const bad = join(h.kit, "bad-scenes.json");
   writeFileSync(bad, JSON.stringify({ "fixture-scene": { label: "x" } }));
-  const r = build(h, "--name", "alt", "--scenes", bad);
-  assert.notEqual(r.status, 0);
+  const r = build(h, "--scenes", bad);
+  assert.equal(r.status, 0, r.stderr);
   assert.match(r.stderr, /fixture-scene/);
-  assert.ok(!existsSync(join(h.dir, "alt.json")));
-  assert.ok(!existsSync(join(h.kit, "layout-focus-alt.json")));
+  assert.match(r.stderr, /core scenes only/);
+  const out = read(join(h.dir, "scruffy.json"));
+  assert.equal(out.theme.dark, "tatooine-night");
+  assert.equal(signalsProps(out).scenes, bad, "herdr-signals names the problem on the strip");
 });
 
-test("a scene file that is missing exits non-zero and writes nothing", () => {
+test("a scene file that is missing or isn't JSON builds scruffy with the core scenes too", () => {
   const h = homes();
-  const r = build(h, "--name", "alt", "--scenes", join(h.kit, "none.json"));
-  assert.notEqual(r.status, 0);
-  assert.ok(!existsSync(join(h.dir, "alt.json")));
+  const none = build(h, "--scenes", join(h.kit, "none.json"));
+  assert.equal(none.status, 0, none.stderr);
+  assert.match(none.stderr, /can't be read/);
+  assert.equal(read(join(h.dir, "scruffy.json")).theme.dark, "tatooine-night");
+  const junk = join(h.kit, "junk.json");
+  writeFileSync(junk, "{nope");
+  assert.equal(build(h, "--scenes", junk).status, 0);
+  assert.equal(read(join(h.dir, "scruffy.json")).theme.dark, "tatooine-night");
 });
 
-test("make-layout warns about a dropped scene but builds the good ones", () => {
+test("a scene file listing no scene is no problem: scruffy builds with the core scenes", () => {
+  const h = homes();
+  const empty = join(h.kit, "empty-scenes.json");
+  writeFileSync(empty, "{}");
+  const r = build(h, "--scenes", empty);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stderr, "");
+});
+
+test("make-layout warns about a dropped scene but keeps the good ones", () => {
   const h = homes();
   const raw = JSON.parse(readFileSync(SCENE_FILE, "utf8"));
   const mixed = join(h.kit, "mixed-scenes.json");
   mkdirSync(join(h.kit, "themes"), { recursive: true });
   for (const t of ["fixture-night", "fixture-day"]) writeFileSync(join(h.kit, "themes", `${t}.json`), readFileSync(new URL(`./fixtures/extra-scenes/themes/${t}.json`, import.meta.url)));
   writeFileSync(mixed, JSON.stringify({ ...raw, broken: { label: "x" } }));
-  const r = build(h, "--name", "alt", "--scenes", mixed);
+  const r = build(h, "--scenes", mixed, "--scene", "fixture-scene");
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stderr, /broken/);
-  const alt = read(join(h.dir, "alt.json"));
-  assert.deepEqual(alt.theme, { light: "fixture-day", dark: "fixture-night" }, "alt.json is dressed from fixture-scene");
-  assert.equal(alt.background.image, "backgrounds/fixture.jpg");
+  assert.deepEqual(read(join(h.dir, "scruffy.json")).theme, { light: "fixture-day", dark: "fixture-night" });
 });
 
-test("--name without --scenes is a usage error", () => {
+test("--name is gone: it warns and is ignored; no second layout is built", () => {
   const h = homes();
-  const r = build(h, "--name", "alt");
-  assert.equal(r.status, 2);
+  const r = build(h, "--name", "alt", "--scenes", SCENE_FILE);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /--name is gone/);
   assert.ok(!existsSync(join(h.dir, "alt.json")));
+  assert.ok(!existsSync(join(h.kit, "layout-focus-alt.json")));
+  assert.equal(signalsProps(read(join(h.dir, "scruffy.json"))).scenes, SCENE_FILE);
+});
+
+test("a plain rebuild keeps an extra scene's theme by reading the file the existing layout names, and drops the props", () => {
+  const h = homes();
+  assert.equal(build(h, "--scenes", SCENE_FILE, "--scene", "fixture-scene").status, 0);
+  const r = build(h);
+  assert.equal(r.status, 0, r.stderr);
+  const out = read(join(h.dir, "scruffy.json"));
+  assert.deepEqual(out.theme, { light: "fixture-day", dark: "fixture-night" });
+  assert.equal(signalsProps(out), undefined);
+  assert.equal(build(h, "--scenes", SCENE_FILE).status, 0);
+  assert.deepEqual(read(join(h.dir, "scruffy.json")).theme, { light: "fixture-day", dark: "fixture-night" }, "and the overlay's build after it keeps it too");
 });
 
 test("--list still prints only scruffy", () => {
   assert.equal(execFileSync("node", [MAKE, "--list"], { encoding: "utf8" }).trim(), "scruffy");
 });
 
-test("--scenes without --name is a usage error", () => {
+test("make-layout keeps the existing file's link_handlers, with or without --scenes", () => {
   const h = homes();
-  assert.notEqual(build(h, "--scenes", SCENE_FILE).status, 0);
-  assert.ok(!existsSync(join(h.dir, "scruffy.json")));
-});
-
-test("make-layout keeps the existing file's link_handlers, for scruffy and --name layouts", () => {
-  const h = homes();
-  for (const [name, extra] of [["scruffy", []], ["alt", ["--name", "alt", "--scenes", SCENE_FILE]]]) {
+  for (const extra of [[], ["--scenes", SCENE_FILE]]) {
     assert.equal(build(h, ...extra).status, 0);
-    const f = join(h.dir, `${name}.json`);
+    const f = join(h.dir, "scruffy.json");
     writeFileSync(f, JSON.stringify({ ...read(f), link_handlers: ["viewer", "browser"] }));
     const r = build(h, ...extra);
     assert.equal(r.status, 0, r.stderr);
-    assert.deepEqual(read(f).link_handlers, ["viewer", "browser"], `${name}: a rewrite keeps the order`);
+    assert.deepEqual(read(f).link_handlers, ["viewer", "browser"], "a rewrite keeps the order");
     writeFileSync(f, JSON.stringify({ ...read(f), link_handlers: [] }));
     build(h, ...extra);
-    assert.deepEqual(read(f).link_handlers, [], `${name}: an emptied list stays empty`);
-    assert.equal(read(join(h.kit, `layout-focus-${name}.json`)).link_handlers, undefined, "the focus file stays Herdr's main shape");
+    assert.deepEqual(read(f).link_handlers, [], "an emptied list stays empty");
+    assert.equal(read(join(h.kit, "layout-focus-scruffy.json")).link_handlers, undefined, "the focus file stays Herdr's main shape");
   }
 });
 

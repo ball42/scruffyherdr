@@ -3,7 +3,6 @@
 // runs, and it publishes through these shared keys. herdr-signals reads them
 // each poll and the rail draws them; with nothing published, nothing shows.
 // Pure: no herdr globals, no I/O.
-import { isSignalsId } from "./strip-id.js";
 
 export const ADDON_KEYS = {
   badges: "kit.addon.badges",
@@ -149,14 +148,14 @@ export function withAddons(layout, blocks) {
   const out = JSON.parse(JSON.stringify(layout));
   const parentOf = (n) => {
     if (!isObj(n) || !Array.isArray(n.children)) return null;
-    if (n.children.some((c) => isObj(c) && isSignalsId(c.id))) return n;
+    if (n.children.some((c) => isObj(c) && c.id === "signals")) return n;
     for (const c of n.children) { const p = parentOf(c); if (p) return p; }
     return null;
   };
   const parent = parentOf(out);
   if (!parent) return out;
   const kept = parent.children.filter((c) => !(isObj(c) && typeof c.id === "string" && c.id.startsWith("addon-")));
-  const at = kept.findIndex((c) => isObj(c) && isSignalsId(c.id)) + 1;
+  const at = kept.findIndex((c) => isObj(c) && c.id === "signals") + 1;
   parent.children = [...kept.slice(0, at), ...JSON.parse(JSON.stringify(blocks)), ...kept.slice(at)];
   return out;
 }

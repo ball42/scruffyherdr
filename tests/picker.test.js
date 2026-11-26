@@ -116,8 +116,8 @@ test("dialogSize: fits a half-screen window on a 1728 px wide screen", () => {
   assert.ok(dialogSize().width <= 1728 / 2 - 16, `${dialogSize().width} px is wider than half of 1728 less a margin`);
 });
 
-// ---- status order, the declined tag, the cross button ----
-import { crossInput, crossPress, orderTiles, rowOf } from "../herdr/mods/kit-scenes/picker.js";
+// ---- status order, the declined tag, the pages ----
+import { orderTiles, pageStep, rowOf, splitPages } from "../herdr/mods/kit-scenes/picker.js";
 
 const tile = (key, status) => ({ key, label: key, thumbs: { dark: "d", light: "l" }, needs: { dark: "#111111", light: "#222222" }, ...(status ? { status } : {}) });
 
@@ -140,17 +140,44 @@ test("picker: the core set keeps its order and has no declined tile", () => {
   assert.deepEqual(orderTiles([tile("x"), tile("y")]).map((t) => t.key), ["x", "y"]);
 });
 
-test("picker: the cross button is absent without a kit.cross, present with a good one", () => {
-  assert.equal(crossInput(null), null);
-  assert.equal(crossInput(undefined), null);
-  assert.equal(crossInput({ name: "", label: "x" }), null);
-  assert.equal(crossInput({ name: "fixture-alt" }), null);
-  assert.deepEqual(crossInput({ name: "fixture-alt", label: "Fixture-alt →" }), { name: "fixture-alt", label: "Fixture-alt →" });
+test("splitPages: the core scenes are page 1, a scene file's are page 2, trial before declined; no empty page", () => {
+  const tiles = tileInputs([tile("a", "declined"), tile("b", "trial"), tile("c"), tile("d", "declined"), tile("e", "trial"), tile("f")]);
+  const pages = splitPages(tiles);
+  assert.deepEqual(pages.map((p) => p.map((t) => t.key)), [["c", "f"], ["b", "e", "a", "d"]]);
+  assert.deepEqual(splitPages(tileInputs(sceneList(SCENES))).map((p) => p.length), [18]);
+  assert.deepEqual(splitPages(tileInputs([tile("x", "trial")])).map((p) => p.length), [1]);
+  assert.deepEqual(splitPages(null), []);
+  assert.deepEqual(splitPages([]), []);
 });
 
-test("picker: pressing the cross button asks for that layout and closes", () => {
-  assert.deepEqual(crossPress({ name: "fixture-alt", label: "Fixture-alt →" }), { want: "fixture-alt", close: true });
-  assert.deepEqual(crossPress(null), { want: null, close: false });
+test("pickerStart: opens on the page of the shown scene, with that page's count", () => {
+  const tiles = tileInputs([tile("c"), tile("f"), tile("b", "trial"), tile("a", "declined")]);
+  assert.deepEqual(pickerStart(tiles, "c"), { index: 0, day: false, count: 2, cols: 6, page: 0, pages: 2 });
+  assert.deepEqual(pickerStart(tiles, "a", true), { index: 1, day: true, count: 2, cols: 6, page: 1, pages: 2 });
+  assert.equal(pickerStart(tiles, "nope").page, 0);
+  assert.equal(pickerStart(sceneList(SCENES), "hoth").pages, 1);
+});
+
+test("pageStep: p and pagedown go on, pageup back, wrapping; the cursor lands on the first tile", () => {
+  const pages = splitPages(tileInputs([tile("c"), tile("f"), tile("b", "trial")]));
+  const start = { ...pickerStart(tileInputs([tile("c"), tile("f"), tile("b", "trial")]), "f"), day: true };
+  assert.equal(start.index, 1);
+  const two = pageStep(start, "p", pages);
+  assert.deepEqual({ page: two.page, index: two.index, count: two.count, day: two.day }, { page: 1, index: 0, count: 1, day: true });
+  assert.equal(pageStep(two, "p", pages).page, 0);
+  assert.equal(pageStep(two, "pageup", pages).page, 0);
+  assert.equal(pageStep(start, "pageup", pages).page, 1);
+  assert.equal(pageStep(start, "pagedown", pages).page, 1);
+  assert.equal(start.page, 0, "the input state is not mutated");
+});
+
+test("pageStep: one page, no pages or another key changes nothing", () => {
+  const one = splitPages(tileInputs([tile("c")]));
+  const state = pickerStart(tileInputs([tile("c")]), "c");
+  assert.equal(pageStep(state, "p", one), state);
+  assert.equal(pageStep(state, "p", []), state);
+  const two = splitPages(tileInputs([tile("c"), tile("b", "trial")]));
+  assert.equal(pageStep(state, "left", two), state);
 });
 
 test("picker: more than eighteen tiles scroll past three rows, six columns wide", () => {
